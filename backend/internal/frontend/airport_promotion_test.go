@@ -4,12 +4,14 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
+	"FlightStrips/internal/repository"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/testutil"
 	"FlightStrips/internal/vatsim"
 	frontendEvents "FlightStrips/pkg/events/frontend"
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -42,13 +44,17 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 	require.NoError(t, err)
 
 	for _, scenario := range []struct {
-		name                  string
-		skipped, full, parked bool
+		name                          string
+		skipped, full, parked, pinned bool
+		reassign                      string
 	}{
 		{name: "intermediate_report"},
 		{name: "skipped_intermediate_report", skipped: true},
 		{name: "wait_for_capacity_and_retry", skipped: true, full: true},
 		{name: "preserve_physically_observed_stand", skipped: true, parked: true},
+		{name: "warn_and_wait_for_pinned_stand", skipped: true, pinned: true},
+		{name: "manually_reassign_from_pin_warning", skipped: true, pinned: true, reassign: "manual"},
+		{name: "automatically_reassign_from_pin_warning", skipped: true, pinned: true, reassign: "auto"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
@@ -98,6 +104,13 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 			require.Equal(t, "A1", estimate.Stand)
 			require.Nil(t, estimate.ConflictReason)
 			require.Empty(t, load("SAS970").Stand)
+			if scenario.pinned {
+				// Legacy controller pins can still be at the ESTIMATED stage.
+				estimate.Manual, estimate.Source = true, "MANUAL"
+				rows, err := assignments.UpdateAssignment(ctx, estimate)
+				require.NoError(t, err)
+				require.EqualValues(t, 1, rows)
+			}
 
 			// An actual operational arrival now holds the estimate's soft stand.
 			actions := services.NewStandActionService(allocations, assignments, strips, nil, nil, nil)
@@ -132,15 +145,57 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 			require.NoError(t, lifecycle.ProcessArrival(ctx, session, load("SAS970"), flight))
 			promoted, err := assignments.GetAssignment(ctx, session, "SAS970")
 			require.NoError(t, err)
-			if scenario.full {
+			var expiryWhileWaiting *time.Time
+			if scenario.full || scenario.pinned {
 				require.Equal(t, services.StageEstimated, promoted.Stage)
 				require.NotNil(t, promoted.ConflictReason)
 				require.Empty(t, load("SAS970").Stand)
 				require.Empty(t, esHub.Stands, "a blocked promotion must never send an occupied stand to EuroScope")
+				blocker := "SAS972"
+				if scenario.pinned {
+					require.Equal(t, "A1", promoted.Stand)
+					expiryWhileWaiting = promoted.ExpiresAt
+					require.NotNil(t, expiryWhileWaiting)
+					status := load("SAS970").ValidationStatus
+					require.NotNil(t, status)
+					require.True(t, status.Active)
+					require.Contains(t, status.Message, "A1")
+					require.Contains(t, status.Message, "SAS971")
+					var payload models.StandAssignmentActionPayload
+					require.NotNil(t, status.CustomAction)
+					require.NoError(t, json.Unmarshal(status.CustomAction.Payload, &payload))
+					require.Equal(t, promoted.Version, payload.AssignmentVersion)
+					if scenario.reassign != "" {
+						var result *services.StandAllocationResult
+						if scenario.reassign == "manual" {
+							result, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS970", "A2", payload.AssignmentVersion)
+						} else {
+							result, err = actions.Allocate(ctx, session, "EKCH", "GND", "SAS970", payload.AssignmentVersion)
+						}
+						require.NoError(t, err)
+						require.Equal(t, "A2", result.Assignment.Stand)
+						require.Equal(t, services.StageAssigned, result.Assignment.Stage)
+						require.Nil(t, load("SAS970").ValidationStatus)
+						return
+					}
+					require.NoError(t, validation.AcknowledgeValidationStatus(ctx, session, "SAS970", status.ActivationKey, status.OwningPosition))
+					rows, err := assignments.UpdateAssignment(ctx, promoted)
+					require.NoError(t, err)
+					require.EqualValues(t, 1, rows)
+					promoted.Version++
+					require.NoError(t, allocations.PublishAssignment(ctx, *promoted))
+					refreshed := load("SAS970").ValidationStatus
+					require.NotNil(t, refreshed)
+					require.False(t, refreshed.Active, "refreshing the action must preserve acknowledgement")
+					require.Equal(t, status.ActivationKey, refreshed.ActivationKey)
+					require.NoError(t, json.Unmarshal(refreshed.CustomAction.Payload, &payload))
+					require.Equal(t, promoted.Version, payload.AssignmentVersion)
+					blocker = "SAS971"
+				}
 				now = now.Add(5 * time.Minute)
 				require.NoError(t, lifecycle.ReleaseExpired(ctx))
 				require.Empty(t, load("SAS970").Stand)
-				other, err := assignments.GetAssignment(ctx, session, "SAS972")
+				other, err := assignments.GetAssignment(ctx, session, blocker)
 				require.NoError(t, err)
 				require.NoError(t, allocations.ReleaseAssignment(ctx, other))
 				flight.Revision++
@@ -150,7 +205,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 			}
 			require.Equal(t, services.StageConfirmed, promoted.Stage)
 			wantStand := "A2"
-			if scenario.parked {
+			if scenario.parked || scenario.pinned {
 				wantStand = "A1"
 			}
 			require.Equal(t, wantStand, promoted.Stand)
@@ -158,7 +213,11 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 			require.Equal(t, wantStand, *load("SAS970").Stand)
 			require.Nil(t, promoted.ConflictReason)
 			require.NotNil(t, promoted.ExpiresAt)
-			require.True(t, promoted.ExpiresAt.Equal(now.Add(30*time.Minute)), "promotion must retain the airport-area expiry")
+			wantExpiry := now.Add(30 * time.Minute)
+			if expiryWhileWaiting != nil {
+				wantExpiry = *expiryWhileWaiting
+			}
+			require.True(t, promoted.ExpiresAt.Equal(wantExpiry), "promotion must retain the airport-area expiry")
 			var lastSnapshot frontendEvents.StandStatusSnapshotEvent
 			for len(hub.send) > 0 {
 				message := <-hub.send
@@ -166,7 +225,11 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 					lastSnapshot = snapshot
 				}
 			}
-			require.Len(t, lastSnapshot.Assignments, 2)
+			if scenario.pinned {
+				require.Len(t, lastSnapshot.Assignments, 1)
+			} else {
+				require.Len(t, lastSnapshot.Assignments, 2)
+			}
 			for _, assignment := range lastSnapshot.Assignments {
 				if scenario.parked {
 					require.Len(t, assignment.BlockedBy, 1, "physical occupancy stays fixed and reports the overlap")
@@ -190,4 +253,119 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 			}
 		})
 	}
+}
+
+func TestStandPublicationUsesCurrentBlockersAndHiddenReplacement(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	for _, scenario := range []string{"blocker leaves", "blocker arrives", "unblocked hidden replacement"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := t.Context()
+			session := testdata.SeedTestSessionNamedWithSectors(t, queries, t.Name(), nil)
+			strips := postgres.NewStripRepository(pool)
+			assignments := postgres.NewStandAssignmentRepository(pool)
+			observed := &standPublicationReadHook{StandAssignmentRepository: assignments}
+			const inbound, blocker = "SAS970", "SAS971"
+			testdata.SeedTestStrip(t, queries, session, inbound)
+			testdata.SeedTestStrip(t, queries, session, blocker)
+			hub := &Hub{
+				send: make(chan internalMessage, 32),
+				server: &standAllocationPublishingServer{
+					MockServer:  &testutil.MockServer{StripRepoVal: strips, SessionRepoVal: postgres.NewSessionRepository(pool)},
+					assignments: observed,
+				},
+			}
+			validation, err := services.NewStripValidationService(services.StripValidationDependencies{
+				Strips: strips, Statuses: strips, Publisher: &testutil.MockFrontendHub{},
+			})
+			require.NoError(t, err)
+			hub.SetValidationService(validation)
+			warning := func() *models.ValidationStatus {
+				t.Helper()
+				strip, err := strips.GetByCallsign(ctx, session, inbound)
+				require.NoError(t, err)
+				return strip.ValidationStatus
+			}
+			target := &models.StandAssignment{
+				SessionID: session, Callsign: inbound, Stand: "A1", Direction: "ARRIVAL",
+				Stage: services.StageAssigned, Source: "AUTOMATIC",
+			}
+			if scenario == "unblocked hidden replacement" {
+				target.Stage, target.Source, target.Manual = services.StageEstimated, "MANUAL", true
+				target.ConflictReason = ptr("Pinned arrival promotion is waiting for stand A1. Stand is occupied")
+				require.NoError(t, assignments.CreateAssignment(ctx, target))
+				require.NoError(t, hub.PublishStandAllocation(ctx, services.StandAllocationResult{Assignment: *target}))
+				require.NotNil(t, warning())
+
+				deleted, err := assignments.DeleteAssignment(ctx, session, target.ID, target.Version)
+				require.NoError(t, err)
+				require.EqualValues(t, 1, deleted)
+				replacement := *target
+				replacement.ConflictReason = nil
+				require.NoError(t, assignments.CreateAssignment(ctx, &replacement))
+				require.NotEqual(t, target.ID, replacement.ID)
+
+				require.NoError(t, hub.PublishStandAllocation(ctx, services.StandAllocationResult{Assignment: *target, Removed: true}))
+				require.Nil(t, warning(), "the current hidden estimate must clear the removed pin's warning")
+				var lastSnapshot *frontendEvents.StandStatusSnapshotEvent
+				for len(hub.send) > 0 {
+					if snapshot, ok := (<-hub.send).message.(frontendEvents.StandStatusSnapshotEvent); ok {
+						lastSnapshot = &snapshot
+					}
+				}
+				require.NotNil(t, lastSnapshot)
+				require.Empty(t, lastSnapshot.Assignments)
+				return
+			}
+
+			require.NoError(t, assignments.CreateAssignment(ctx, target))
+			initial, moved := "A1", "A2"
+			if scenario == "blocker arrives" {
+				initial, moved = moved, initial
+			}
+			other := &models.StandAssignment{
+				SessionID: session, Callsign: blocker, Stand: initial, Direction: "DEPARTURE",
+				Stage: services.StageDepartureBlock, Source: "OBSERVED",
+			}
+			require.NoError(t, assignments.CreateAssignment(ctx, other))
+			require.NoError(t, hub.PublishStandAllocation(ctx, services.StandAllocationResult{Assignment: *other}))
+			require.Equal(t, scenario == "blocker leaves", warning() != nil)
+
+			observed.afterList = func() {
+				other.Stand = moved
+				rows, err := assignments.UpdateAssignment(ctx, other)
+				require.NoError(t, err)
+				require.EqualValues(t, 1, rows)
+				other.Version++
+				require.NoError(t, hub.PublishStandAllocation(ctx, services.StandAllocationResult{Assignment: *other}))
+				require.Equal(t, scenario == "blocker arrives", warning() != nil)
+			}
+			require.NoError(t, hub.PublishStandAllocation(ctx, services.StandAllocationResult{Assignment: *target}))
+
+			status := warning()
+			if scenario == "blocker arrives" {
+				require.NotNil(t, status, "a delayed unblocked snapshot must preserve the new warning")
+				require.Contains(t, status.Message, blocker)
+			} else {
+				require.Nil(t, status, "a delayed blocked snapshot must preserve the cleared warning")
+			}
+			current, err := assignments.GetAssignment(ctx, session, inbound)
+			require.NoError(t, err)
+			require.Equal(t, target.Revision(), current.Revision(), "only the blocker was changed")
+		})
+	}
+}
+
+type standPublicationReadHook struct {
+	repository.StandAssignmentRepository
+	afterList func()
+}
+
+func (r *standPublicationReadHook) ListAssignments(ctx context.Context, session int32) ([]*models.StandAssignment, error) {
+	assignments, err := r.StandAssignmentRepository.ListAssignments(ctx, session)
+	if err == nil && r.afterList != nil {
+		hook := r.afterList
+		r.afterList = nil
+		hook()
+	}
+	return assignments, err
 }

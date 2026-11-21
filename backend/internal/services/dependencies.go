@@ -77,6 +77,7 @@ type StripCdmStore interface {
 
 type StripValidationStatusStore interface {
 	SetValidationStatus(ctx context.Context, session int32, callsign string, status *internalModels.ValidationStatus) error
+	CompareAndSetStandValidation(ctx context.Context, session int32, callsign string, update internalModels.StandValidationUpdate) (bool, error)
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 }

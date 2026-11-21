@@ -15,6 +15,7 @@ type StripRepository interface {
 	Create(ctx context.Context, strip *models.Strip) error
 	GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	LockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+	LockArrivalETAs(ctx context.Context, session int32, callsigns []string) (map[string]*models.ArrivalETA, error)
 	List(ctx context.Context, session int32) ([]*models.Strip, error)
 	Update(ctx context.Context, strip *models.Strip) (int64, error)
 	Delete(ctx context.Context, session int32, callsign string) error
@@ -76,6 +77,7 @@ type StripRepository interface {
 
 	// Arrival ETA
 	UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
+	UpdateFallbackArrivalETA(ctx context.Context, session int32, callsign string, eta *models.ArrivalETA, now time.Time) (*models.ArrivalETA, bool, error)
 	ClearArrivalETA(ctx context.Context, session int32, callsign string) (int64, error)
 
 	// Release point
@@ -104,6 +106,7 @@ type StripRepository interface {
 
 	// Validation status
 	SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
+	CompareAndSetStandValidation(ctx context.Context, session int32, callsign string, update models.StandValidationUpdate) (bool, error)
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 

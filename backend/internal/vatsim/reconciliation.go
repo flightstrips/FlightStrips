@@ -40,6 +40,7 @@ type reconciliationStripStore interface {
 	Create(context.Context, *models.Strip) error
 	UpdateVatsimSource(context.Context, int32, string, models.VatsimStripSource) (int64, error)
 	UpdateArrivalETA(context.Context, int32, string, models.ArrivalETA) (int64, error)
+	UpdateFallbackArrivalETA(context.Context, int32, string, *models.ArrivalETA, time.Time) (*models.ArrivalETA, bool, error)
 	UpdateBayAndSequence(context.Context, int32, string, string, int32) (int64, error)
 	Delete(context.Context, int32, string) error
 }
@@ -345,19 +346,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			if r.legacyETAForAirport != nil {
 				writeLegacyETA = r.legacyETAForAirport(session.Airport)
 			}
-			// Where AMAN owns the ETA, the VATSIM estimate is the fallback for
-			// flights AMAN has no fresh prediction for (not tracked, gated, or
-			// AMAN not running). Its LIVE/FILED source keeps the fallback visible.
-			if !writeLegacyETA && !compatibility.IsFresh(strip.ArrivalETA, r.now()) {
-				writeLegacyETA = true
+			etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight, writeLegacyETA)
+			if err != nil {
+				return err
 			}
-			if writeLegacyETA {
-				etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
-				if err != nil {
-					return err
-				}
-				changed = etaChanged || changed
-			}
+			changed = etaChanged || changed
 		}
 		if changed {
 			changedCount++
@@ -446,33 +439,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			arrivalFlights = append(arrivalFlights, flight)
 		}
 	}
-	orderer, orderedLifecycle := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
-	if orderedLifecycle {
-		priorities := make(map[string]int, len(arrivalFlights))
-		currentAssignments, err := r.loadArrivalAssignments(ctx, session.ID, arrivalFlights)
-		if err != nil {
-			return err
-		}
-		for _, flight := range arrivalFlights {
-			priorities[flight.Callsign] = orderer.ArrivalProcessingPriority(existing[flight.Callsign], arrivalFlightInfo(flight), currentAssignments[flight.Callsign])
-		}
-		sort.SliceStable(arrivalFlights, func(i, j int) bool {
-			left := priorities[arrivalFlights[i].Callsign]
-			right := priorities[arrivalFlights[j].Callsign]
-			if left != right {
-				return left > right
-			}
-			// Refresh an existing operational commitment before introducing a
-			// new reservation at the same lifecycle priority. Its latest timing
-			// can make adjacent capacity unavailable in this snapshot.
-			leftAssignment := currentAssignments[arrivalFlights[i].Callsign]
-			rightAssignment := currentAssignments[arrivalFlights[j].Callsign]
-			leftAssigned := leftAssignment != nil && strings.TrimSpace(leftAssignment.Stand) != ""
-			rightAssigned := rightAssignment != nil && strings.TrimSpace(rightAssignment.Stand) != ""
-			return leftAssigned && !rightAssigned
-		})
-	}
-	if err := r.processArrivalFlights(ctx, session.ID, existing, arrivalFlights, orderedLifecycle); err != nil {
+	if err := r.processArrivalFlights(ctx, session.ID, existing, arrivalFlights); err != nil {
 		return err
 	}
 	metrics.RecordSATRelevantFlights(ctx, session.Name, airport, pilots, prefiles)
@@ -514,32 +481,45 @@ type arrivalAssignmentState struct {
 	hasTier, manual, acknowledged  bool
 }
 
-func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight, converge bool) error {
+func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) error {
 	if len(flights) == 0 {
 		return nil
 	}
+	orderer, converge := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
 	if !converge {
-		return r.processArrivalPass(ctx, sessionID, strips, flights)
+		if err := r.reloadArrivalStrips(ctx, sessionID, strips); err != nil {
+			return err
+		}
+		return r.processArrivalPass(withArrivalETASnapshot(ctx, sessionID, strips, flights), sessionID, strips, flights)
 	}
 
-	previous, err := r.arrivalAssignmentStates(ctx, sessionID, flights)
+	assignments, err := r.loadArrivalAssignments(ctx, sessionID, flights)
 	if err != nil {
 		return err
 	}
+	// Read committed strip timing after assignments, immediately before
+	// ordering. The write also checks this timing under the strip lock.
+	if err := r.reloadArrivalStrips(ctx, sessionID, strips); err != nil {
+		return err
+	}
 	for pass := 1; pass <= maxArrivalReconciliationPasses; pass++ {
-		previousStands := arrivalStripStandStates(strips, flights)
-		if err := r.processArrivalPass(ctx, sessionID, strips, flights); err != nil {
-			return err
+		previousAssignments := snapshotArrivalAssignments(assignments, flights)
+		previousStrips := snapshotArrivalStrips(strips, flights)
+		passCtx := withArrivalETASnapshot(ctx, sessionID, strips, flights)
+		orderArrivalFlights(orderer, strips, assignments, flights)
+		passErr := r.processArrivalPass(passCtx, sessionID, strips, flights)
+		if passErr != nil && !errors.Is(passErr, ErrArrivalETAChanged) {
+			return passErr
 		}
-		current, err := r.arrivalAssignmentStates(ctx, sessionID, flights)
+		assignments, err = r.loadArrivalAssignments(ctx, sessionID, flights)
 		if err != nil {
 			return err
 		}
-		currentStands, err := r.reloadArrivalStripStands(ctx, sessionID, strips, flights)
-		if err != nil {
+		if err := r.reloadArrivalStrips(ctx, sessionID, strips); err != nil {
 			return err
 		}
-		if maps.Equal(previous, current) && maps.Equal(previousStands, currentStands) {
+		if passErr == nil && maps.Equal(previousAssignments, snapshotArrivalAssignments(assignments, flights)) &&
+			maps.Equal(previousStrips, snapshotArrivalStrips(strips, flights)) {
 			metrics.RecordSATReconciliationPasses(ctx, pass, false)
 			if pass > 1 {
 				slog.DebugContext(ctx, "SAT arrival reconciliation converged",
@@ -547,41 +527,78 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 			}
 			return nil
 		}
-		previous = current
 	}
 	metrics.RecordSATReconciliationPasses(ctx, maxArrivalReconciliationPasses, true)
 	return fmt.Errorf("SAT arrival reconciliation reached the fixed cap of %d passes", maxArrivalReconciliationPasses)
 }
 
-func arrivalStripStandStates(strips map[string]*models.Strip, flights []Flight) map[string]string {
-	states := make(map[string]string, len(flights))
+func orderArrivalFlights(orderer ArrivalLifecycleOrderer, strips map[string]*models.Strip, assignments map[string]*models.StandAssignment, flights []Flight) {
+	priorities := make(map[string]int, len(flights))
+	for _, flight := range flights {
+		if strip := strips[flight.Callsign]; strip != nil {
+			priorities[flight.Callsign] = orderer.ArrivalProcessingPriority(strip, arrivalFlightInfo(flight), assignments[flight.Callsign])
+		}
+	}
+	sort.SliceStable(flights, func(i, j int) bool {
+		left, right := flights[i].Callsign, flights[j].Callsign
+		if priorities[left] != priorities[right] {
+			return priorities[left] > priorities[right]
+		}
+		// Refresh existing commitments before selecting new ones at the same
+		// priority because the changed timing can affect adjacent capacity.
+		leftAssignment, rightAssignment := assignments[left], assignments[right]
+		leftAssigned := leftAssignment != nil && strings.TrimSpace(leftAssignment.Stand) != ""
+		rightAssigned := rightAssignment != nil && strings.TrimSpace(rightAssignment.Stand) != ""
+		return leftAssigned && !rightAssigned
+	})
+}
+
+type arrivalStripState struct {
+	stand string
+	eta   arrivalETATiming
+}
+
+func snapshotArrivalStrips(strips map[string]*models.Strip, flights []Flight) map[string]arrivalStripState {
+	states := make(map[string]arrivalStripState, len(flights))
 	for _, flight := range flights {
 		strip := strips[flight.Callsign]
-		if strip != nil && strip.Stand != nil {
-			states[flight.Callsign] = strings.TrimSpace(*strip.Stand)
-		} else {
-			states[flight.Callsign] = ""
+		if strip != nil {
+			states[flight.Callsign] = arrivalStripState{
+				stand: strings.TrimSpace(valueOrEmpty(strip.Stand)), eta: arrivalTiming(strip.ArrivalETA),
+			}
 		}
 	}
 	return states
 }
 
-func (r *Reconciler) reloadArrivalStripStands(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) (map[string]string, error) {
+func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, strips map[string]*models.Strip) error {
 	committed, err := r.strips.List(ctx, sessionID)
 	if err != nil {
-		return nil, fmt.Errorf("reload committed arrival strips: %w", err)
+		return fmt.Errorf("reload committed arrival strips: %w", err)
 	}
+	clear(strips)
+	now := r.now()
 	for _, strip := range committed {
 		if strip != nil {
+			if eta := effectiveArrivalETA(strip.ArrivalETA, now); eta != strip.ArrivalETA {
+				// Apply freshness to the snapshot used by this pass, including
+				// projections published after the fallback pass.
+				snapshot := *strip
+				snapshot.ArrivalETA = eta
+				strip = &snapshot
+			}
 			strips[normalizeCallsign(strip.Callsign)] = strip
 		}
 	}
-	return arrivalStripStandStates(strips, flights), nil
+	return nil
 }
 
 func (r *Reconciler) processArrivalPass(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) error {
 	for _, flight := range flights {
 		strip := strips[flight.Callsign]
+		if strip == nil {
+			continue
+		}
 		if err := r.arrivalLifecycle.ProcessArrival(ctx, sessionID, strip, arrivalFlightInfo(flight)); err != nil {
 			return err
 		}
@@ -589,16 +606,12 @@ func (r *Reconciler) processArrivalPass(ctx context.Context, sessionID int32, st
 	return nil
 }
 
-func (r *Reconciler) arrivalAssignmentStates(ctx context.Context, sessionID int32, flights []Flight) (map[string]arrivalAssignmentState, error) {
-	assignments, err := r.loadArrivalAssignments(ctx, sessionID, flights)
-	if err != nil {
-		return nil, err
-	}
+func snapshotArrivalAssignments(assignments map[string]*models.StandAssignment, flights []Flight) map[string]arrivalAssignmentState {
 	states := make(map[string]arrivalAssignmentState, len(flights))
 	for _, flight := range flights {
 		states[flight.Callsign] = snapshotArrivalAssignment(assignments[flight.Callsign])
 	}
-	return states, nil
+	return states
 }
 
 func (r *Reconciler) loadArrivalAssignments(ctx context.Context, sessionID int32, flights []Flight) (map[string]*models.StandAssignment, error) {
@@ -660,27 +673,52 @@ func timeOrEmpty(value *time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
 }
 
-func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight) (bool, error) {
+func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight, writeLegacyETA bool) (bool, error) {
 	now := r.now()
+	freshAMAN := compatibility.IsFresh(strip.ArrivalETA, now)
+	if !writeLegacyETA && freshAMAN {
+		return false, nil
+	}
+	previous := strip.ArrivalETA
+	expiredAMAN := previous != nil && previous.Source == compatibility.ArrivalETASource && !freshAMAN
 	coordinates := r.airportCoordinates
 	if r.coordinatesForAirport != nil {
 		coordinates = r.coordinatesForAirport(flight.FlightPlan.Destination)
 	}
 	candidate, ok := calculateArrivalETA(now, flight, coordinates)
 	if !ok {
-		// VATSIM can temporarily omit timing or movement fields. Keep the last
-		// accepted estimate rather than replacing a useful stable ETA with none.
+		// VATSIM estimates survive missing feed fields. An expired AMAN
+		// projection must be cleared before the stand lifecycle uses it.
+		if expiredAMAN {
+			return r.updateFallbackArrivalETA(ctx, session, strip, nil, now)
+		}
 		return false, nil
 	}
-	accepted, changed := acceptedArrivalETA(strip.ArrivalETA, candidate)
+	if expiredAMAN {
+		// Hysteresis must not carry an expired AMAN timestamp into the fallback.
+		previous = nil
+	}
+	accepted, changed := acceptedArrivalETA(previous, candidate)
 	if !changed {
 		return false, nil
+	}
+	if !writeLegacyETA {
+		return r.updateFallbackArrivalETA(ctx, session, strip, &accepted, now)
 	}
 	if _, err := r.strips.UpdateArrivalETA(ctx, session, strip.Callsign, accepted); err != nil {
 		return false, err
 	}
 	strip.ArrivalETA = &accepted
 	return true, nil
+}
+
+func (r *Reconciler) updateFallbackArrivalETA(ctx context.Context, session int32, strip *models.Strip, fallback *models.ArrivalETA, now time.Time) (bool, error) {
+	eta, changed, err := r.strips.UpdateFallbackArrivalETA(ctx, session, strip.Callsign, fallback, now)
+	if err != nil {
+		return false, err
+	}
+	strip.ArrivalETA = eta
+	return changed, nil
 }
 
 func vatsimSource(flight Flight, snapshotTime time.Time) models.VatsimStripSource {

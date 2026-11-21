@@ -40,6 +40,20 @@ type StandAssignment struct {
 	UpdatedAt          time.Time
 }
 
+// StandAssignmentRevision identifies a persisted assignment and its version.
+// The zero value represents the absence of an assignment.
+type StandAssignmentRevision struct {
+	ID      int64
+	Version int32
+}
+
+func (a *StandAssignment) Revision() StandAssignmentRevision {
+	if a == nil {
+		return StandAssignmentRevision{}
+	}
+	return StandAssignmentRevision{ID: a.ID, Version: a.Version}
+}
+
 // StandBlock represents a closure or occupancy that is not necessarily backed
 // by a strip. A nil Callsign is valid for controller-created closures.
 type StandBlock struct {

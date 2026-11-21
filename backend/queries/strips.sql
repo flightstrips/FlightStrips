@@ -148,6 +148,20 @@ SET
     arrival_eta = NULL
 WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
 
+-- name: UpdateStripFallbackArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = sqlc.narg(arrival_eta)
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session)
+    AND (sqlc.narg(arrival_eta)::jsonb IS NOT NULL OR arrival_eta->>'source' = sqlc.arg(aman_source)::text)
+    AND NOT COALESCE(
+        arrival_eta->>'source' = sqlc.arg(aman_source)::text
+        AND (arrival_eta->>'time')::timestamptz <> TIMESTAMPTZ '0001-01-01 00:00:00+00'
+        AND (arrival_eta->>'calculated_at')::timestamptz >= sqlc.arg(fresh_since)::timestamptz,
+        false
+    );
+
 -- name: UpdateStripVatsimSource :execrows
 UPDATE strips
 SET

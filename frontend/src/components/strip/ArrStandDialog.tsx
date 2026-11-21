@@ -135,7 +135,11 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const [automaticSelected, setAutomaticSelected] = useState(satEnabled);
   const [group, setGroup] = useState<StandGroup | null>(() => defaultGroup(initialStand));
   const submittedVersion = useRef<number | null>(null);
-  const version = assignment?.version ?? 0;
+  const action = strip?.validation_status?.custom_action;
+  const payload = action?.action_kind === "assign_stand" ? action.payload : undefined;
+  const warningVersion = payload && typeof payload === "object" && "assignment_version" in payload
+    && typeof payload.assignment_version === "number" ? payload.assignment_version : undefined;
+  const version = assignment?.version ?? warningVersion ?? 0;
   const relevantRejection = satEnabled && rejection?.callsign === callsign ? rejection : null;
   const unsafeManual = relevantRejection?.action === ActionType.FrontendStandAssignmentManualRequest
     && relevantRejection.code === "incompatible_or_occupied";

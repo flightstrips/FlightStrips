@@ -1,6 +1,7 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/models"
 	pkg "FlightStrips/pkg/models"
 	"context"
@@ -151,6 +152,21 @@ func (s *reconciliationTestStrips) UpdateArrivalETA(_ context.Context, session i
 		return 1, nil
 	}
 	return 0, nil
+}
+
+func (s *reconciliationTestStrips) UpdateFallbackArrivalETA(_ context.Context, session int32, callsign string, eta *models.ArrivalETA, now time.Time) (*models.ArrivalETA, bool, error) {
+	for _, strip := range s.bySession[session] {
+		if strip.Callsign != callsign {
+			continue
+		}
+		if compatibility.IsFresh(strip.ArrivalETA, now) || (eta == nil && (strip.ArrivalETA == nil || strip.ArrivalETA.Source != compatibility.ArrivalETASource)) {
+			return strip.ArrivalETA, false, nil
+		}
+		strip.ArrivalETA = eta
+		s.updated = append(s.updated, strip)
+		return eta, true, nil
+	}
+	return nil, false, nil
 }
 
 func (s *reconciliationTestStrips) UpdateBayAndSequence(_ context.Context, session int32, callsign, bay string, sequence int32) (int64, error) {
@@ -421,14 +437,14 @@ func TestArrivalReconciliationConvergesAfterLaterFlightChangesCapacity(t *testin
 		{Callsign: "AAA101"}, {Callsign: "BBB202"},
 	}}}
 	lifecycle := &reconciliationConvergenceLifecycle{assignments: assignments}
-	reconciler := &Reconciler{strips: stripStore, assignments: assignments, arrivalLifecycle: lifecycle}
+	reconciler := &Reconciler{strips: stripStore, assignments: assignments, arrivalLifecycle: lifecycle, now: time.Now}
 	strips := map[string]*models.Strip{
 		"AAA101": stripStore.bySession[7][0],
 		"BBB202": stripStore.bySession[7][1],
 	}
 	flights := []Flight{{Callsign: "AAA101"}, {Callsign: "BBB202"}}
 
-	require.NoError(t, reconciler.processArrivalFlights(context.Background(), 7, strips, flights, true))
+	require.NoError(t, reconciler.processArrivalFlights(context.Background(), 7, strips, flights))
 
 	assert.Equal(t, "E83", assignments.assignments[assignmentKey(7, "AAA101")].Stand)
 	assert.Equal(t, "ASSIGNED", assignments.assignments[assignmentKey(7, "AAA101")].Stage)
@@ -444,9 +460,10 @@ func TestArrivalReconciliationUsesFixedPassCap(t *testing.T) {
 	lifecycle := &reconciliationNonConvergingLifecycle{assignments: assignments}
 	reconciler := &Reconciler{
 		strips: stripStoreWithSingleSession(7, strip), assignments: assignments, arrivalLifecycle: lifecycle,
+		now: time.Now,
 	}
 
-	err := reconciler.processArrivalFlights(context.Background(), 7, map[string]*models.Strip{"AAA101": strip}, []Flight{{Callsign: "AAA101"}}, true)
+	err := reconciler.processArrivalFlights(context.Background(), 7, map[string]*models.Strip{"AAA101": strip}, []Flight{{Callsign: "AAA101"}})
 
 	require.ErrorContains(t, err, "fixed cap of 5 passes")
 	assert.Equal(t, maxArrivalReconciliationPasses, lifecycle.processed)
@@ -459,9 +476,10 @@ func TestArrivalAssignmentStateUsesBulkSessionRead(t *testing.T) {
 	}}
 	reconciler := &Reconciler{assignments: assignments}
 
-	states, err := reconciler.arrivalAssignmentStates(context.Background(), 7, []Flight{{Callsign: "AAA101"}, {Callsign: "BBB202"}})
-
+	flights := []Flight{{Callsign: "AAA101"}, {Callsign: "BBB202"}}
+	rows, err := reconciler.loadArrivalAssignments(context.Background(), 7, flights)
 	require.NoError(t, err)
+	states := snapshotArrivalAssignments(rows, flights)
 	assert.Equal(t, "E71", states["AAA101"].stand)
 	assert.Equal(t, "E74", states["BBB202"].stand)
 	assert.Equal(t, 1, assignments.listCalls)

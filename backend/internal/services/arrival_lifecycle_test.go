@@ -615,8 +615,8 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, "A1", updated.Stand, "arrival keeps A1 when departure block expires before ETA")
 	})
 
-	t.Run("departure block extending past arrival ETA keeps the estimate until promotion", func(t *testing.T) {
-		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+	t.Run("observed departure keeps the overlapping estimate until promotion", func(t *testing.T) {
+		lifecycle, allocation, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		now := time.Now().UTC()
 		clock.set(now)
 		arrivalETA := now.Add(45 * time.Minute)
@@ -624,11 +624,25 @@ func TestArrivalLifecycle(t *testing.T) {
 		setArrivalETA(t, strips, session, "SAS1003", arrivalETA)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS1003"), arrivalFlight("SAS1003", 1)))
 
-		expiresAt := arrivalETA.Add(5 * time.Minute)
-		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
-			SessionID: session, Callsign: "SAS1004", Stand: "A1", Direction: "DEPARTURE",
-			Stage: StageDepartureBlock, Source: "AUTOMATIC", ExpiresAt: &expiresAt,
-		}))
+		estimate, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		require.Equal(t, "A1", estimate.Stand)
+
+		testdata.SeedTestStrip(t, queries, session, "SAS1004")
+		departure := withStand(standAllocationRequest(session, "SAS1004"), "A1")
+		departure.Direction = sat.AssignmentDirectionDeparture
+		departure.FlightFacts.Direction = sat.Departure
+		departure.Stage = StageDepartureBlock
+		departure.ObservedStand = strp("A1")
+		result, err := allocation.assignObservedStand(ctx, departure)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.Equal(t, StageDepartureBlock, result.Assignment.Stage)
+		assert.Empty(t, result.RemovedAssignments)
+		retained, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		assert.Equal(t, estimate.ID, retained.ID)
+		assert.Equal(t, estimate.Stand, retained.Stand)
 
 		clock.advance(5 * time.Minute)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS1003"), arrivalFlight("SAS1003", 1)))

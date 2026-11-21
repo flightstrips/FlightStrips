@@ -1,17 +1,20 @@
 package postgres
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -344,6 +347,35 @@ func (r *stripRepository) LockByCallsign(ctx context.Context, session int32, cal
 		return nil, err
 	}
 	return stripToModel(dbStrip)
+}
+
+// LockArrivalETAs protects the arrival ordering inputs for a stand write.
+// It must run in the transaction that will commit the stand assignment.
+func (r *stripRepository) LockArrivalETAs(ctx context.Context, session int32, callsigns []string) (map[string]*models.ArrivalETA, error) {
+	rows, err := r.db.Query(ctx, `
+SELECT callsign, arrival_eta
+FROM strips
+WHERE session = $1 AND callsign = ANY($2::text[])
+ORDER BY callsign
+FOR SHARE`, session, callsigns)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	etas := make(map[string]*models.ArrivalETA, len(callsigns))
+	for rows.Next() {
+		var callsign string
+		var payload []byte
+		if err := rows.Scan(&callsign, &payload); err != nil {
+			return nil, err
+		}
+		eta, err := unmarshalArrivalETA(payload)
+		if err != nil {
+			return nil, err
+		}
+		etas[callsign] = eta
+	}
+	return etas, rows.Err()
 }
 
 // List retrieves all strips for a session
@@ -1129,6 +1161,40 @@ func (r *stripRepository) UpdateArrivalETA(ctx context.Context, session int32, c
 	})
 }
 
+// UpdateFallbackArrivalETA protects fresh AMAN projections at write time.
+// A nil fallback clears an expired AMAN projection only.
+func (r *stripRepository) UpdateFallbackArrivalETA(ctx context.Context, session int32, callsign string, eta *models.ArrivalETA, now time.Time) (*models.ArrivalETA, bool, error) {
+	var payload []byte
+	if eta != nil {
+		var err error
+		payload, err = json.Marshal(eta)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	rows, err := r.queries.UpdateStripFallbackArrivalETA(ctx, database.UpdateStripFallbackArrivalETAParams{
+		ArrivalEta: payload,
+		Callsign:   callsign,
+		Session:    session,
+		AmanSource: compatibility.ArrivalETASource,
+		FreshSince: pgtype.Timestamptz{Time: now.Add(-compatibility.FreshFor), Valid: true},
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if rows != 0 {
+		return eta, true, nil
+	}
+	strip, err := r.GetByCallsign(ctx, session, callsign)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return strip.ArrivalETA, false, nil
+}
+
 // ClearArrivalETA explicitly makes the compatibility estimate unavailable.
 // Operational AMAN modes must never reactivate a legacy ETA as a fallback.
 func (r *stripRepository) ClearArrivalETA(ctx context.Context, session int32, callsign string) (int64, error) {
@@ -1274,6 +1340,123 @@ func (r *stripRepository) SetValidationStatus(ctx context.Context, session int32
 		return err
 	}
 	return r.queries.SetValidationStatus(ctx, session, callsign, data)
+}
+
+// CompareAndSetStandValidation serializes a warning write with stand changes
+// and checks the strip state observed by the publication.
+func (r *stripRepository) CompareAndSetStandValidation(ctx context.Context, session int32, callsign string, update models.StandValidationUpdate) (bool, error) {
+	starter, ok := r.db.(interface {
+		Begin(context.Context) (pgx.Tx, error)
+	})
+	if !ok {
+		return false, errors.New("stand validation requires a transaction")
+	}
+	tx, err := starter.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	var lockedSession int32
+	err = tx.QueryRow(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", session).Scan(&lockedSession)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var owner *string
+	var payload []byte
+	err = tx.QueryRow(ctx, "SELECT owner, validation_status FROM strips WHERE session = $1 AND callsign = $2 FOR UPDATE", session, callsign).Scan(&owner, &payload)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	current, err := unmarshalValidationStatus(payload)
+	if err != nil {
+		return false, err
+	}
+	if !reflect.DeepEqual(owner, update.Owner) || !matchesValidationObservation(current, update.Previous) {
+		return false, nil
+	}
+	matches, err := lockStandValidationAssignments(ctx, tx, session, callsign, update.Assignments)
+	if err != nil {
+		return false, err
+	}
+	if !matches {
+		return false, nil
+	}
+
+	queries := r.queries.WithTx(tx)
+	if update.Next == nil {
+		err = queries.ClearValidationStatus(ctx, session, callsign)
+	} else {
+		next := *update.Next
+		if current != nil && next.ActivationKey == current.ActivationKey {
+			next.Active = current.Active
+		}
+		payload, err = marshalValidationStatus(&next)
+		if err == nil {
+			err = queries.SetValidationStatus(ctx, session, callsign, payload)
+		}
+	}
+	if err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func lockStandValidationAssignments(ctx context.Context, tx pgx.Tx, session int32, callsign string, expected models.StandValidationAssignments) (bool, error) {
+	if expected.Session == nil {
+		// Removal publications only depend on the state of the removed callsign.
+		var revision models.StandAssignmentRevision
+		err := tx.QueryRow(ctx, "SELECT id, version FROM stand_assignments WHERE session_id = $1 AND callsign = $2 FOR SHARE", session, callsign).Scan(&revision.ID, &revision.Version)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return false, err
+		}
+		return revision == expected.Target, nil
+	}
+	// The session lock serializes allocation, and the row locks also protect
+	// assignment metadata updates that only lock the assignment itself.
+	rows, err := tx.Query(ctx, `
+SELECT callsign, id, version FROM stand_assignments
+WHERE session_id = $1 ORDER BY callsign FOR SHARE`, session)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	var target models.StandAssignmentRevision
+	count := 0
+	for rows.Next() {
+		var name string
+		var revision models.StandAssignmentRevision
+		if err := rows.Scan(&name, &revision.ID, &revision.Version); err != nil {
+			return false, err
+		}
+		if version, ok := expected.Session[revision.ID]; !ok || version != revision.Version {
+			return false, nil
+		}
+		if name == callsign {
+			target = revision
+		}
+		count++
+	}
+	return count == len(expected.Session) && target == expected.Target, rows.Err()
+}
+
+func matchesValidationObservation(current, previous *models.ValidationStatus) bool {
+	if current == nil || previous == nil {
+		return current == previous
+	}
+	// Acknowledgement changes only visibility. A version-only refresh carries
+	// the acknowledgement from the locked row forward.
+	status := *previous
+	status.Active = current.Active
+	return reflect.DeepEqual(current, &status)
 }
 
 // AcknowledgeValidationStatus sets active=false for the strip's validation status using a

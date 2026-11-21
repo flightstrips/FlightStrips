@@ -472,9 +472,8 @@ func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session 
 
 func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string, expiresAt *time.Time) error {
 	request := s.buildRequest(session, strip, flight, targetStage, eta, expiresAt)
-	// Controller choices advance lifecycle metadata but are never moved by
-	// automatic availability or tier optimization. Physical-position
-	// reconciliation remains the sole automatic exception.
+	// Keep controller choices out of automatic stand selection. The in-place
+	// promotion checks occupancy before making a pinned estimate operational.
 	if existing.Manual {
 		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
 	}
@@ -638,13 +637,14 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 	if existing.Stage != stage && updated.ConflictReason != nil && *updated.ConflictReason == arrivalPromotionConflictReason {
 		updated.ConflictReason = nil
 	}
-	if existing.Stage == StageEstimated && existing.Stage != stage {
-		// Manual estimates must keep their chosen stand while promotion writes
-		// that stand to the strip in the same transaction as the new stage.
-		if err := s.allocations.PromoteEstimatedArrivalInPlace(ctx, existing, updated); err != nil {
+	if existing.Stage != stage {
+		promoted, err := s.allocations.promoteArrivalInPlace(ctx, existing, updated)
+		if err != nil {
 			return err
 		}
-		s.recordArrivalStagePromotion(ctx, existing, updated)
+		if promoted {
+			s.recordArrivalStagePromotion(ctx, existing, updated)
+		}
 		return nil
 	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
@@ -655,13 +655,6 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 		return fmt.Errorf("arrival stage update version conflict for %s", existing.Callsign)
 	}
 	updated.Version++
-	if existing.Stage != stage {
-		slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
-		metrics.RecordSATLifecycleEvent(ctx, "stage_promotion", existing.Stage+"_to_"+stage, existing.Source)
-	}
-	if stage == StageConfirmed && existing.Stage != StageConfirmed {
-		return s.allocations.PublishConfirmedArrival(ctx, updated)
-	}
 	return s.allocations.PublishAssignment(ctx, updated)
 }
 
@@ -671,15 +664,14 @@ func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, ex
 	updated.Stage = stage
 	updated.ExpiresAt = expiresAt
 	updated.ObservedStand = observedStand
-	if stageChanged && existing.Stage == StageEstimated {
-		// Only manual or physically observed estimates reach this branch;
-		// unobserved automatic estimates use promoteArrival and Reallocate.
-		// Write the authoritative stand with its promotion rather than reselect it.
-		if err := s.allocations.PromoteEstimatedArrivalInPlace(ctx, existing, updated); err != nil {
+	if stageChanged {
+		promoted, err := s.allocations.promoteArrivalInPlace(ctx, existing, updated)
+		if err != nil {
 			return err
 		}
-		slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
-		metrics.RecordSATLifecycleEvent(ctx, "stage_promotion", existing.Stage+"_to_"+stage, existing.Source)
+		if promoted {
+			s.recordArrivalStagePromotion(ctx, existing, updated)
+		}
 		return nil
 	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
@@ -690,17 +682,8 @@ func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, ex
 		return fmt.Errorf("arrival airport-area update version conflict for %s", existing.Callsign)
 	}
 	updated.Version++
-	if !stageChanged {
-		// Keep controller clients on the current optimistic-concurrency version.
-		// PublishAssignment broadcasts assignment metadata without requesting a
-		// stand write in EuroScope.
-		return s.allocations.PublishAssignment(ctx, updated)
-	}
-	slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
-	metrics.RecordSATLifecycleEvent(ctx, "stage_promotion", existing.Stage+"_to_"+stage, existing.Source)
-	if stage == StageConfirmed {
-		return s.allocations.PublishConfirmedArrival(ctx, updated)
-	}
+	// Keep controller clients on the current optimistic-concurrency version
+	// without requesting a stand write in EuroScope.
 	return s.allocations.PublishAssignment(ctx, updated)
 }
 

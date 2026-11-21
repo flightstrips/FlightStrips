@@ -489,6 +489,14 @@ func (m *MockStripRepository) AcknowledgeCdmMilestone(ctx context.Context, sessi
 	return m.AcknowledgeCdmMilestoneFn(ctx, session, callsign, milestone, value)
 }
 
+func (m *MockStripRepository) LockArrivalETAs(context.Context, int32, []string) (map[string]*models.ArrivalETA, error) {
+	panic("unexpected call to MockStripRepository.LockArrivalETAs")
+}
+
+func (m *MockStripRepository) UpdateFallbackArrivalETA(context.Context, int32, string, *models.ArrivalETA, time.Time) (*models.ArrivalETA, bool, error) {
+	panic("unexpected call to MockStripRepository.UpdateFallbackArrivalETA")
+}
+
 func (m *MockStripRepository) UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error) {
 	if m.UpdateArrivalETAFn == nil {
 		panic("unexpected call to MockStripRepository.UpdateArrivalETA")
@@ -585,6 +593,10 @@ func (m *MockStripRepository) SetValidationStatus(ctx context.Context, session i
 		panic("unexpected call to MockStripRepository.SetValidationStatus")
 	}
 	return m.SetValidationStatusFn(ctx, session, callsign, status)
+}
+
+func (m *MockStripRepository) CompareAndSetStandValidation(context.Context, int32, string, models.StandValidationUpdate) (bool, error) {
+	panic("unexpected call to MockStripRepository.CompareAndSetStandValidation")
 }
 
 func (m *MockStripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {

@@ -205,6 +205,11 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 		stage = existing.Stage
 		expiresAt = existing.ExpiresAt
 	}
+	if HasPinnedArrivalPromotionConflict(existing) {
+		// A controller's explicit reassignment replaces the blocked pin with
+		// an operational stand, including when the controller chooses AUTO.
+		stage, expiresAt = StageAssigned, nil
+	}
 	vatsimCID, vatsimRevision := resolvedVatsimIdentity(strip, "", 0)
 	var observedStand *string
 	if direction == sat.AssignmentDirectionArrival {
@@ -212,8 +217,10 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 			observedStand = &stand
 		}
 	}
+	expected := existing.Revision()
 	return StandAllocationRequest{SessionID: session, Callsign: strip.Callsign, Airport: strings.ToUpper(airport), Direction: direction, Stage: stage,
-		FlightFacts: facts, AssignmentFacts: sat.AssignmentFlightFacts{Callsign: strip.Callsign, AircraftType: valueString(strip.AircraftType), AircraftUse: facts.Aircraft.UseCode, BorderStatus: facts.BorderStatus, Direction: direction}, ETA: arrivalETATime(strip), ETASource: existingETASource(existing), ExpiresAt: expiresAt, DepartureTOBT: departureTobtTime(strip, time.Now().UTC()), DepartureTSAT: departureTsatTime(strip, time.Now().UTC()), DepartureStartupRequestedAt: departureStartupRequestTime(strip, time.Now().UTC()), DepartureReady: departureExpectedToVacate(strip), VatsimCID: vatsimCID, VatsimRevision: vatsimRevision, ObservedStand: observedStand}, nil
+		expectedAssignment: &expected,
+		FlightFacts:        facts, AssignmentFacts: sat.AssignmentFlightFacts{Callsign: strip.Callsign, AircraftType: valueString(strip.AircraftType), AircraftUse: facts.Aircraft.UseCode, BorderStatus: facts.BorderStatus, Direction: direction}, ETA: arrivalETATime(strip), ETASource: existingETASource(existing), ExpiresAt: expiresAt, DepartureTOBT: departureTobtTime(strip, time.Now().UTC()), DepartureTSAT: departureTsatTime(strip, time.Now().UTC()), DepartureStartupRequestedAt: departureStartupRequestTime(strip, time.Now().UTC()), DepartureReady: departureExpectedToVacate(strip), VatsimCID: vatsimCID, VatsimRevision: vatsimRevision, ObservedStand: observedStand}, nil
 }
 
 func (s *StandActionService) Acknowledge(ctx context.Context, session int32, position, callsign string, version int32) (*models.StandAssignment, error) {

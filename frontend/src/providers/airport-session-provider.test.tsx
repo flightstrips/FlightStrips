@@ -153,14 +153,26 @@ describe("per-tab airport selection", () => {
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-  it("requires an airport choice for multiple sessions and clears the old board on switch", async () => {
-    mocks.discover.mockResolvedValue([session(member()), session(member({session_id: 2, airport: "BBBB"}))]);
+  it("switches airports on the current connection and clears the old board", async () => {
+    const otherConnection = member({session_id: 3, airport: "AAAA", instance_id: "exercise", environment: "SWEATBOX", callsign: "EXERCISE"});
+    mocks.discover.mockResolvedValue([
+      session(member()),
+      session(member({session_id: 2, airport: "BBBB"})),
+      session(otherConnection),
+      session(member({session_id: 4, airport: "CCCC", instance_id: "other-live"})),
+    ]);
     await mount();
-    fireEvent.click(screen.getByRole("button", {name: /AAAA/}));
+    fireEvent.click(screen.getByRole("button", {name: "AAAA"}));
+    const instances = screen.getByRole("dialog", {name: "Choose your plugin instance"});
+    expect(instances).not.toHaveTextContent("SWEATBOX");
+    fireEvent.click(within(instances).getByRole("button", {name: /^OWN /}));
     fireEvent.click(screen.getByRole("button", {name: "Local 0"}));
     expect(screen.getByText("Local 1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
-    fireEvent.click(screen.getByRole("button", {name: /BBBB/}));
+    const airports = screen.getByRole("dialog", {name: "Choose airport session"});
+    expect(within(airports).getAllByRole("button").map(button => button.textContent))
+      .toEqual(["AAAA", "BBBB", "Keep current airport"]);
+    fireEvent.click(within(airports).getByRole("button", {name: "BBBB"}));
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
     expect(screen.getByText("Local 0")).toBeInTheDocument();
     expect(sessionStorage.getItem("flightstrips.airport-session.v1")).toContain('"session":2');

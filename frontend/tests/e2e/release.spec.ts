@@ -1,5 +1,5 @@
 import {expect, type APIRequestContext, type Page} from "@playwright/test";
-import {test} from "./fixtures";
+import {chooseAirport, test} from "./fixtures";
 
 const backend = "http://127.0.0.1:4184";
 type Row = {ID: number; Callsign: string; Bay: string; Sequence: number; Owner: string | null; BoardState?: {annotations: {notes: string}}};
@@ -9,10 +9,7 @@ async function rows(request: APIRequestContext, airport: string): Promise<Row[]>
   return response.json();
 }
 async function choose(page: Page, airport: string) {
-  await page.goto("/app");
-  const dialog = page.getByRole("dialog", {name: "Choose airport session"});
-  const label = page.getByText(airport, {exact: true}).or(page.getByText(`${airport} · LIVE`, {exact: true}));
-  await dialog.getByRole("button").filter({has: label}).click();
+  await chooseAirport(page, airport);
   if (airport === "EKCH") {
     const tower = page.getByRole("button", {name: "TW / TE", exact: true});
     await expect(tower.or(page.locator('[data-bay="TWY-DEP"]')).first()).toBeVisible();

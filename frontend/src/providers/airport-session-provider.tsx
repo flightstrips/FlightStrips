@@ -115,6 +115,13 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
       {error && <p role="status" className="mt-4">{error}. Retrying...</p>}
     </div>;
   }
+  const connectionSessions = sessions
+    .map(session => ({
+      ...session,
+      instances: session.instances.filter(member =>
+        member.instance_id === selected.instance_id && member.environment === selected.environment),
+    }))
+    .filter(session => session.instances.length > 0);
   const retained = retainedState;
   const canRetain = retained?.boardContext?.session_id === selected.session_id && retained.boardContext.instance_id === selected.instance_id && retained.boardContext.environment === selected.environment && retained.boardDefinition?.definition_revision === selected.definition_revision;
   const ownPluginAvailable = sessions.some(s => s.session_id === selected.session_id && s.instances.some(m => membershipKey(m) === membershipKey(selected) && m.ready));
@@ -125,8 +132,8 @@ export function AirportSessionProvider({children, url}: {children: ReactNode; ur
     setChoosing(false);
     setManualChoice(false);
   };
-  return <AirportSessionContext.Provider value={{selected, sessions, openChooser: () => {setManualChoice(true); setChoosing(true);}}}>
+  return <AirportSessionContext.Provider value={{selected, sessions: connectionSessions, openChooser: () => {setManualChoice(true); setChoosing(true);}}}>
     <WebSocketProvider key={membershipKey(selected)} url={url} selection={selected} retainedState={canRetain ? retained : undefined} onStateChanged={captureState} ownPluginAvailable={ownPluginAvailable} selectionControls={<AirportSwitcher/>}>{children}</WebSocketProvider>
-    {choosing && <AirportSessionChooser sessions={sessions} onChoose={choose} onCancel={keepCurrentAirport}/>}
+    {choosing && <AirportSessionChooser sessions={connectionSessions} onChoose={choose} onCancel={keepCurrentAirport}/>}
   </AirportSessionContext.Provider>;
 }

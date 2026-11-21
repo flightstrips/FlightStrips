@@ -1,5 +1,5 @@
 import {expect, type APIRequestContext, type Page} from "@playwright/test";
-import {test} from "./fixtures";
+import {chooseAirport, test} from "./fixtures";
 import {identity} from "./identity";
 
 const backend = "http://127.0.0.1:4184";
@@ -10,13 +10,7 @@ async function rows(request: APIRequestContext, airport = "EKBI", environment = 
   expect(response.ok()).toBe(true); return response.json();
 }
 async function open(page: Page, airport: string, environment = "LIVE") {
-  await page.goto("/app");
-  const dialog = page.getByRole("dialog", {name: "Choose airport session"});
-  const label = page.getByText(`${airport} · ${environment}`, {exact: true});
-  const airportOnly = page.getByText(airport, {exact: true});
-  const choice = dialog.getByRole("button").filter({has: label.or(airportOnly)});
-  await expect(choice.or(page.getByRole("main", {name: "RADIS board"}))).toBeVisible();
-  if (await choice.isVisible()) await choice.click();
+  await chooseAirport(page, airport, environment);
   await expect(strip(page)).toBeVisible();
 }
 async function note(page: Page, value: string) {
@@ -55,20 +49,17 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await note(sweat,"EXERCISE ONLY"); await note(playback,"PLAYBACK ONLY"); await note(tab,"SECOND TAB EKYT");
     await expect(a.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
     await expect(other.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKYT");
-    // Switch this tab through the real chooser, without changing its peers.
-    await tab.getByRole("button",{name:"Switch airport session"}).click();
-    await tab.getByRole("button",{name:/EKBI · LIVE/}).click();
-    await expect(tab.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
-    await note(tab,"SECOND TAB EKBI");
-    await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKBI");
-    await expect(other.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKYT");
-    for (const [page,value] of [[sweat,"EXERCISE ONLY"],[playback,"PLAYBACK ONLY"],[tab,"SECOND TAB EKBI"]] as const) {
+    // The fixture uses different physical connections for these airports.
+    await tab.getByRole("button", {name: "Switch airport session"}).click();
+    const chooser = tab.getByRole("dialog", {name: "Choose airport session"});
+    await expect(chooser.getByRole("button", {name: "EKYT", exact: true})).toBeVisible();
+    await expect(chooser.getByRole("button", {name: "EKBI", exact: true})).toHaveCount(0);
+    await chooser.getByRole("button", {name: "Keep current airport"}).click();
+    for (const [page,value] of [[sweat,"EXERCISE ONLY"],[playback,"PLAYBACK ONLY"],[tab,"SECOND TAB EKYT"]] as const) {
       await page.reload(); await expect(page.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText(value);
     }
     expect((await rows(request,"EKBI","SWEATBOX_MA08")).find(row=>row.Callsign==="RADIS1")!.BoardState.annotations.notes).toBe("EXERCISE ONLY");
     expect((await rows(request,"EKBI","PLAYBACK_MA08")).find(row=>row.Callsign==="RADIS1")!.BoardState.annotations.notes).toBe("PLAYBACK ONLY");
-    await note(tab,"PRODUCTION SHARED NOTE");
-    await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
     await Promise.all([tab.close(),sweat.close(),playback.close()]);
   });
   await test.step("real stand resources are ready while deferred regional services remain disabled", async () => {

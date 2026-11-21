@@ -139,7 +139,9 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 				response.Point = &point
 				response.Target = a.sceneries.Target(airport, assigned.stand, point)
 				response.Pushback = pushback
-				response.Revision = "push:" + point
+				// The stand is in the revision because the target depends on
+				// it (facing rules are per stand), even when nothing else does.
+				response.Revision = "push:" + assigned.stand + ":" + point
 				if len(pushback) > 0 {
 					response.Revision += ":" + strings.Join(pushback, "|")
 				}

@@ -381,6 +381,7 @@ def _standRouteForTarget(self, gate, target, point):
             return None
         near.sort(key=lambda pair: pair[0])
         name = near[0][1][0]
+        self._standPick = {"name": name, "pos": (near[0][1][1], near[0][1][2])}
         wanted = "".join(_standTokens(point))
         if wanted and wanted not in _standTokens(name):
             # Trust the position over the name, and show the pilot the point
@@ -407,7 +408,9 @@ def _standRouteForTarget(self, gate, target, point):
         _standGeometryNote(self, "no route faces %s here" % point)
         return None
     pool.sort(key=lambda pair: pair[0])
-    return pool[0][1][0]
+    chosen = pool[0][1]
+    self._standPick = {"name": chosen[0], "pos": (chosen[1], chosen[2])}
+    return chosen[0]
 
 
 def _standGeometryNote(self, text):
@@ -435,17 +438,28 @@ def _standPayloadRoutes(self, payload):
     server - the scenery's labels if they exist here, else the routes named
     after the bare point. Nothing found: whatever was sent, so "no route" can
     name it.
+
+    What position chose is kept in _standPick, so the route written is that
+    route even when another at the stand shares its name, and a point nothing
+    ends at stays unmatched.
     """
     routes = _standRoutes(payload.get("pushback"))
     point = str(payload.get("point") or "").strip()
     gate = getGate()
     self._standShownNames = {}
+    self._standPick = None
     target = payload.get("target")
     if gate is not None and isinstance(target, dict):
         picked = _standRouteForTarget(self, gate, target, point)
         if picked:
             return [picked]
-        return [point] if point else []
+        # Nothing ends there. The point is still returned, so "no route" can
+        # name it, but marked as rejected: a route that happens to be called
+        # "S1" while ending elsewhere must not be taken by its name.
+        if point:
+            self._standPick = {"name": point, "pos": None}
+            return [point]
+        return []
     if not point or gate is None:
         return routes or ([point] if point else [])
     if routes and _standRouteMatch(self, gate, routes)[0]:
@@ -603,6 +617,7 @@ def _standResetDeparture(self):
     self._standMenuReminded = False          # the point was named as the menu opened
     self._standPresentNote = None            # last read-back mismatch logged
     self._standShownNames = {}              # route name -> what to call it
+    self._standPick = None                  # the route chosen by position, see _standPayloadRoutes
     self._standGeometryLast = None          # last geometry decision logged
 
 
@@ -706,18 +721,46 @@ def _standRouteMatch(self, gate, wanted):
     the one the server listed first - and the name returned is that route's, so
     a label built from it describes where the entry actually goes.
     """
+    pos, approach, name, _ = _standRouteSlot(self, gate, wanted)
+    return pos, approach, name
+
+
+def _standRouteSlot(self, gate, wanted):
+    """(pos, approach, name, extra slot or None) for the first assigned route.
+
+    By name, except where position decided (_standPick): then the route with
+    that name ending where the chosen one ends, so a second route sharing the
+    name is never written instead; and a point position rejected matches
+    nothing, whatever a route is called.
+    """
     snapshot = _standSnapshot(self, gate)
     labels = snapshot["labels"]
+    pick = self._standPick
     for route in wanted:
         isWanted = _standWantedTest([route])
+        found = []
         if len(labels) > 0 and isWanted(labels[0]) and snapshot["left"][0]:
-            return snapshot["left"][0], snapshot["left"][1], labels[0]
+            found.append((snapshot["left"][0], snapshot["left"][1], labels[0], None))
         if len(labels) > 1 and isWanted(labels[1]) and snapshot["right"][0]:
-            return snapshot["right"][0], snapshot["right"][1], labels[1]
+            found.append((snapshot["right"][0], snapshot["right"][1], labels[1], None))
         for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
             if was and isWanted(was) and isinstance(slot, dict):
-                return slot.get("pos"), slot.get("approach"), was
-    return None, None, None
+                found.append((slot.get("pos"), slot.get("approach"), was, slot))
+        if pick and _standSame(pick["name"], route):
+            if pick["pos"] is None:
+                continue
+            found = [f for f in found if _standEndsAt(f[0], pick["pos"])]
+        if found:
+            return found[0]
+    return None, None, None, None
+
+
+def _standEndsAt(pos, spot):
+    """True when a route position is the given (lat, lon), to the decimetre."""
+    try:
+        return _standMetres(float(pos[0]), float(pos[1]), spot[0], spot[1]) < 0.1
+    except Exception:
+        return False
 
 
 def _standIsAtcEntry(slot):
@@ -776,16 +819,10 @@ def _standRouteShape(self, gate, wanted):
     An extra slot carries them, so the entry takes that route's. A default
     route has none in this form, so it gets _standDefaultShape.
     """
-    snapshot = _standSnapshot(self, gate)
-    labels = snapshot["labels"]
-    for route in wanted:
-        isWanted = _standWantedTest([route])
-        if any(i < len(labels) and isWanted(labels[i]) for i in (0, 1)):
-            break
-        for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
-            if was and isWanted(was) and isinstance(slot, dict):
-                return dict((k, v) for k, v in slot.items()
-                            if k not in ("label", "pos", "approach"))
+    slot = _standRouteSlot(self, gate, wanted)[3]
+    if slot is not None:
+        return dict((k, v) for k, v in slot.items()
+                    if k not in ("label", "pos", "approach"))
     return _standDefaultShape(self, gate)
 
 

@@ -51,13 +51,13 @@ GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
 // departing EKCH: a named point
 { "stand": null, "pushback": ["Z2 Face E"], "point": "Z2",
   "target": { "lat": 55.627587, "lon": 12.632347, "heading": null, "radius_m": 40 },
-  "revision": "push:Z2:Z2 Face E" }
+  "revision": "push:A32:Z2:Z2 Face E" }
 
 // departing EKCH: a direction button (a bare taxiway)
 { "stand": null, "pushback": null, "point": "W",
   "target": { "lat": null, "lon": null, "heading": 270, "radius_m": 40,
               "avoid": [{ "lat": 55.627813, "lon": 12.631736 }, ...] },
-  "revision": "push:W" }
+  "revision": "push:A32:W" }
 ```
 
 | Field | Departures | What it is for |
@@ -80,7 +80,9 @@ has changed.
 `revision` is the assignment itself, deliberately, not `strips.version`. A
 strip's version changes for reasons that have nothing to do with parking, and
 each of those would otherwise look like a reassignment and make the script
-re-apply what is already applied.
+re-apply what is already applied. A departure's revision holds the stand
+as well as the point, because the target depends on the stand (facing rules
+are per stand).
 
 ## Arrivals and departures
 

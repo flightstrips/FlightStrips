@@ -101,19 +101,22 @@ node gsx-client/tools/embed.js path/to/EGKK-MyScenery_handler.py
 ```
 
 This appends the FlightStrips block between two marker lines at the end of
-your script. Run it again to update to a newer FlightStrips: it replaces the
-block and keeps the `API_BASE` and `SCENERY` set in it. `--scenery KEY` and
-`--api-base URL` set those.
+your script. Its settings and constants get an `FS_` prefix there
+(`FS_API_BASE`, `FS_SCENERY`, `FS_ATC_ENTRY_LABEL`...), so they never replace
+a name your own code uses. Run it again to update to a newer FlightStrips: it
+replaces the block and keeps the `FS_API_BASE` and `FS_SCENERY` set in it.
+`--scenery KEY` and `--api-base URL` set those.
 
 Your script's own callbacks keep working. If it defines
 `onAirportBeforeVehicleSelect`, `onEnterAirport`, `onAirportDepartureRequested`,
 `onAirportBypassPinConnected`, `onAirportGateReset` or `onExitAirport`, the
 block keeps yours and calls it before its own. Don't name anything starting
-`_stand` in your own code; the tool warns if your script defines one.
+`_stand` or `FS_` in your own code; the tool warns if your script defines one.
 
 ### Settings
 
 The defaults are what pilots should get. Change them only for a reason.
+In an embedded block each one has the `FS_` prefix.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
@@ -160,7 +163,11 @@ controller.
    ```
 
    It offers EKCH D2's four release points, with their real positions. To test
-   elsewhere, edit `$Points` at the top of the script.
+   another airport, edit the top of the script: `$Points` for the points to
+   offer, and `$ConfigPath` for that airport's `gsx_sceneries.json`, where the
+   positions come from. Each point needs an entry under `release_points` in that
+   file. If it has none, add the point's latitude and longitude there first;
+   without a position the mock has no target to send.
 
 2. **Point your installed script at it.** This copies your script into your GSX
    folder under its own filename, and sets `API_BASE`:
@@ -200,8 +207,8 @@ controller.
 
 ## Publish
 
-- Ship the script next to the `.ini`, named for it, with `API_BASE` on the
-  production URL.
+- Ship the script next to the `.ini`, named for it, with `API_BASE` (or
+  `FS_API_BASE` in an embedded block) on the production URL.
 - Link pilots to [GSX for pilots](/gsx/pilots/).
 
 ## When to map your scenery
@@ -229,7 +236,9 @@ request against the FlightStrips repository:
 
 The gate key is the stand as controllers know it, the scenery key is a name of
 your choosing, and `stand` is what GSX's `selectGate()` resolves in your
-scenery. Once merged, set `SCENERY = "MyScenery"` in your script.
+scenery. Once merged, set `SCENERY = "MyScenery"` in your script
+(`FS_SCENERY` in an embedded block, or re-run the embed tool with
+`--scenery MyScenery`).
 
 The file also has a per-scenery `points` mapping to route labels. It only
 serves handler scripts older than position matching, so leave it out.

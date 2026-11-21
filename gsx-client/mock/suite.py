@@ -242,6 +242,7 @@ for base, expect in (("https://x.app", "https://x.app/api/gsx/stand"),
     e = Env()
     gg = e.globals()
     gg["fetchJson"] = lambda u, timeout=0, etag=False: seen.append(u)
+    # FS_API_BASE once embedded in a profile's script by tools/embed.js.
     exec(compile(SRC.replace('API_BASE = "https://api.flightstrips.dk"',
                              'API_BASE = "%s"' % base), "h.py", "exec"), gg)
     h = Handler()
@@ -1016,5 +1017,24 @@ assign(env, g, h, "Z1")
 assert env.gate.menu()[-1] == "ATC Assigned", env.gate.menu()
 assert said() == ["ATC assigned Z1 - no route to it from this stand"], LOG
 case("no route at the point: nothing is guessed, whatever the names say")
+
+# Exactly named after the point, but ending elsewhere: position rejected it,
+# so its name must not bring it back.
+EXACT = [("S1", at("S2", 180)), ("S2 Face S", at("S2", 180))]
+env, g, h = planned(EXACT)
+assign(env, g, h, "S1")
+assert env.gate.menu()[-1] == "ATC Assigned", env.gate.menu()
+assert said() == ["ATC assigned S1 - no route to it from this stand"], LOG
+case("a route called exactly the point, ending elsewhere, is still not taken")
+
+# Two routes share a name; position picks the second, and the entry goes there
+# rather than to the first route with that name.
+TWINS = [("Push", at("S2", 180)), ("S2 Face S", at("S2", 180)),
+         ("Push", at("S1", 0))]
+env, g, h = planned(TWINS)
+assert assign(env, g, h, "S1") == "ATC Assigned: S1", env.gate.menu()
+entry = env.gate._addPos[-1]
+assert tuple(entry["pos"][:2]) == POINTS["S1"], entry
+case("two routes with one name: the entry goes where position chose")
 
 print("\nall passed")

@@ -10,7 +10,8 @@
 #
 # The second argument is the handler to deploy, for a profile other than EKCH's.
 # It is installed under its own filename, which GSX requires to be the profile's
-# name plus "_handler".
+# name plus "_handler". A script FlightStrips was embedded in by tools/embed.js
+# holds FS_API_BASE instead, and its own API_BASE (if any) is left alone.
 set -euo pipefail
 
 SRC="${2:-$(dirname "$0")/../EKCH-Simnord-Sonnich_handler.py}"
@@ -20,16 +21,21 @@ if [ ! -f "$SRC" ]; then
 fi
 DEST="$APPDATA/Virtuali/GSX/MSFS/$(basename "$SRC")"
 
+VAR=API_BASE
+if grep -q '^FS_API_BASE = ' "$SRC"; then
+  VAR=FS_API_BASE
+fi
+
 base="${1:-}"
 if [ -z "$base" ] && [ -f "$DEST" ]; then
-  base="$(sed -n 's/^API_BASE = "\(.*\)"$/\1/p' "$DEST" | head -1)"
+  base="$(sed -n "s/^$VAR = \"\(.*\)\"\$/\1/p" "$DEST" | head -1)"
 fi
 
 cp "$SRC" "$DEST"
 if [ -n "$base" ]; then
-  sed -i "s|^API_BASE = .*|API_BASE = \"$base\"|" "$DEST"
+  sed -i "s|^$VAR = .*|$VAR = \"$base\"|" "$DEST"
 fi
 
 echo "deployed -> $DEST"
-sed -n 's/^API_BASE = /  API_BASE = /p' "$DEST"
+sed -n "s/^$VAR = /  $VAR = /p" "$DEST"
 echo "  press F5 in the GSX Handler Editor to reload"

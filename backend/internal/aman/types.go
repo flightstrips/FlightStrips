@@ -278,10 +278,11 @@ type FlightObservation struct {
 	// ClearedAltitude is the EuroScope cleared flight level in feet, or the
 	// EuroScope approach codes 1 (ILS) and 2 (visual). It is display-only:
 	// holding logic reads the level from HoldingClearance instead.
-	ClearedAltitude *int
-	PlannedTiming   *PlannedTiming
-	FlightPlan     FlightPlanFact
-	Surveillance   *SurveillanceFact
+	ClearedAltitude              *int
+	ClearedAltitudeStripRevision StripRevision
+	PlannedTiming                *PlannedTiming
+	FlightPlan                   FlightPlanFact
+	Surveillance                 *SurveillanceFact
 	// HoldingClearance is an optional EuroScope strip fact. Keeping it with the
 	// observation lets initial strip synchronization create the aggregate and
 	// its clearance atomically on the next reconciliation.
@@ -312,6 +313,9 @@ type HoldingClearanceFact struct {
 	HoldEAT         string
 	ClearedAltitude *int32
 	ObservedAt      time.Time
+	StripRevision   StripRevision
+	// DedicatedClearedAltitude marks an explicit controller CFL update.
+	DedicatedClearedAltitude bool
 }
 
 type HoldingClearanceType string
@@ -330,6 +334,16 @@ type HoldingClearance struct {
 	HoldEAT         string
 	ClearedAltitude *int32
 	ObservedAt      time.Time
+	// ArrivalClearedAltitude is the strip's CFL even without a hold. Zero
+	// means no level is assigned. Nil means the fact lacks an arrival CFL.
+	ArrivalClearedAltitude *int32 `json:",omitempty"`
+	// ArrivalClearedAltitudeAt advances when a strip snapshot confirms the
+	// same CFL without changing the holding clearance or its observation time.
+	ArrivalClearedAltitudeAt time.Time     `json:",omitzero"`
+	StripRevision            StripRevision `json:",omitzero"`
+	// PreviousStripRevision keeps the last known version when the current
+	// snapshot was assembled without the persisted row version.
+	PreviousStripRevision StripRevision `json:",omitzero"`
 }
 
 type SurveillanceSource string

@@ -42,11 +42,13 @@ export default function AMAN() {
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const selectedCallsign = useWebSocketStore(value => value.amanSelectedCallsign);
+  const euroScopeSelectionGeneration = useWebSocketStore(value => value.amanEuroScopeSelectionGeneration);
   const setSelectedCallsign = useWebSocketStore(value => value.selectAMANFlight);
   const [dialogCallsign, setDialogCallsign] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailAction, setDetailAction] = useState<"none" | "all" | "missed" | "remove">("none");
   const [flightActionsOpen, setFlightActionsOpen] = useState(false);
+  const [flightActionsSelectionGeneration, setFlightActionsSelectionGeneration] = useState(euroScopeSelectionGeneration);
   // Where the flight menu opens: over the clicked callsign, kept on screen once measured.
   const [flightActionsAnchor, setFlightActionsAnchor] = useState<{left: number; top: number} | null>(null);
   const [flightActionsSize, setFlightActionsSize] = useState<{width: number; height: number} | null>(null);
@@ -54,20 +56,10 @@ export default function AMAN() {
     const rect = anchor?.getBoundingClientRect();
     setFlightActionsAnchor(rect ? {left: rect.left, top: rect.top} : null);
     setFlightActionsSize(null);
-    setSelectedCallsign(callsign);
+    setFlightActionsSelectionGeneration(euroScopeSelectionGeneration);
     setDialogCallsign(callsign);
     setFlightActionsOpen(true);
   };
-  // Opening the menu highlights its callsign; closing the menu, however it
-  // closes, removes that highlight again. A selection EuroScope moved to
-  // another aircraft meanwhile is left alone.
-  const flightActionsWasOpen = useRef(false);
-  useEffect(() => {
-    if (flightActionsWasOpen.current && !flightActionsOpen && selectedCallsign !== null && selectedCallsign === dialogCallsign) {
-      setSelectedCallsign(null);
-    }
-    flightActionsWasOpen.current = flightActionsOpen;
-  }, [flightActionsOpen, selectedCallsign, dialogCallsign, setSelectedCallsign]);
   // The menu is re-measured whenever its content changes size, and placed
   // against the current viewport, so it stays on screen while it is open.
   const measureFlightActions = useCallback((node: HTMLDivElement | null) => {
@@ -108,9 +100,13 @@ export default function AMAN() {
     : undefined;
   const stateAtMount = useRef(state);
 
-  const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === selectedCallsign)
-    || state?.holding_information?.some((entry) => entry.callsign === selectedCallsign)
-    ? selectedCallsign
+  // Menu highlighting is temporary. A newer EuroScope selection takes precedence.
+  const highlightedCallsign = flightActionsOpen && flightActionsSelectionGeneration === euroScopeSelectionGeneration
+    ? dialogCallsign
+    : selectedCallsign;
+  const effectiveSelectedCallsign = state?.flights.some((flight) => flight.callsign === highlightedCallsign)
+    || state?.holding_information?.some((entry) => entry.callsign === highlightedCallsign)
+    ? highlightedCallsign
     : null;
   const dialogFlight = state?.flights.find((flight) => flight.callsign === dialogCallsign) ?? null;
   const holdingInformation = state?.holding_information ?? [];
@@ -172,7 +168,6 @@ export default function AMAN() {
               setRemovalCommandID(null);
               setDetailOpen(true);
             }}
-            onSelectFlight={setSelectedCallsign}
             onViewStateChange={setBoardViewState}
             presentationStatus={presentationStatus}
             selectedCallsign={effectiveSelectedCallsign}

@@ -13,7 +13,10 @@ func TestAMANFactReadsMatchPersistedFlight(t *testing.T) {
 	repo := NewAMANRepository(pool)
 	ctx := context.Background()
 	state := amanState(1, "1234567", "SAS123")
-	state.Flights[0].HoldingClearance = &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ObservedAt: amanTestTime}
+	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
+		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ObservedAt: amanTestTime,
+		StripRevision: aman.StripRevision{ID: 42, Version: 17},
+	}
 	_, err := repo.Commit(ctx, aman.StateCommit{State: state})
 	require.NoError(t, err)
 	id, err := repo.FindActiveFactFlight(ctx, state.Airport, " sas123 ")

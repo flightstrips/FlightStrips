@@ -511,7 +511,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 	return i, err
 }
 
-const insertStrip = `-- name: InsertStrip :exec
+const insertStrip = `-- name: InsertStrip :one
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
                      squawk, sid, star, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
@@ -572,6 +572,7 @@ VALUES (
     $49,
     $50
 )
+RETURNING id, version
 `
 
 type InsertStripParams struct {
@@ -627,8 +628,13 @@ type InsertStripParams struct {
 	FlightPlanEet        string
 }
 
-func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
-	_, err := q.db.Exec(ctx, insertStrip,
+type InsertStripRow struct {
+	ID      int32
+	Version int32
+}
+
+func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) (InsertStripRow, error) {
+	row := q.db.QueryRow(ctx, insertStrip,
 		arg.Callsign,
 		arg.Session,
 		arg.Origin,
@@ -680,7 +686,9 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.IsManual,
 		arg.FlightPlanEet,
 	)
-	return err
+	var i InsertStripRow
+	err := row.Scan(&i.ID, &i.Version)
+	return i, err
 }
 
 const listStripSequences = `-- name: ListStripSequences :many
@@ -1393,9 +1401,22 @@ func (q *Queries) UpdateRunwayConfirmation(ctx context.Context, arg UpdateRunway
 	return result.RowsAffected(), nil
 }
 
-const updateStrip = `-- name: UpdateStrip :execrows
+const updateStrip = `-- name: UpdateStrip :one
+WITH clearance_authority AS (
+    SELECT s.id AS strip_id,
+           $60::integer IS NOT NULL AND s.version <> $60::integer AS newer_version,
+           ROW(s.cleared_altitude, s.hold, s.hold_type, s.hold_eat)
+               IS DISTINCT FROM ROW($61::integer, $62::text,
+                                    $63::text, $64::text) AS different_clearance,
+           $65::text IS NOT NULL AND ($65::text = '' OR
+               lower(btrim(s.tracking_controller)) <> lower($65::text)) AS non_tracking
+    FROM strips AS s
+    WHERE s.callsign = $66 AND s.session = $67
+      AND ($68::integer IS NULL OR s.id = $68::integer)
+    FOR UPDATE
+)
 UPDATE strips
-SET version = version + 1,
+SET version = strips.version + 1,
     origin = $1,
     destination = $2,
     alternative = $3,
@@ -1405,57 +1426,62 @@ SET version = version + 1,
     squawk = $7,
     sid = $8,
     star = $9,
-    cleared_altitude = $10,
-    heading = $11,
-    aircraft_type = $12,
-    runway = $13,
-    requested_altitude = $14,
-    capabilities = $15,
-    communication_type = $16,
-    aircraft_category = $17,
-    stand = $18,
-    sequence = $19,
-    state = $20,
-    cleared = $21,
-    owner = $22::varchar,
-    next_controller_sector = CASE WHEN owner IS DISTINCT FROM $22::varchar THEN NULL ELSE next_controller_sector END,
-    bay = $23,
-    position_latitude = $24,
-    position_longitude = $25,
-    position_altitude = $26,
-    cdm_data = $27,
-    next_owners = $28::jsonb,
-    previous_owners = $29::jsonb,
-    release_point = $30,
-    marked = $31,
-    registration = $32,
-    tracking_controller = $33,
-    spoken_callsign = $34,
-    runway_cleared = $35,
-    runway_confirmed = $36,
-    engine_type = $37,
-    unexpected_change_fields = COALESCE($38::text[], '{}'::text[]),
-    controller_modified_fields = COALESCE($39::text[], '{}'::text[]),
-    is_manual = $40,
-    persons_on_board = $41,
-    fpl_type = $42,
-    language = $43,
-    has_fp = $44,
-    flight_rules = $45,
-    flight_plan_eet = $46,
-    pdc_data = $47,
-    validation_status = $48,
-    start_req = $49,
-    vatsim_cid = $50,
-    vatsim_revision = $51,
-    vatsim_seen_at = $52,
-    euroscope_seen_at = $53,
-    hold = $54,
-    hold_type = $55,
-    hold_eat = $56,
-    next_display_label = $57,
-    next_display_frequency = $58
-WHERE callsign = $59 AND session = $60
+    cleared_altitude = CASE WHEN $10::boolean AND NOT newer_version THEN $11::integer
+                           WHEN (newer_version AND different_clearance) OR
+                                 (non_tracking AND btrim(strips.tracking_controller) <> '' AND (newer_version OR btrim(strips.hold) <> ''))
+                            THEN strips.cleared_altitude ELSE $11::integer END,
+    heading = $12,
+    aircraft_type = $13,
+    runway = $14,
+    requested_altitude = $15,
+    capabilities = $16,
+    communication_type = $17,
+    aircraft_category = $18,
+    stand = $19,
+    sequence = $20,
+    state = $21,
+    cleared = $22,
+    owner = $23::varchar,
+    next_controller_sector = CASE WHEN owner IS DISTINCT FROM $23::varchar THEN NULL ELSE next_controller_sector END,
+    bay = $24,
+    position_latitude = $25,
+    position_longitude = $26,
+    position_altitude = $27,
+    cdm_data = $28,
+    next_owners = $29::jsonb,
+    previous_owners = $30::jsonb,
+    release_point = $31,
+    marked = $32,
+    registration = $33,
+    tracking_controller = $34,
+    spoken_callsign = $35,
+    runway_cleared = $36,
+    runway_confirmed = $37,
+    engine_type = $38,
+    unexpected_change_fields = COALESCE($39::text[], '{}'::text[]),
+    controller_modified_fields = COALESCE($40::text[], '{}'::text[]),
+    is_manual = $41,
+    persons_on_board = $42,
+    fpl_type = $43,
+    language = $44,
+    has_fp = $45,
+    flight_rules = $46,
+    flight_plan_eet = $47,
+    pdc_data = $48,
+    validation_status = $49,
+    start_req = $50,
+    vatsim_cid = $51,
+    vatsim_revision = $52,
+    vatsim_seen_at = $53,
+    euroscope_seen_at = $54,
+    hold = CASE WHEN (newer_version AND different_clearance) OR non_tracking THEN strips.hold ELSE $55::text END,
+    hold_type = CASE WHEN (newer_version AND different_clearance) OR non_tracking THEN strips.hold_type ELSE $56::text END,
+    hold_eat = CASE WHEN (newer_version AND different_clearance) OR non_tracking THEN strips.hold_eat ELSE $57::text END,
+    next_display_label = $58,
+    next_display_frequency = $59
+FROM clearance_authority
+WHERE strips.id = clearance_authority.strip_id
+RETURNING strips.id, strips.version, strips.cleared_altitude, strips.hold, strips.hold_type, strips.hold_eat
 `
 
 type UpdateStripParams struct {
@@ -1468,6 +1494,7 @@ type UpdateStripParams struct {
 	Squawk                   *string
 	Sid                      *string
 	Star                     *string
+	SyncRestart              bool
 	ClearedAltitude          *int32
 	Heading                  *int32
 	AircraftType             *string
@@ -1517,12 +1544,28 @@ type UpdateStripParams struct {
 	HoldEat                  string
 	NextDisplayLabel         *string
 	NextDisplayFrequency     *string
+	SyncVersion              *int32
+	SyncClearedAltitude      *int32
+	SyncHold                 *string
+	SyncHoldType             *string
+	SyncHoldEat              *string
+	SyncSender               *string
 	Callsign                 string
 	Session                  int32
+	SyncStripID              *int32
 }
 
-func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStrip,
+type UpdateStripRow struct {
+	ID              int32
+	Version         int32
+	ClearedAltitude *int32
+	Hold            string
+	HoldType        string
+	HoldEat         string
+}
+
+func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (UpdateStripRow, error) {
+	row := q.db.QueryRow(ctx, updateStrip,
 		arg.Origin,
 		arg.Destination,
 		arg.Alternative,
@@ -1532,6 +1575,7 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.Squawk,
 		arg.Sid,
 		arg.Star,
+		arg.SyncRestart,
 		arg.ClearedAltitude,
 		arg.Heading,
 		arg.AircraftType,
@@ -1581,13 +1625,26 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.HoldEat,
 		arg.NextDisplayLabel,
 		arg.NextDisplayFrequency,
+		arg.SyncVersion,
+		arg.SyncClearedAltitude,
+		arg.SyncHold,
+		arg.SyncHoldType,
+		arg.SyncHoldEat,
+		arg.SyncSender,
 		arg.Callsign,
 		arg.Session,
+		arg.SyncStripID,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	var i UpdateStripRow
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.ClearedAltitude,
+		&i.Hold,
+		&i.HoldType,
+		&i.HoldEat,
+	)
+	return i, err
 }
 
 const updateStripAircraftPositionAndBay = `-- name: UpdateStripAircraftPositionAndBay :execrows

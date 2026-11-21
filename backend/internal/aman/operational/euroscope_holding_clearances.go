@@ -2,6 +2,7 @@ package operational
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/holdingclearance"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"context"
@@ -42,6 +43,15 @@ func NewEuroScopeHoldingClearanceObserver(deps EuroScopeHoldingClearanceObserver
 
 func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearance(ctx context.Context, strip *models.Strip) error {
 	return o.ObserveHoldingClearances(ctx, []shared.HoldingClearanceObservation{{Strip: strip, ObservedAt: o.now().UTC()}})
+}
+
+func (o *EuroScopeHoldingClearanceObserver) ObserveClearedAltitude(ctx context.Context, strip *models.Strip) error {
+	fact, err := o.projectStrip(strip, o.now().UTC())
+	if err != nil || fact == nil {
+		return err
+	}
+	fact.DedicatedClearedAltitude = true
+	return o.sink.ObserveHoldingClearance(aman.WithSession(ctx, strip.Session), *fact)
 }
 
 func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearances(ctx context.Context, strips []shared.HoldingClearanceObservation) error {
@@ -94,19 +104,25 @@ func (o *EuroScopeHoldingClearanceObserver) projectStrip(strip *models.Strip, ob
 		Origin:   strings.ToUpper(strings.TrimSpace(strip.Origin)), Destination: strings.ToUpper(strings.TrimSpace(strip.Destination)),
 		Hold: strip.Hold, HoldType: aman.HoldingClearanceType(strip.HoldType), HoldEAT: strip.HoldEat,
 		ClearedAltitude: cloneInt32(strip.ClearedAltitude), ObservedAt: observedAt,
+		StripRevision: stripRevision(strip),
 	}
 	return &fact, nil
 }
 
 func normalizedStripHoldingClearance(strip *models.Strip, observedAt time.Time) *aman.HoldingClearance {
-	hold := strings.ToUpper(strings.TrimSpace(strip.Hold))
-	holdType := aman.HoldingClearanceType(strings.ToLower(strings.TrimSpace(strip.HoldType)))
-	holdEAT := strings.TrimSpace(strip.HoldEat)
-	altitude := cloneInt32(strip.ClearedAltitude)
-	if hold == "" {
-		holdType, holdEAT, altitude = "", "", nil
+	return holdingclearance.NormalizeStripFact(aman.HoldingClearanceFact{
+		Hold: strip.Hold, HoldType: aman.HoldingClearanceType(strip.HoldType), HoldEAT: strip.HoldEat,
+		ClearedAltitude: strip.ClearedAltitude, ObservedAt: observedAt,
+		StripRevision: stripRevision(strip),
+	})
+}
+
+func stripRevision(strip *models.Strip) aman.StripRevision {
+	revision := aman.StripRevision{ID: strip.ID, Version: strip.Version}
+	if revision.Known() {
+		return revision
 	}
-	return &aman.HoldingClearance{Hold: hold, HoldType: holdType, HoldEAT: holdEAT, ClearedAltitude: altitude, ObservedAt: observedAt}
+	return aman.StripRevision{}
 }
 
 func cloneInt32(value *int32) *int32 {

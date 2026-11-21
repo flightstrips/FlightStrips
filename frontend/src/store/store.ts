@@ -238,6 +238,7 @@ export interface WebSocketState {
 
   amanSelectedCallsign: string | null;
   amanEuroScopeSelectionRevision: number;
+  amanEuroScopeSelectionGeneration: number;
   selectAMANFlight: (callsign: string | null) => void;
   amanSessionID: number | null;
   amanState: AMANState | null;
@@ -426,6 +427,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     availableSids: [],
     amanSelectedCallsign: null,
     amanEuroScopeSelectionRevision: 0,
+    amanEuroScopeSelectionGeneration: 0,
     amanSessionID: null,
     amanState: null,
     amanPresentationStatus: "empty" as AMANPresentationStatus,
@@ -460,6 +462,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     }
     initialState.reconciling = false;
     initialState.pendingAssumptions = {};
+    initialState.amanEuroScopeSelectionGeneration++;
     Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
   }
   // Create the store
@@ -1376,7 +1379,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     pendingForceAssumeRoutes.clear();
     // Keep the last board, layout and passive selections visible. No command is
     // replayed: authority and mutation continuations are invalid until resynced.
-    store.setState({connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    store.setState(state => ({
+      connectedFlightCandidates:[], connectedFlightSearchRequest:null, readOnly:true, ownPluginReady:false,
+      contextMenu:null, textPilotDraft:null, amanEuroScopeSelectionRevision:0,
+      amanEuroScopeSelectionGeneration:state.amanEuroScopeSelectionGeneration + 1,
+      markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanFMPAuthority:false,
+      amanAwaitingSnapshot:true, amanRebuildResult:null,
+    }));
   };
   registrations.push(() => wsClient.onInvalidated?.(suspendBoard));
 
@@ -1386,6 +1395,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       || !(selection.callsign === null || typeof selection.callsign === "string")) return;
     state.amanSelectedCallsign = selection.callsign || null;
     state.amanEuroScopeSelectionRevision = selection.revision;
+    state.amanEuroScopeSelectionGeneration++;
   };
   const handleInitialEvent = (data: FrontendInitialEvent) => {
     clearRecovery();
@@ -1399,6 +1409,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
         if (state.amanSessionID !== sessionID || ((state.boardContext || data.board) && !sameBoard(state.boardContext ?? undefined, data.board))) {
           if (!sameLogicalBoard) state.amanSelectedCallsign = null;
           state.amanEuroScopeSelectionRevision = 0;
+          state.amanEuroScopeSelectionGeneration++;
         }
         applyAircraftSelection(state, data.aircraft_selection);
         if (state.position !== data.me.position) state.textPilotDraft = null;

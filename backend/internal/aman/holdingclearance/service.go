@@ -86,7 +86,7 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 			if !exists {
 				continue
 			}
-			if !sameClearance(current.Clearance, normalize(fact)) && (current.Clearance == nil || fact.ObservedAt.After(current.Clearance.ObservedAt)) {
+			if shouldApplyClearance(current.Clearance, NormalizeStripFact(fact), fact.DedicatedClearedAltitude) {
 				changed = true
 				break
 			}
@@ -116,20 +116,28 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 			if !exists {
 				continue
 			}
-			normalized := normalize(fact)
-			current := state.Flights[index].HoldingClearance
-			if sameClearance(current, normalized) || (current != nil && !fact.ObservedAt.After(current.ObservedAt)) {
+			normalized := NormalizeStripFact(fact)
+			flight := &state.Flights[index]
+			current := flight.HoldingClearance
+			if !shouldApplyClearance(current, normalized, fact.DedicatedClearedAltitude) || normalized.ConflictsWithNewerCFL(flight.LatestObservation) {
 				continue
 			}
-			// EAT writeback echoes do not change the holding journey. Replan
-			// only when the clearance or cleared level changes.
-			if current == nil || current.Hold != normalized.Hold || current.HoldType != normalized.HoldType ||
-				!equalAltitude(current.ClearedAltitude, normalized.ClearedAltitude) {
-				if !slices.Contains(replan, fact.Callsign) {
+			if sameClearance(current, normalized) {
+				// Keep the revision of a reaffirmed CFL without changing the
+				// holding observation or running the planner again.
+				reaffirmed := *current
+				reaffirmed.ArrivalClearedAltitudeAt = fact.ObservedAt
+				if normalized.StripRevision.Known() {
+					reaffirmed.StripRevision = normalized.StripRevision
+					reaffirmed.PreviousStripRevision = aman.StripRevision{}
+				}
+				flight.HoldingClearance = &reaffirmed
+			} else {
+				if holdingPlanChanged(current, normalized) && !slices.Contains(replan, fact.Callsign) {
 					replan = append(replan, fact.Callsign)
 				}
+				flight.ReplaceHoldingClearance(normalized)
 			}
-			state.Flights[index].ReplaceHoldingClearance(normalized)
 			changed = true
 			if fact.ObservedAt.After(state.GeneratedAt) {
 				state.GeneratedAt = fact.ObservedAt
@@ -169,11 +177,16 @@ func advanceRevision(state *aman.AirportState) {
 	}
 }
 
-func normalize(fact aman.HoldingClearanceFact) *aman.HoldingClearance {
+// NormalizeStripFact retains both the holding clearance and the strip's arrival CFL.
+func NormalizeStripFact(fact aman.HoldingClearanceFact) *aman.HoldingClearance {
 	hold := strings.ToUpper(strings.TrimSpace(fact.Hold))
 	holdType := aman.HoldingClearanceType(strings.ToLower(strings.TrimSpace(string(fact.HoldType))))
 	holdEAT := strings.TrimSpace(fact.HoldEAT)
 	altitude := cloneAltitude(fact.ClearedAltitude)
+	arrivalAltitude := int32(0)
+	if altitude != nil {
+		arrivalAltitude = max(0, *altitude)
+	}
 	if hold == "" {
 		holdType = ""
 		holdEAT = ""
@@ -181,7 +194,8 @@ func normalize(fact aman.HoldingClearanceFact) *aman.HoldingClearance {
 	}
 	return &aman.HoldingClearance{
 		Hold: hold, HoldType: holdType, HoldEAT: holdEAT,
-		ClearedAltitude: altitude, ObservedAt: fact.ObservedAt,
+		ClearedAltitude: altitude, ObservedAt: fact.ObservedAt, ArrivalClearedAltitude: &arrivalAltitude,
+		StripRevision: fact.StripRevision,
 	}
 }
 
@@ -190,7 +204,19 @@ func sameClearance(current, next *aman.HoldingClearance) bool {
 		return current == next
 	}
 	return current.Hold == next.Hold && current.HoldType == next.HoldType && current.HoldEAT == next.HoldEAT &&
-		equalAltitude(current.ClearedAltitude, next.ClearedAltitude)
+		equalAltitude(current.ClearedAltitude, next.ClearedAltitude) &&
+		equalAltitude(current.ArrivalClearedAltitude, next.ArrivalClearedAltitude)
+}
+
+func shouldApplyClearance(current, next *aman.HoldingClearance, dedicatedClearedAltitude bool) bool {
+	return current.PredatesStripSnapshot(next.StripRevision, next.ObservedAt) &&
+		(dedicatedClearedAltitude || next.StripRevision.Known() || !sameClearance(current, next))
+}
+
+// EAT writeback echoes do not change the holding journey.
+func holdingPlanChanged(current, next *aman.HoldingClearance) bool {
+	return current == nil || current.Hold != next.Hold || current.HoldType != next.HoldType ||
+		!equalAltitude(current.ClearedAltitude, next.ClearedAltitude)
 }
 
 func equalAltitude(left, right *int32) bool {

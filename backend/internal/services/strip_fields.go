@@ -130,7 +130,7 @@ func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int3
 }
 
 // UpdateClearedAltitude updates the cleared altitude and immediately refreshes
-// AMAN's holding fact so stack ordering does not wait for another strip sync.
+// AMAN's arrival clearance and holding facts from the persisted strip.
 func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
 	count, err := s.fieldStore.UpdateClearedAltitude(ctx, session, callsign, &altitude, nil)
 	if err != nil {
@@ -146,7 +146,9 @@ func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32,
 			if err != nil {
 				return err
 			}
-			return s.observeHoldingClearance(ctx, strip)
+			if canObserveHoldingClearance(ctx, strip) {
+				return s.holdingObserver.ObserveClearedAltitude(ctx, strip)
+			}
 		}
 	}
 	return nil

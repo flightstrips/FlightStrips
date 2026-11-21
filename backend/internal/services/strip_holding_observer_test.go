@@ -86,7 +86,10 @@ func (s *holdingBatchObserverSpy) ObserveHoldingClearances(_ context.Context, ob
 	return nil
 }
 
-type holdingObserverSpy struct{ strips []*models.Strip }
+type holdingObserverSpy struct {
+	strips    []*models.Strip
+	altitudes []*models.Strip
+}
 
 func TestStripSyncForwardsAMANFiledTimingOnBatchAndUnchangedUpdates(t *testing.T) {
 	for _, batched := range []bool{false, true} {
@@ -169,6 +172,11 @@ func TestStripSyncOnlyAcceptsHoldingFieldsFromPersistedTrackingController(t *tes
 
 func (s *holdingObserverSpy) ObserveHoldingClearance(_ context.Context, strip *models.Strip) error {
 	s.strips = append(s.strips, strip)
+	return nil
+}
+
+func (s *holdingObserverSpy) ObserveClearedAltitude(_ context.Context, strip *models.Strip) error {
+	s.altitudes = append(s.altitudes, strip)
 	return nil
 }
 

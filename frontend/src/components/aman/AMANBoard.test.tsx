@@ -17,6 +17,7 @@ const boardStore = vi.hoisted(() => ({
   readOnly: false,
   sendAMANCommand: vi.fn(),
   setAMANSelectedView: vi.fn(),
+  transitionAltitude: 5000,
 }));
 
 vi.mock("@/store/store-hooks", () => ({
@@ -260,6 +261,23 @@ describe("complete AMAN timeline and strips", () => {
     expect(target).toHaveFocus();
     expect(onSelectFlight).toHaveBeenCalledWith("SAS123");
     expect(onOpenFlightActions).toHaveBeenCalledWith("SAS123", target);
+  });
+
+  it.each([[9000, "FL90"], [5000, "5000"], [1, "ILS"], [2, "VIS"]])("renders clearance %i as %s in FMP, RWY, and ACC targets", (altitude, label) => {
+    const current = state();
+    current.flights.find(flight => flight.callsign === "SAS123")!.cleared_altitude = altitude;
+    renderBoard(current);
+
+    const checkTarget = () => {
+      const target = screen.getByRole("button", {name: /Select SAS123/});
+      expect(target.querySelector('[data-field="cfl"]')).toHaveTextContent(label);
+      expect(target).toHaveAccessibleName(new RegExp(`cleared altitude ${label}`));
+    };
+    checkTarget();
+    for (const view of ["RWY", "ACC"]) {
+      fireEvent.click(screen.getByRole("button", {name: view}));
+      checkTarget();
+    }
   });
 
   it("renders GAP intervals and audited manual exceptions in every timeline view", () => {

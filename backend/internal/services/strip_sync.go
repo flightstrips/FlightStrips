@@ -679,28 +679,52 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		if !primaryChange {
+			amanStrip.Version = existingStrip.Version
 			s.sendCorrectedEuroscopeEobt(ctx, session, cid, strip.Callsign, correctedEobt, eobtClamped)
 			return s.observeSyncedStrip(ctx, amanStrip, existingStrip)
 		}
 
 		if primaryChange {
 			previousStrip := *existingStrip
+			writeCtx := shared.WithStripSyncWriteBasis(ctx, &previousStrip)
+			writeCtx = shared.WithStripSyncLifecycleRestart(writeCtx, restartLifecycle)
 			persisted := false
 			if appender, ok := s.lifecycleStore.(interface {
 				PersistAtEndOfBay(context.Context, *internalModels.Strip, bool, int32) error
 			}); ok && (bayChanged || restartLifecycle) {
-				err = appender.PersistAtEndOfBay(ctx, updateStrip, false, InitialOrderSpacing)
-				persisted = err == nil
+				err = appender.PersistAtEndOfBay(writeCtx, updateStrip, false, InitialOrderSpacing)
+				if errors.Is(err, pgx.ErrNoRows) {
+					err = nil
+				} else {
+					persisted = err == nil
+				}
 			} else {
 				var rows int64
-				rows, err = s.lifecycleStore.Update(ctx, updateStrip)
+				rows, err = s.lifecycleStore.Update(writeCtx, updateStrip)
 				persisted = rows == 1
 			}
 			if err != nil {
 				return err
 			}
 			shared.AddDBOperations(ctx, 1)
-			if observedPushback && persisted {
+			if !persisted {
+				// This input still contained the callsign. Queue the actual strip
+				// if it was replaced so the full snapshot does not remove it from AMAN.
+				current, err := s.stripReader.GetByCallsign(ctx, session, strip.Callsign)
+				shared.AddDBOperations(ctx, 1)
+				if err != nil {
+					return fmt.Errorf("reload strip %s after full-sync write conflict: %w", strip.Callsign, err)
+				}
+				if current == nil {
+					return fmt.Errorf("strip %s missing after full-sync write conflict", strip.Callsign)
+				}
+				if syncState != nil && syncState.ExistingStrips != nil {
+					syncState.ExistingStrips[strip.Callsign] = current
+				}
+				s.cacheStrip(ctx, current)
+				return s.observeSyncedStrip(ctx, current, current)
+			}
+			if observedPushback {
 				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousBay, initialPushbackTiming, updateStrip)
 			}
 			if syncState != nil {
@@ -708,10 +732,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				applySyncStripUpdate(existingStrip, updateStrip)
 			}
 			s.cacheStrip(ctx, updateStrip)
-			if persisted {
-				if err := s.handleObservedDepartureTransition(ctx, session, &previousStrip, updateStrip, airport, restartLifecycle); err != nil {
-					return err
-				}
+			if err := s.handleObservedDepartureTransition(ctx, session, &previousStrip, updateStrip, airport, restartLifecycle); err != nil {
+				return err
 			}
 		}
 		if bayChanged {
@@ -720,7 +742,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 		}
 		slog.DebugContext(ctx, "Updated strip", slog.String("callsign", strip.Callsign))
-		if primaryChange && updateClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
+		if primaryChange && updateClearedAlt != strip.ClearedAltitude && updateStrip.ClearedAltitude != nil &&
+			*updateStrip.ClearedAltitude == updateClearedAlt && s.esCommander != nil {
 			if dispatchErr := shared.DispatchCommand(ctx, session, euroscope.ClearedAltitudeEvent{Callsign: strip.Callsign, Altitude: updateClearedAlt}, func() { s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt) }); dispatchErr != nil {
 				return dispatchErr
 			}
@@ -895,11 +918,16 @@ type holdingClearanceBatchObserver interface {
 	ObserveHoldingClearances(context.Context, []shared.HoldingClearanceObservation) error
 }
 
-func (s *StripService) observeHoldingClearance(ctx context.Context, strip *internalModels.Strip) error {
-	if s.holdingObserver == nil || strip == nil {
-		return nil
+func canObserveHoldingClearance(ctx context.Context, strip *internalModels.Strip) bool {
+	if strip == nil {
+		return false
 	}
-	if sender, authenticated := shared.StripSyncController(ctx); authenticated && !shared.IsTrackingController(sender, strip.TrackingController) {
+	sender, authenticated := shared.StripSyncController(ctx)
+	return !authenticated || shared.IsTrackingController(sender, strip.TrackingController)
+}
+
+func (s *StripService) observeHoldingClearance(ctx context.Context, strip *internalModels.Strip) error {
+	if s.holdingObserver == nil || !canObserveHoldingClearance(ctx, strip) {
 		return nil
 	}
 	if state := shared.GetSyncState(ctx); state != nil {
@@ -1165,7 +1193,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 		return
 	}
 
-	existingStrip.Version++
+	existingStrip.ID, existingStrip.Version = updateStrip.ID, updateStrip.Version
 	existingStrip.FlightPlanEET = updateStrip.FlightPlanEET
 	existingStrip.Origin = updateStrip.Origin
 	existingStrip.Destination = updateStrip.Destination

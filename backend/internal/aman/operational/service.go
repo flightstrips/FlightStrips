@@ -319,6 +319,7 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		return incoming
 	}
 	if observationOwner(incoming) == aman.ObservationProviderEuroScope {
+		retainNewerClearedAltitude(previous, &incoming)
 		merged := previous
 		merged.Callsign = incoming.Callsign
 		merged.Origin, merged.Destination = incoming.Origin, incoming.Destination
@@ -340,7 +341,9 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		merged.AssignedSTAR = incoming.AssignedSTAR
 		// EuroScope owns the CFL; a cleared value of nil removes it.
 		merged.ClearedAltitude = incoming.ClearedAltitude
-		if incoming.HoldingClearance != nil {
+		merged.ClearedAltitudeStripRevision = incoming.ClearedAltitudeStripRevision
+		if clearance := incoming.HoldingClearance; clearance != nil &&
+			previous.HoldingClearance.PredatesStripSnapshot(clearance.StripRevision, clearance.ObservedAt) {
 			merged.HoldingClearance = incoming.HoldingClearance
 		}
 		if incoming.PlannedTiming != nil {
@@ -393,9 +396,17 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		}
 		incoming.AssignedSTAR = previous.AssignedSTAR
 		incoming.ClearedAltitude = previous.ClearedAltitude
+		incoming.ClearedAltitudeStripRevision = previous.ClearedAltitudeStripRevision
 		incoming.Provider = aman.ObservationProviderEuroScope
 	}
 	return incoming
+}
+
+func retainNewerClearedAltitude(previous aman.FlightObservation, incoming *aman.FlightObservation) {
+	if incoming.ClearedAltitudeStripRevision.IsOlderThan(previous.ClearedAltitudeStripRevision) {
+		incoming.ClearedAltitude = previous.ClearedAltitude
+		incoming.ClearedAltitudeStripRevision = previous.ClearedAltitudeStripRevision
+	}
 }
 
 // destinationObservation also sees unsupported airports. Network observations
@@ -1074,12 +1085,19 @@ func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFligh
 	if observation.TakeoffDetected != nil && !groundedSurveillance(observation.Surveillance) {
 		state = aman.StateAirborne
 	}
+	discardConflictingHoldingClearance(&observation)
 	copy := observation
 	return aman.AMANFlight{
 		Callsign: observation.Callsign,
 		State:    state, SequenceDisposition: aman.SequenceDispositionActive,
 		DataStatus: observation.SourceStatus, LatestObservation: &copy, HoldingClearance: cloneHoldingClearance(observation.HoldingClearance),
 		FreezeReason: aman.FreezeNone, UpdatedAt: now,
+	}
+}
+
+func discardConflictingHoldingClearance(observation *aman.FlightObservation) {
+	if clearance := observation.HoldingClearance; clearance != nil && clearance.ConflictsWithNewerCFL(observation) {
+		observation.HoldingClearance = nil
 	}
 }
 
@@ -1170,11 +1188,13 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			if previousOwner == aman.ObservationProviderEuroScope && observationFactTime(observation).Before(observationFactTime(*previous)) {
 				return flight, nil
 			}
+			retainNewerClearedAltitude(*previous, &observation)
 		} else if observation.ReconciledAt.Before(previous.ReconciledAt) ||
 			(observation.Destination != previous.Destination && observationFactTime(observation).Before(observationFactTime(*previous))) {
 			return flight, nil
 		}
 	}
+	discardConflictingHoldingClearance(&observation)
 	if flight.State == aman.StateRemoved && flight.Lifecycle != nil && flight.Lifecycle.Reason == aman.LifecycleReasonManualRemoval {
 		copy := observation
 		flight.LatestObservation, flight.DataStatus, flight.UpdatedAt = &copy, observation.SourceStatus, now
@@ -1259,7 +1279,8 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 	flight.LatestObservation = &copy
 	flight.ApproachEntry = nil
 	flight.Callsign, flight.DataStatus = observation.Callsign, observation.SourceStatus
-	if observation.HoldingClearance != nil && (flight.HoldingClearance == nil || observation.HoldingClearance.ObservedAt.After(flight.HoldingClearance.ObservedAt)) {
+	if clearance := observation.HoldingClearance; clearance != nil &&
+		flight.HoldingClearance.PredatesStripSnapshot(clearance.StripRevision, clearance.ObservedAt) {
 		flight.ReplaceHoldingClearance(cloneHoldingClearance(observation.HoldingClearance))
 	}
 	if activeHoldingReleaseBasis(flight) == nil {
@@ -1767,10 +1788,8 @@ func cloneHoldingClearance(value *aman.HoldingClearance) *aman.HoldingClearance 
 		return nil
 	}
 	copy := *value
-	if value.ClearedAltitude != nil {
-		altitude := *value.ClearedAltitude
-		copy.ClearedAltitude = &altitude
-	}
+	copy.ClearedAltitude = cloneInt32(value.ClearedAltitude)
+	copy.ArrivalClearedAltitude = cloneInt32(value.ArrivalClearedAltitude)
 	return &copy
 }
 

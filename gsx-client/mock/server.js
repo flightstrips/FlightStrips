@@ -9,7 +9,7 @@
 // on every request, so a change lands on the handler's next poll, within five
 // seconds.
 //
-// It answers the real contract and nothing more - same three fields, same
+// It answers the real contract and nothing more - same five fields, same
 // shape - so anything that works here works against FlightStrips.
 
 const http = require("http");
@@ -49,7 +49,7 @@ const server = http.createServer((req, res) => {
     // Valid JSON is not enough: "null" or "[]" parses, then reading a field
     // off it would throw outside this block and stop the server.
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new Error("expected an object with stand, pushback and revision");
+      throw new Error("expected an object with stand, pushback, point, target and revision");
     }
   } catch (err) {
     // Answer 503 rather than 500: that is what the handler is built to ride
@@ -63,6 +63,8 @@ const server = http.createServer((req, res) => {
   const body = JSON.stringify({
     stand: payload.stand ?? null,
     pushback: payload.pushback ?? null,
+    point: payload.point ?? null,
+    target: payload.target ?? null,
     revision: payload.revision ?? "mock",
   });
 

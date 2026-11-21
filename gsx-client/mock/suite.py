@@ -8,7 +8,7 @@ LOG = []
 
 
 class Gate(object):
-    """[gate b 8] from EKCH-Simnord-Sonnich.ini, double spaces included."""
+    """A stand with two default routes and two extras, one label double-spaced."""
 
     uiGateName = "Gate B8"
 
@@ -84,7 +84,14 @@ class Env(object):
              "addVdgsMessage": vdgs, "removeVdgsMessage": lambda i: None,
              "executeCalculatorCode": calc,
              "getSimbrief": lambda: type("S", (), {"last_error": None,
-                                                   "callsign": "DAT99"})()}
+                                                   "callsign": "DAT99"})(),
+             # What a profile script the block is embedded in may use, for its
+             # own operator selection, say.
+             "aircraft": type("Aircraft", (), {"icaoAirline": "SAS", "icaoType": "A20N"})(),
+             "getGlobalPersistentVariable": lambda name, default=None: "auto",
+             "setGlobalPersistentVariable": lambda name, value: None,
+             "choiceBox": lambda *a, **k: 0,
+             "Distance": type("Distance", (), {"fromMeters": staticmethod(lambda m: m)})}
         if restricted:
             # GSX hands a handler a restricted builtins set - globals() is not
             # in it, which once stopped the whole script loading.
@@ -812,5 +819,202 @@ env.payload = {"stand": None, "pushback": ["Z7 Face W"]}
 g["_standCheck"](h)
 assert atc(env)["pos"] == LEFT, "the push was caught, and the entry left alone"
 case("a push is still caught when no position was readable at the request")
+
+
+# -- any profile ---------------------------------------------------------------
+# An unmapped scenery gets only the bare point; the script finds its own routes
+# to it by name, whatever naming the profile uses.
+
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": None, "point": "Z7"}
+g["_standCheck"](h)
+assert atc(env)["pos"] == (4, 5, 6), atc(env)
+assert env.gate.menu()[-1] == "ATC Assigned: Z7 Face W", env.gate.menu()
+case("the bare point finds this stand's route named after it")
+
+env, g, h = departing()
+env.gate.pushbackLabels = ("Face E on Y1", "Release point Y2 (W)")
+h._standGateSnapshot = None
+env.payload = {"stand": None, "pushback": None, "point": "Y2"}
+g["_standCheck"](h)
+assert atc(env)["pos"] == RIGHT, atc(env)
+assert env.gate.menu()[-1] == "ATC Assigned: Release point Y2 (W)", env.gate.menu()
+case("other profiles' naming styles are found too")
+
+# Labels mapped for another profile, absent at this stand: fall back to the point.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Z7 EAST"], "point": "Z7"}
+g["_standCheck"](h)
+assert atc(env)["pos"] == (4, 5, 6), atc(env)
+case("labels this stand lacks fall back to the point")
+
+# A point with no route here: nothing moves, and the pilot hears its name.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": None, "point": "Z1"}
+del LOG[:]
+g["_standCheck"](h)
+assert atc(env)["pos"] == LEFT and atc(env)["label"] == "ATC Assigned", atc(env)
+assert said() == ["ATC assigned Z1 - no route to it from this stand"], LOG
+case("a point this stand has no route to says so, by its own name")
+
+
+# -- embedded in another profile's script ------------------------------------------
+# The block may sit at the end of a profile's own script, which defines the same
+# callbacks. The profile's runs first; ours still runs; a reload never loops.
+
+PROFILE = ('def onAirportBeforeVehicleSelect(self):\n'
+           '    print("profile gate setup")\n'
+           'def onExitAirport(self):\n'
+           '    print("profile exit")\n')
+# Already embedded in a profile script: its own callbacks are the ones to see.
+EMBEDDED = ">>> FlightStrips" in SRC
+env = Env()
+g = load(env, src=SRC if EMBEDDED else PROFILE + SRC)
+h = Handler()
+del LOG[:]
+g["onAirportBeforeVehicleSelect"](h)
+if EMBEDDED:
+    assert any(not l.startswith("[stands]") for l in LOG), LOG
+else:
+    assert "profile gate setup" in LOG, LOG
+assert h._standPoll == "h", "and FlightStrips started its watch"
+assert not any("failed" in l for l in LOG), LOG
+g["onExitAirport"](h)
+if not EMBEDDED:
+    assert "profile exit" in LOG, LOG
+case("a profile's own callbacks still run, before FlightStrips'")
+
+exec(compile(SRC, "handler.py", "exec"), g)     # F5: the same namespace again
+del LOG[:]
+g["onAirportBeforeVehicleSelect"](h)
+assert LOG.count("profile gate setup") <= 1, LOG
+assert not any("failed" in l for l in LOG), LOG
+case("reloading into the same namespace never chains FlightStrips to itself")
+
+
+# -- by position ---------------------------------------------------------------
+# Made-up stands on FlightStrips' own release point positions. Profiles name
+# routes in different styles and sometimes after the wrong point; the server
+# sends where the point is, and the route ending there is the answer.
+
+# From backend/config/ekch/gsx_sceneries.json.
+POINTS = {
+    "S1": (55.626033, 12.653217), "S2": (55.625207, 12.653250),
+    "Y0": (55.626680, 12.640100), "Y1": (55.626254, 12.641250),
+    "Z1": (55.627813, 12.631736), "W2": (55.624398, 12.654864),
+}
+RADIUS = 40
+COMPASS = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
+
+
+def at(point, heading, north=0.0):
+    """A route end at a point (optionally nudged north, in degrees)."""
+    lat, lon = POINTS[point]
+    return (lat + north, lon, heading)
+
+
+class PlannedGate(CopyingGate):
+    """A stand from a list of (label, (lat, lon, heading)): two defaults, extras."""
+
+    def __init__(self, routes):
+        self.routes = routes
+        self.uiGateName = "Gate X1"
+        self.rebuild()
+
+    def rebuild(self):
+        defaults, extras = self.routes[:2], self.routes[2:]
+        self.pushbackLabels = tuple(label for label, _ in defaults)
+        self.pushback = 3
+        self.pushbackLeftPos = defaults[0][1]
+        self.pushbackRightPos = defaults[1][1]
+        self.pushbackAddPos = [{"label": label, "pos": pos, "snap": False, "approach": [],
+                                "wws": 2, "startEngines": 0.0} for label, pos in extras]
+
+
+def planned(routes):
+    """A departure under way at a made-up stand."""
+    env = Env(copying=True)
+    env.gate = PlannedGate(routes)
+    g = load(env)
+    h = Handler()
+    g["onEnterAirport"](h)
+    g["onAirportDepartureRequested"](h)
+    env.state = 4
+    return env, g, h
+
+
+def target(point, facing=None):
+    """What the server sends for a point, as it would."""
+    if point in COMPASS:
+        return {"lat": None, "lon": None, "heading": COMPASS[point], "radius_m": RADIUS,
+                "avoid": [{"lat": lat, "lon": lon} for lat, lon in POINTS.values()]}
+    lat, lon = POINTS[point]
+    return {"lat": lat, "lon": lon, "radius_m": RADIUS,
+            "heading": COMPASS[facing] if facing else None}
+
+
+def assign(env, g, h, point, facing=None):
+    env.payload = {"stand": None, "pushback": None, "point": point,
+                   "target": target(point, facing)}
+    del LOG[:]
+    g["_standCheck"](h)
+    return env.gate.menu()[-1]
+
+
+SHORT = [("R1 Face N", at("Y0", 0)), ("S1 Face N", at("S1", 0)),
+         ("S2 Face S", at("S2", 180))]
+LONG = [("Release Point S2 (SOUTH)", at("S2", 180)),
+        ("Release Point S1 (NORTH)", at("S1", 0))]
+for routes, want in ((SHORT, "S1 Face N"), (LONG, "Release Point S1 (NORTH)")):
+    env, g, h = planned(routes)
+    assert assign(env, g, h, "S1") == "ATC Assigned: " + want, env.gate.menu()
+case("the route ending at the point, in each naming style")
+
+# Named after S1, ends at S2: by position it is S2's route, and the pilot is
+# told S2 - the name would have said S1.
+MISLABEL = [("S1 Face N", at("S1", 0)), ("S1 Face S", at("S2", 180))]
+env, g, h = planned(MISLABEL)
+assert assign(env, g, h, "S2") == "ATC Assigned: S2", env.gate.menu()
+assert said() == ['ATC pushback: S2 - pick "ATC Assigned: S2" when GSX asks which way to push'], LOG
+env, g, h = planned(MISLABEL)
+assert assign(env, g, h, "S1") == "ATC Assigned: S1 Face N", env.gate.menu()
+case("a mislabelled route is used for where it goes, not what it is called")
+
+# Two routes end at Y1, one of them named after Y0. Y0 is only the one that
+# ends there; the facing rule picks between the two at Y1.
+TWO = [("Y0 Face E", at("Y0", 123)), ("Y1 Face E", at("Y1", 123)),
+       ("Y0 Face W", at("Y1", -57))]
+env, g, h = planned(TWO)
+assert assign(env, g, h, "Y0") == "ATC Assigned: Y0 Face E", env.gate.menu()
+env, g, h = planned(TWO)
+assert assign(env, g, h, "Y1", facing="E") == "ATC Assigned: Y1 Face E", env.gate.menu()
+env, g, h = planned(TWO)
+assert assign(env, g, h, "Y1", facing="W") == "ATC Assigned: Y1", env.gate.menu()
+case("two routes ending at one point: the facing rule picks, by heading")
+
+# The rule wants east; this profile only offers the point facing west.
+# Position still wins - the push goes to the point - and the facing yields.
+WEST_ONLY = [("Z1 Face W", at("Z1", -57)), ("S1 Face N", at("S1", 0))]
+env, g, h = planned(WEST_ONLY)
+assert assign(env, g, h, "Z1", facing="E") == "ATC Assigned: Z1 Face W", env.gate.menu()
+case("a facing the profile cannot offer falls back to the route at the point")
+
+# A bare direction is the taxiway: a route ending away from every point beats
+# one ending at W2, where both face that way.
+BARE = [("Face West", at("Z1", 270, north=0.004)), ("W2 Face W", at("W2", 270)),
+        ("S1 Face N", at("S1", 0))]
+env, g, h = planned(BARE)
+assert assign(env, g, h, "W") == "ATC Assigned: Face West", env.gate.menu()
+env, g, h = planned(BARE[1:])
+assert assign(env, g, h, "W") == "ATC Assigned: W2 Face W", env.gate.menu()
+case("a direction takes the bare-taxiway route, or the only route that way")
+
+# No route at the point: a route merely named after it is never taken.
+NAMED_ONLY = [("Z1 Face E", at("S1", 0)), ("S2 Face S", at("S2", 180))]
+env, g, h = planned(NAMED_ONLY)
+assign(env, g, h, "Z1")
+assert env.gate.menu()[-1] == "ATC Assigned", env.gate.menu()
+assert said() == ["ATC assigned Z1 - no route to it from this stand"], LOG
+case("no route at the point: nothing is guessed, whatever the names say")
 
 print("\nall passed")

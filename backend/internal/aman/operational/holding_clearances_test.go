@@ -386,31 +386,32 @@ func TestEuroScopePositionRecoversArrivalCFLAfterMissedClearancePublication(t *t
 		{name: "position reads the persisted clearance removal", received: clearedAt.Add(4 * time.Second), version: 10},
 		{name: "late report cannot undo a recovered clearance removal", received: clearedAt.Add(6 * time.Second), version: 9, altitude: 7000},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			strip.Version = test.version
-			strip.ClearedAltitude = &test.altitude
-			ctx := shared.WithReceiptTime(t.Context(), test.received)
-			require.NoError(t, observer.ObserveEuroScopePosition(ctx, 0, strip, 55.14, 12.14, 10000))
-			observed := sink.observations[len(sink.observations)-1]
-			// A later network report must not make an old strip snapshot win.
-			state.GeneratedAt = test.received.Add(2 * time.Second)
-			observed = mergeSurveillanceObservation(observed, aman.FlightObservation{
-				Callsign: strip.Callsign, Origin: strip.Origin, Destination: strip.Destination,
-				Provider: aman.ObservationProviderVATSIM, ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
-			})
-			updated, err := service.reconcileFlight(ctx, state, *flight, observed, state.GeneratedAt)
-			require.NoError(t, err)
-			*flight = updated
-			require.Equal(t, &test.received, flight.LatestObservation.FlightPlan.ObservedAt)
-			require.Equal(t, &retained, flight.HoldingClearance.ArrivalClearedAltitude, "the dedicated update did not reach AMAN")
-			event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
-			require.NoError(t, err)
-			if test.want == 0 {
-				require.Nil(t, event.Data.Flights[0].ClearedAltitude)
-			} else {
-				require.Equal(t, &test.want, event.Data.Flights[0].ClearedAltitude)
-			}
+		// The steps run in order against one fixture: each report depends on the
+		// clearance the previous step left, so they are not separate subtests
+		// that `go test -run` could select on their own.
+		strip.Version = test.version
+		strip.ClearedAltitude = &test.altitude
+		ctx := shared.WithReceiptTime(t.Context(), test.received)
+		require.NoError(t, observer.ObserveEuroScopePosition(ctx, 0, strip, 55.14, 12.14, 10000), test.name)
+		observed := sink.observations[len(sink.observations)-1]
+		// A later network report must not make an old strip snapshot win.
+		state.GeneratedAt = test.received.Add(2 * time.Second)
+		observed = mergeSurveillanceObservation(observed, aman.FlightObservation{
+			Callsign: strip.Callsign, Origin: strip.Origin, Destination: strip.Destination,
+			Provider: aman.ObservationProviderVATSIM, ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
 		})
+		updated, err := service.reconcileFlight(ctx, state, *flight, observed, state.GeneratedAt)
+		require.NoError(t, err, test.name)
+		*flight = updated
+		require.Equal(t, &test.received, flight.LatestObservation.FlightPlan.ObservedAt, test.name)
+		require.Equal(t, &retained, flight.HoldingClearance.ArrivalClearedAltitude, "%s: the dedicated update did not reach AMAN", test.name)
+		event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+		require.NoError(t, err, test.name)
+		if test.want == 0 {
+			require.Nil(t, event.Data.Flights[0].ClearedAltitude, test.name)
+		} else {
+			require.Equal(t, &test.want, event.Data.Flights[0].ClearedAltitude, test.name)
+		}
 	}
 }
 

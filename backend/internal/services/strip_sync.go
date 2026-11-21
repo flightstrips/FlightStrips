@@ -22,6 +22,11 @@ import (
 
 var errWorkflowNotAdmitted = errors.New("workflow declined admission")
 
+// errStripSyncSuperseded reports that a full-sync write lost to a replacement
+// strip. The replacement is already observed, so SyncStrip must not reconcile
+// visibility from the superseded EuroScope payload.
+var errStripSyncSuperseded = errors.New("full-sync write superseded by a replacement strip")
+
 // SyncStrip creates or updates a strip from an EuroScope sync/strip-update event.
 // The strip parameter must be of type euroscope.Strip.
 func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string, strip interface{}, airport string) error {
@@ -37,11 +42,15 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 	} else if existing, found, _ := s.getCachedStrip(ctx, session, esStrip.Callsign); found && existing != nil {
 		firstEuroscopeObservation = existing.EuroscopeSeenAt == nil
 	}
+	superseded := false
 	if err := s.syncEuroscopeStrip(ctx, session, cid, esStrip, airport); err != nil {
 		if errors.Is(err, errWorkflowNotAdmitted) {
 			return nil
 		}
-		return err
+		if !errors.Is(err, errStripSyncSuperseded) {
+			return err
+		}
+		superseded = true
 	}
 	if err := s.initializeStripBoardState(ctx, session, airport, esStrip.Callsign); err != nil {
 		return err
@@ -63,7 +72,7 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 			}
 		}
 	}
-	if esStrip.Position != nil {
+	if esStrip.Position != nil && !superseded {
 		return s.reconcileStripVisibility(ctx, session, airport, esStrip.Callsign, airportworkflow.Observation{Kind: airportworkflow.FullFlight, Origin: esStrip.Origin, Destination: esStrip.Destination, Latitude: esStrip.Position.Lat, Longitude: esStrip.Position.Lon, Altitude: esStrip.Position.Altitude})
 	}
 	return nil
@@ -722,7 +731,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 					syncState.ExistingStrips[strip.Callsign] = current
 				}
 				s.cacheStrip(ctx, current)
-				return s.observeSyncedStrip(ctx, current, current)
+				if err := s.observeSyncedStrip(ctx, current, current); err != nil {
+					return err
+				}
+				return errStripSyncSuperseded
 			}
 			if observedPushback {
 				logPushbackTransition(ctx, session, strip.Callsign, "euroscope_sync", previousBay, initialPushbackTiming, updateStrip)

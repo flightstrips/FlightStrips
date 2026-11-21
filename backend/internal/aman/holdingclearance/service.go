@@ -126,7 +126,11 @@ func (s *Service) observeAirportClearances(ctx context.Context, airport string, 
 				// Keep the revision of a reaffirmed CFL without changing the
 				// holding observation or running the planner again.
 				reaffirmed := *current
-				reaffirmed.ArrivalClearedAltitudeAt = fact.ObservedAt
+				// The confirmation time only moves forward: an older-stamped
+				// reaffirmation must not reopen the time fallback for unversioned facts.
+				if fact.ObservedAt.After(reaffirmed.ArrivalClearedAltitudeAt) {
+					reaffirmed.ArrivalClearedAltitudeAt = fact.ObservedAt
+				}
 				if normalized.StripRevision.Known() {
 					reaffirmed.StripRevision = normalized.StripRevision
 					reaffirmed.PreviousStripRevision = aman.StripRevision{}

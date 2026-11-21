@@ -1,5 +1,5 @@
 import {expect, type APIRequestContext, type Page} from "@playwright/test";
-import {test} from "./fixtures";
+import {chooseAirport, test} from "./fixtures";
 import {identity} from "./identity";
 
 const backend = "http://127.0.0.1:4184";
@@ -10,10 +10,7 @@ async function rows(request: APIRequestContext, airport = "EKBI", environment = 
   expect(response.ok()).toBe(true); return response.json();
 }
 async function open(page: Page, airport: string, environment = "LIVE") {
-  await page.goto("/app");
-  const choice = page.getByRole("button", {name: new RegExp(`${airport} · ${environment}`)});
-  await expect(choice.or(page.getByRole("main", {name: "RADIS board"}))).toBeVisible();
-  if (await choice.isVisible()) await choice.click();
+  await chooseAirport(page, airport, environment);
   await expect(strip(page)).toBeVisible();
 }
 async function note(page: Page, value: string) {
@@ -37,33 +34,33 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await b.getByRole("button", {name: "ALT FT RADIS1", exact: true}).click();
     await b.getByRole("textbox", {name: "Cleared altitude (feet)", exact: true}).fill("3400");
     await b.getByRole("button", {name: "OK", exact: true}).click();
-    await expect(a.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("3400");
-    await expect(other.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("3000");
+    await expect(a.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("F034");
+    await expect(other.getByRole("button", {name: "ALT FT RADIS1", exact: true})).toContainText("A030");
     await expect.poll(async () => (await (await request.get(`${backend}/e2e/commands`)).json()).filter((c: {kind: string; token: string; airport: string}) => c.kind === "EVENT_CLEARED_ALTITUDE")).toEqual([expect.objectContaining({airport: "EKBI", token: "__TEST_FRONTEND_TOKEN__", callsign: "RADIS1"})]);
   });
   await test.step("same-profile tabs and LIVE, exercise and playback boards retain independent identities", async () => {
     const tab = await a.context().newPage(), sweat = await a.context().newPage(), playback = await a.context().newPage();
     for (const page of [tab, sweat, playback]) await identity(page, backend);
     await Promise.all([open(tab,"EKYT"), open(sweat,"EKBI","SWEATBOX_MA08"), open(playback,"EKBI","PLAYBACK_MA08")]);
+    await expect(sweat.getByRole("button", {name: "Switch airport session"})).toHaveText("EKBI");
+    await expect(playback.getByRole("button", {name: "Switch airport session"})).toHaveText("EKBI");
     const contexts = await Promise.all([rows(request),rows(request,"EKYT"),rows(request,"EKBI","SWEATBOX_MA08"),rows(request,"EKBI","PLAYBACK_MA08")]);
     expect(new Set(contexts.map(list=>list.find(row=>row.Callsign==="RADIS1")!.ID)).size).toBe(4);
     await note(sweat,"EXERCISE ONLY"); await note(playback,"PLAYBACK ONLY"); await note(tab,"SECOND TAB EKYT");
     await expect(a.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
     await expect(other.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKYT");
-    // Switch this tab through the real chooser, without changing its peers.
-    await tab.getByRole("button",{name:"Switch airport session"}).click();
-    await tab.getByRole("button",{name:/EKBI · LIVE/}).click();
-    await expect(tab.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
-    await note(tab,"SECOND TAB EKBI");
-    await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKBI");
-    await expect(other.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("SECOND TAB EKYT");
-    for (const [page,value] of [[sweat,"EXERCISE ONLY"],[playback,"PLAYBACK ONLY"],[tab,"SECOND TAB EKBI"]] as const) {
+    // The fixture uses different physical connections for these airports.
+    await tab.getByRole("button", {name: "Switch airport session"}).click();
+    const chooser = tab.getByRole("dialog", {name: "Choose airport session"});
+    await expect(chooser.getByRole("button", {name: "EKYT", exact: true})).toBeVisible();
+    await expect(chooser.getByRole("button", {name: "EKBI", exact: true})).toHaveCount(0);
+    await tab.keyboard.press("Escape");
+    await expect(chooser).toBeHidden();
+    for (const [page,value] of [[sweat,"EXERCISE ONLY"],[playback,"PLAYBACK ONLY"],[tab,"SECOND TAB EKYT"]] as const) {
       await page.reload(); await expect(page.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText(value);
     }
     expect((await rows(request,"EKBI","SWEATBOX_MA08")).find(row=>row.Callsign==="RADIS1")!.BoardState.annotations.notes).toBe("EXERCISE ONLY");
     expect((await rows(request,"EKBI","PLAYBACK_MA08")).find(row=>row.Callsign==="RADIS1")!.BoardState.annotations.notes).toBe("PLAYBACK ONLY");
-    await note(tab,"PRODUCTION SHARED NOTE");
-    await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
     await Promise.all([tab.close(),sweat.close(),playback.close()]);
   });
   await test.step("real stand resources are ready while deferred regional services remain disabled", async () => {
@@ -175,8 +172,13 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(a.locator(".radis-commandbar")).toContainText("1001", {timeout:135_000});
     await expect(other.locator(".radis-commandbar")).toContainText("1002");
     expect((await request.post(`${backend}/e2e/runways`)).ok()).toBe(true);
-    for (const page of [a,b]) await expect(page.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 27");
-    await expect(other.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 08R");
+    for (const [page, runway] of [[a, "27"], [b, "27"], [other, "08R"]] as const) {
+      for (const name of ["Departure runways", "Arrival runways"]) {
+        const readout = page.getByRole("group", {name});
+        await expect(readout.getByText(runway, {exact: true})).toBeVisible();
+        await expect(readout.getByRole("button")).toHaveCount(0);
+      }
+    }
   });
   await a.screenshot({path:info.outputPath("radis-production-board.png")});
 });

@@ -26,13 +26,13 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { Button } from "@/components/ui/button";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
-const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-2px_2px_rgba(0,0,0,0.35)]";
+const CLS_BAR = "h-[var(--command-bar-height)] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-2px_2px_rgba(0,0,0,0.35)]";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw
-const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.0575vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.0575vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.0575vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.0575vw] font-bold h-[var(--command-bar-field-height)] my-[7px] flex items-center justify-center";
+const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.0575vw] font-bold h-[var(--command-bar-field-height)] my-[7px] flex items-center justify-center";
+const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.0575vw] font-bold h-[var(--command-bar-field-height)] my-[7px] flex items-center justify-center";
 const CLS_LABEL     = "text-[0.705vw] font-bold text-bay-light px-3";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -241,14 +241,14 @@ export default function CommandBar() {
   };
 
   return (
-    <div className={CLS_BAR}>
+    <footer className={CLS_BAR} aria-label="EKCH command bar">
       {/* ── Left section ─────────────────────────────────── */}
       <div className="flex items-center h-full">
 
         {/* Scope — green station box, clicks open layout dialog */}
         <button
           onClick={() => setLayoutOpen(true)}
-          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 h-[calc(4.72dvh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90 ${CLS_CMD_BEVEL}`}
+          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 h-[var(--command-bar-field-height)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90 ${CLS_CMD_BEVEL}`}
         >
           <span className="text-[0.585vw] font-normal">{scopeLabel}</span>
           {positionLabel && <span className="text-[0.4725vw] font-normal">{positionLabel}</span>}
@@ -297,7 +297,7 @@ export default function CommandBar() {
               key={pair}
               onClick={() => setRwyDlgPair(pair)}
               style={{ backgroundColor: bg, width: vw }}
-              className="text-white text-[0.88125vw] font-normal h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_1px_0_0_var(--color-bay-shadow),_inset_-1px_0_0_var(--color-bay-shadow),_inset_0_1px_0_var(--color-bay-shadow),_inset_0_-1px_0_var(--color-bay-shadow)] outline-none"
+              className="text-white text-[0.88125vw] font-normal h-[var(--command-bar-field-height)] my-[7px] flex items-center justify-center shadow-[inset_1px_0_0_var(--color-bay-shadow),_inset_-1px_0_0_var(--color-bay-shadow),_inset_0_1px_0_var(--color-bay-shadow),_inset_0_-1px_0_var(--color-bay-shadow)] outline-none"
             >
               {pair}
             </button>
@@ -340,7 +340,7 @@ export default function CommandBar() {
           </button>
         )}
         <CommandBarSettings />
-        <div className="bg-bay-light text-black h-[calc(4.72dvh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.5625vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
+        <div className="bg-bay-light text-black h-[var(--command-bar-field-height)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.5625vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
           <Time />
         </div>
       </div>
@@ -357,7 +357,7 @@ export default function CommandBar() {
             role="group"
             aria-label="Scope selector"
             style={{
-              bottom: "calc(4.72dvh + 0.5dvh)",
+              bottom: "calc(var(--command-bar-height) + 0.5dvh)",
               left: "1vw",
               width: "max-content",
               maxWidth: "98vw",
@@ -536,6 +536,6 @@ export default function CommandBar() {
           onSelect={(status: RunwayStatus) => updateRunwayStatus(rwyDlgPair, status)}
         />
       )}
-    </div>
+    </footer>
   );
 }

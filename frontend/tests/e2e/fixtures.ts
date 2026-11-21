@@ -1,5 +1,26 @@
 import {test as base, expect, type BrowserContext, type Page} from "@playwright/test";
 import {identity} from "./identity";
+import type {SessionDiscovery} from "../../src/api/sessions";
+
+export async function chooseAirport(page: Page, airport: string, environment = "LIVE") {
+  const discovery = page.waitForResponse(response =>
+    new URL(response.url()).pathname === "/api/plugin-memberships" && response.ok());
+  await page.goto("/app");
+  const available = await (await discovery).json() as SessionDiscovery;
+  const memberships = available.transports.flatMap(transport => transport.memberships);
+  const atAirport = memberships.filter(member => member.airport === airport);
+  const target = atAirport.find(member => member.environment === environment);
+  expect(target, `fixture connection for ${airport} in ${environment}`).toBeDefined();
+
+  if (new Set(memberships.map(member => member.airport)).size > 1) {
+    await page.getByRole("dialog", {name: "Choose airport session"})
+      .getByRole("button", {name: airport, exact: true}).click();
+  }
+  if (atAirport.length > 1) {
+    await page.getByRole("dialog", {name: "Choose your plugin instance"})
+      .getByRole("button").filter({has: page.getByText(target!.instance_id, {exact: false})}).click();
+  }
+}
 
 type Evidence = {watch: (context: BrowserContext) => void};
 type Fixtures = {

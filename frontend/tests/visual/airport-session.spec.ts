@@ -25,10 +25,12 @@ for (const viewport of [{width: 1280, height: 720}, {width: 1920, height: 1080},
     await page.setViewportSize(viewport);
     await setup(page, [membership(1, "EKCH"), membership(2, "EKBI")].map(m => ({...m, environment: "SWEATBOX_MULTI-AIRPORT"})));
     await page.goto("/visual-tests/airport-session-preview.html");
+    await expect(page.getByRole("dialog")).not.toContainText("SWEATBOX");
     await page.getByRole("button", {name: /EKCH/}).click();
     await page.getByText("CLR DEL", {exact: true}).first().click();
     const selector = page.getByRole("group", {name: "Scope selector"});
     const switcher = selector.getByRole("button", {name: "Switch airport session"});
+    await expect(switcher).toHaveText("EKCH ▾");
     for (const expanded of [false, true]) {
       if (expanded) await selector.getByRole("button", {name: "Show more scopes"}).click();
       const panel = (await selector.boundingBox())!;

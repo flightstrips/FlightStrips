@@ -1,63 +1,208 @@
 @font-face { font-family: RadisRubik; src: url("../../components/text-pilot/fonts/Rubik.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: RadisMplus; src: url("./assets/fonts/RoundedMplus1c-300.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: RadisMplus; src: url("./assets/fonts/RoundedMplus1c-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: RadisMplus; src: url("./assets/fonts/RoundedMplus1c-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
 .radis-view { font-family: RadisRubik, var(--font-bay); height: 100svh; color: black; background: var(--color-bay-page); display: flex; flex-direction: column; }
-.radis-board { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .65vw; padding: 0 .3vw; }
+.radis-board { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .97vw; padding: 0 .48vw; }
 .radis-left, .radis-right { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.radis-board h1, .radis-board h2 { margin: 0; height: 3.9dvh; min-height: 28px; text-align: center; color: white; font: 700 clamp(14px, 1.5vw, 30px) RadisRubik, sans-serif; background: var(--color-bay-header); border: 1px solid #151515; }
-.radis-bay { min-height: 0; overflow-y: auto; padding: .3vw; background: var(--color-bay-panel); flex: 1; }
+.radis-board h1, .radis-board h2 { margin: 0; flex: none; height: 3.9dvh; min-height: 28px; display: grid; place-items: center; color: white; font: 700 clamp(16px, 1.66vw, 32px)/1 RadisRubik, sans-serif; background: var(--color-bay-header); border: 1px solid #151515; text-shadow: -1px -1px #000, 1px 1px #000, -1px 1px #000, 1px -1px #000; }
+.radis-bay { container-type: inline-size; min-height: 0; overflow-y: auto; padding: .3vw; background: var(--color-bay-panel); flex: 1; scrollbar-width: thin; scrollbar-color: var(--color-bay-page) var(--color-bay-panel); }
 .radis-runway { flex: none; height: var(--radis-runway-height); background: var(--color-bay-dark); }
-.radis-passive_bottom { border-top: 4px solid var(--color-bay-page); }
-.radis-bay.is-over { outline: 2px solid var(--color-bay-border); outline-offset: -2px; }
-.radis-runway-title { position: relative; }
-.radis-runway-title input { position: absolute; right: 1vw; top: 25%; width: 10%; height: 50%; opacity: .6; }
-.radis-strip { display: flex; background: white; width: 100%; height: auto; aspect-ratio: 9 / 1; min-height: 60px; border: 1px solid #404040; margin-bottom: .25vw; position: relative; font-size: clamp(8px, .85vw, 20px); }
+.radis-passive_bottom { border-top: 0; display: flex; flex-direction: column; }
+.radis-passive_bottom > .radis-strip { flex-shrink: 0; }
+.radis-passive_bottom > .radis-strip:first-child { margin-top: auto; }
+.radis-bay.is-over { outline: 2px solid var(--color-drop-valid); outline-offset: -2px; }
+.radis-runway-title [role=separator] { display: grid; place-items: center; width: 100%; height: 100%; cursor: ns-resize; touch-action: none; user-select: none; }
+.radis-runway-title [role=separator]:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
+/* Figma column measurements, scaled together with the 1368×152 paper strip. */
+.radis-strip { --radis-line: clamp(1px, .1462cqw, 2px); display: grid; grid-template-columns: 368.6fr 84.55fr 169.1fr 169.1fr 282.15fr 236.55fr 54.15fr; background: white; width: 100%; height: auto; aspect-ratio: 9 / 1; min-height: 0; border: var(--radis-line) solid #404040; margin-bottom: .22cqw; position: relative; font-size: 2.0468cqw; color: #2f2f2f; }
+.radis-strip > * { min-width: 0; }
+.radis-strip > .border-r-2, .radis-times > .border-r-2 { height: auto; border-right-width: var(--radis-line); }
+.radis-strip .border-b-2 { border-bottom-width: var(--radis-line); }
 .radis-strip.is-selected { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
 .radis-strip.is-dragging { opacity: .35; }
+.radis-drag-preview { container-type: inline-size; }
 .radis-strip button { cursor: pointer; }
 .radis-strip button:disabled { cursor: default; }
 .radis-strip button:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
 .radis-cell-button { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
-.radis-cell-button small { font-size: .55em; line-height: 1.1; }
-.radis-cell-button strong { font-size: 1em; line-height: 1.3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.radis-callsign { display: flex; flex-direction: column; justify-content: space-between; }
-.radis-callsign-title { font-family: var(--font-bay); text-align: left; padding: 0 .3vw; font-size: 1.4em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.radis-route-airports, .radis-aircraft-line { display: flex; justify-content: space-around; align-items: center; line-height: 1.2; }
-.radis-route-airports small { font-size: .65em; text-align: center; }
-.radis-times { width: 20.8%; display: flex; }
-.radis-direction { position: relative; }
-.radis-direction-icon { position: absolute; right: 0; bottom: 0; width: 40%; height: 90%; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 1.4em; line-height: 1; }
-.radis-direction-icon img { width: auto; height: 48%; object-fit: contain; }
-.radis-notes { position: absolute; inset: 0 40% 35% 0; font-size: .6em; overflow: hidden; padding: 2px; }
-.radis-stand { position: absolute; bottom: 1px; left: 2px; font-size: .65em; line-height: 1.1; }
-.radis-strip-date { width: 4%; writing-mode: vertical-rl; transform: rotate(180deg); font-size: .6em; text-align: center; }
-.radis-drag-handle { height: 100%; width: 100%; touch-action: none; }
-.radis-commandbar { min-height: 4.72dvh; background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .6vw; padding: .35vw; color: white; font-size: clamp(10px, .8vw, 18px); }
-.radis-commandbar > b { padding: .3vw .7vw; background: var(--color-bay-light); color: black; }
+.radis-cell-button strong { font-weight: 700; font-size: 1em; line-height: 1.05; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radis-labelled-cell { justify-content: flex-start; }
+.radis-labelled-cell small { font-size: .643em; line-height: 1.35; font-weight: 400; white-space: nowrap; }
+.radis-callsign { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); color: black; font-family: RadisMplus, sans-serif; }
+.radis-callsign-title { text-align: left; padding: .0731cqw 1.17cqw 0; font-size: 3.5088cqw; font-weight: bold; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radis-route-airports, .radis-aircraft-line { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; text-align: center; line-height: 1; }
+.radis-route-airports { font-weight: 300; }
+.radis-circuit-strip .radis-callsign-title { font-size: 3.655cqw; }
+.radis-aircraft-line > button { transform: translateX(.4386cqw); }
+.radis-aircraft-line { grid-template-columns: repeat(4, minmax(0, 1fr)); font-weight: 400; }
+.radis-route-airports > span, .radis-aircraft-line > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radis-route-airports small { display: flex; flex-direction: column; font-size: .857em; text-align: center; line-height: .8333; overflow: hidden; }
+.radis-route-airports small span { overflow: hidden; text-overflow: ellipsis; }
+.radis-clearance-cell .border-b-2 { border-bottom: 0; }
+.radis-altitude-cell { display: flex; flex-direction: column; position: relative; }
+.radis-altitude-button { position: relative; width: 100%; height: 100%; text-align: left; }
+.radis-requested-altitude { position: absolute; top: 0; left: .6cqw; display: flex; flex-direction: column; line-height: 1; }
+.radis-requested-altitude small { font-size: .643em; line-height: 1.35; font-weight: 400; }
+.radis-requested-altitude strong { line-height: 1; }
+.radis-cleared-altitude, .radis-arrival-altitude { position: absolute; top: 50%; left: .6cqw; line-height: 1; }
+.radis-arrival-altitude { top: .2cqw; }
+.radis-flight-rules { position: absolute; bottom: .4cqw; left: .6cqw; width: 2.4854cqw; height: 2.3392cqw; text-align: left; font-size: .857em; line-height: 1; }
+.radis-times { display: flex; min-width: 0; }
+.radis-direction { position: relative; color: black; }
+.radis-direction-icon { position: absolute; right: 0; bottom: 0; width: 6.871cqw; height: 100%; color: black; }
+.radis-flight-direction { position: relative; display: block; width: 6.871cqw; height: 100%; }
+.radis-direction-icon img { position: absolute; left: 1.43cqw; top: 1.83cqw; width: 4.08cqw; height: 5.271cqw; object-fit: contain; }
+.radis-departure-icon img { top: 1.57cqw; }
+.radis-direction-icon strong { position: absolute; inset: auto 0 0; height: 3.58cqw; font-size: 3.655cqw; font-weight: 700; line-height: 1; }
+.radis-direction-icon.radis-circuit { display: grid; grid-template-columns: minmax(0, 74fr) minmax(0, 94fr); width: 12.281cqw; }
+.radis-circuit .radis-arrival-icon img { top: 1.57cqw; }
+.radis-notes { position: absolute; z-index: 1; inset: 0 40% 35% 0; font-size: .643em; overflow: hidden; padding: .3cqw; text-align: left; }
+.radis-stand { position: absolute; bottom: .3cqw; left: .4cqw; font-size: .643em; line-height: 1.25; }
+.radis-strip-date { flex: 1; min-width: 0; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 1.17cqw; font-weight: 700; text-align: center; }
+.radis-drag-handle { height: 100%; width: 100%; touch-action: none; white-space: nowrap; }
+.radis-commandbar { flex: none; height: var(--command-bar-height); border-top: 2px solid var(--color-bay-border); background: var(--color-bay-commandbar); display: flex; align-items: center; gap: .48vw; padding: 0 8px; color: white; font-size: 1.0575vw; font-weight: 700; }
+.radis-commandbar button { flex: none; border-radius: 0; height: var(--command-bar-button-height); padding: 0 .5vw; min-width: 3.52vw; background: var(--color-bay-btn); color: white; font: inherit; border: 1px solid; border-color: var(--color-bay-border) #393939 #393939 var(--color-bay-border); box-shadow: 1px 1px 1px #212121; }
+.radis-commandbar > button[aria-label="Switch airport session"] { display: flex; align-items: center; justify-content: center; height: var(--command-bar-field-height); line-height: 1; width: 9.73vw; margin-right: .8vw; border: 0; background: #1bff16; color: #202020; }
+.radis-toolbar-field { display: flex; align-items: center; gap: .9vw; margin-right: .7vw; }
+.radis-toolbar-field > span:first-child { font-size: .705vw; }
+.radis-toolbar-runway, .radis-toolbar-field > b, .radis-commandbar > b { display: grid; place-items: center; height: var(--command-bar-field-height); background: var(--color-bay-light); color: #202020; border: 0; box-shadow: none; min-width: 3.13vw; padding: 0 .6vw; }
+.radis-toolbar-runway { font-weight: 400; }
+.radis-toolbar-field > b { min-width: 3.75vw; background: var(--color-bay-dark); color: white; }
+.radis-commandbar > .radis-toolbar-atis { min-width: 3.36vw; font-size: 1.321875vw; }
+.radis-commandbar > .radis-toolbar-wind { min-width: 5.55vw; font-size: .88125vw; }
 .radis-toolbar-space { flex: 1; }
-.radis-dialog { font-family: RadisRubik, var(--font-bay); background: var(--color-bay-light); color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; }
-.radis-dialog input:not([type=checkbox]), .radis-dialog select { border: 1px solid #666; background: white; padding: .35rem; width: 100%; }
+.radis-commandbar button:hover { filter: brightness(1.12); }
+.radis-commandbar button:disabled { filter: none; opacity: .5; }
+.radis-dialog, .radis-dialog-font { font-family: RadisRubik, var(--font-bay); }
+.radis-dialog { color: black; width: min(460px, 95vw); max-height: 90svh; overflow-y: auto; border: 1px solid #202020; border-radius: 0; padding: 12px; background: var(--color-bay-header-light); gap: 12px; }
+.radis-dialog input:not([type=checkbox]), .radis-dialog select { border: 1px solid #666; background: white; padding: .35rem; width: 100%; border-radius: 0; font-family: inherit; }
 .radis-dialog-actions { display: flex; justify-content: space-between; margin-top: 1rem; }
-.radis-menu-presets { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
 .radis-fpl { width: min(660px, 95vw); background: white; }
-.radis-fpl fieldset { border: 1px solid #888; padding: .5rem; }
-.radis-fpl legend { text-align: center; font-size: .75rem; }
-.radis-fpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: .75rem .35rem; margin-bottom: .5rem; }
-.radis-fpl-grid > label { min-width: 0; font-size: .7rem; }
-.radis-fpl-field { display: flex; flex-direction: column; text-align: center; min-width: 0; font-size: .75rem; }
+.radis-fpl-grid > label { min-width: 0; }
 .radis-fpl-field button { border: 1px solid #888; background: #e4e4e4; padding: .15rem; min-height: 1.5rem; overflow-wrap: anywhere; font-size: .9rem; font-weight: bold; }
-.radis-fpl-field button:disabled { background: #aaa7ab; }
-.radis-fpl-wide { display: grid; gap: .5rem; margin: .75rem 0; }
 
-.radis-clock { width: 7vw; min-width: 80px; align-self: stretch; background: var(--color-bay-light); color: black; }
-.radis-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; margin-top: 1rem; }
+.radis-clock { width: 5.08vw; height: var(--command-bar-field-height); font-size: .5625vw; font-weight: 700; background: var(--color-bay-light); color: black; }
 
-.radis-creation { width: min(640px,95vw); }
-.radis-local-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin-bottom:1rem; }
-.radis-find-list { overflow-y:auto; max-height:55svh; display:grid; gap:.25rem; }
-.radis-find-list button { display:grid; grid-template-columns:1fr 1fr 5rem; padding:.5rem; border:1px solid #555; background:white; text-align:left; }
-.radis-find-search { display:flex; gap:.5rem; }
+.radis-dialog > button.absolute { display: none; }
+.radis-form-field { display: grid; min-width: 0; gap: .25rem; font-size: .875rem; }
+.radis-support-dialog input, .radis-support-dialog select { min-width: 0; width: 100%; border: 1px solid #555; background: #ededed; color: black; border-radius: 0; padding: .35rem .5rem; }
+.radis-support-dialog input:disabled, .radis-support-dialog select:disabled { background: #9f9c9f; }
+.radis-local-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: .5rem; }
+.radis-find-list { overflow-y: auto; max-height: 55svh; display: grid; gap: .375rem; padding-bottom: .25rem; }
+.radis-find-list button { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(4rem, auto); gap: .5rem; padding: .5rem; border: 1px solid #555; background: #d6d6d6; text-align: left; overflow-wrap: anywhere; }
+.radis-find-list button:hover:not(:disabled) { background: var(--color-bay-light); }
+.radis-find-list button:disabled { opacity: .55; }
+.radis-find-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
 
 .radis-delete-over { outline:3px solid red; }
 
 .radis-service-controls {display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
 .radis-service-controls label {display:flex;gap:.5rem;align-items:center;}
 .radis-service-controls input {width:5rem;}
+
+/* Use the existing FlightStrips raised buttons inside the Figma panel frame. */
+
+.radis-dialog button:not([role=checkbox]) { border-radius: 0; font-family: inherit; font-weight: 700; }
+.radis-dialog button:not([role=checkbox]):not(:disabled):hover { filter: brightness(1.08); }
+
+.radis-dialog .radis-dialog-actions > button { background: #3f3f3f; color: white; border-radius: 0; }
+
+
+@media (max-width: 1200px) {
+  .radis-commandbar { gap: 4px; }
+  .radis-toolbar-field { gap: 5px; margin-right: 4px; }
+}
+
+/* Dialog measurements follow the 300px Figma editing frames. */
+.radis-dialog.radis-edit-dialog { width: min(300px, 95vw); padding: 0; display: block; container-type: inline-size; background: #b3b3b3; }
+.radis-edit-dialog form { height: 100%; }
+.radis-edit-dialog .radis-edit-panel { position: relative; border: 1px solid #393939; }
+.radis-edit-dialog .radis-edit-panel button { padding: 0; height: auto; font-weight: 600; font-size: 9.3333cqw; box-shadow: 0 1.3333cqw 1.3333cqw #0004; }
+.radis-edit-dialog .radis-edit-panel input { min-width: 0; width: 100%; padding: 0; border: 0; border-radius: 0; text-align: center; font-size: 9.3333cqw; font-weight: 600; }
+.radis-edit-dialog .radis-menu-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.radis-edit-dialog .radis-menu-presets button { background: #d6d6d6; color: black; }
+.radis-edit-dialog .radis-menu-presets button[aria-pressed=true] { background: #1bff16; }
+.radis-edit-dialog .radis-dialog-actions { display: flex; justify-content: space-between; margin: 0; }
+.radis-edit-dialog .radis-dialog-actions button { background: #3f3f3f; color: white; }
+.radis-dialog.radis-edit-keypad { width: min(300px, 95vw, calc(90svh * 300 / 446)); aspect-ratio: 300 / 446; }
+.radis-edit-keypad .radis-edit-panel { margin: 5.6667cqw 3cqw 0 5cqw; height: 139cqw; padding: 8.3333cqw 5cqw 0 3.3333cqw; }
+.radis-keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3.3333cqw 4cqw; }
+.radis-edit-keypad .radis-keypad > button, .radis-edit-keypad .radis-keypad input { height: 22.909cqw; }
+.radis-keypad input { grid-column: span 2; background: white; box-shadow: 0 1.3333cqw 1.3333cqw #0004; }
+.radis-edit-keypad .radis-dialog-actions { display: grid; grid-template-columns: 75fr 161fr; gap: 4cqw; margin-top: 5cqw; }
+.radis-edit-keypad .radis-dialog-actions button { height: 18.3333cqw; }
+.radis-dialog.radis-edit-altitude, .radis-dialog.radis-edit-heading { width: min(300px, 95vw, calc(90svh * 300 / 449)); aspect-ratio: 300 / 449; }
+.radis-edit-altitude .radis-edit-panel, .radis-edit-heading .radis-edit-panel { margin: 8cqw 3cqw 0 5cqw; height: 134cqw; padding: 6cqw 7.6667cqw 0; }
+.radis-edit-altitude .radis-menu-presets, .radis-edit-heading .radis-menu-presets { column-gap: 10.3333cqw; }
+.radis-edit-altitude .radis-menu-presets button, .radis-edit-heading .radis-menu-presets button { height: 18.3333cqw; }
+.radis-edit-altitude .radis-menu-presets { row-gap: 13cqw; }
+.radis-edit-altitude .radis-menu-presets button:nth-child(n+5) { transform: translateY(2.6667cqw); }
+.radis-edit-altitude .radis-edit-value { margin-top: 5.3333cqw; }
+.radis-edit-altitude .radis-edit-panel input { height: 9.3333cqw; background: transparent; font-size: 7.3333cqw; }
+.radis-edit-altitude .radis-edit-panel input:focus { background: white; }
+.radis-edit-altitude .radis-dialog-actions { margin-top: 4cqw; }
+.radis-edit-altitude .radis-dialog-actions > button, .radis-edit-heading .radis-dialog-actions > button { width: 33cqw; height: 18.3333cqw; }
+.radis-edit-heading .radis-menu-presets { row-gap: 4.3333cqw; }
+.radis-edit-heading .radis-menu-presets button:nth-child(n+5) { transform: translateY(3cqw); }
+.radis-edit-heading .radis-edit-value { margin-top: 8cqw; }
+.radis-edit-heading .radis-edit-panel input { height: 18cqw; background: white; }
+.radis-edit-heading .radis-dialog-actions { margin-top: 8cqw; }
+.radis-edit-dialog .radis-edit-panel .radis-custom-submit { position: absolute; right: 7.6667cqw; bottom: 32cqw; width: 16cqw; height: 9.3333cqw; font-size: 5.3333cqw; }
+.radis-edit-heading .radis-edit-panel .radis-custom-submit { bottom: 37cqw; }
+.radis-dialog.radis-edit-eobt { width: min(300px, 95vw, calc(90svh * 300 / 284)); aspect-ratio: 300 / 284; }
+.radis-edit-eobt .radis-edit-panel { margin: 6cqw 3cqw 0 5cqw; height: 56.6667cqw; padding: 7.6667cqw; }
+.radis-edit-caption { background: #d6d6d6; text-align: center; font-size: 9.3333cqw; font-weight: 600; height: 18cqw; line-height: 18cqw; box-shadow: 0 1.3333cqw 1.3333cqw #0004; }
+.radis-edit-eobt .radis-edit-value { margin-top: 7.3333cqw; }
+.radis-edit-eobt .radis-edit-panel input { height: 18cqw; box-shadow: 0 1.3333cqw 1.3333cqw #0004; }
+.radis-edit-eobt .radis-eobt-submit { display: flex; margin: 7.6667cqw auto 0; width: 33cqw; height: 18.3333cqw; padding: 0; font: 600 9.3333cqw RadisRubik, sans-serif; }
+.radis-dialog.radis-edit-runway { width: min(167px, 95vw); padding: 8px; background: white; }
+.radis-edit-runway .radis-edit-panel { padding: 12px; background: #d4d4d4; }
+.radis-edit-runway .radis-menu-presets { grid-template-columns: 1fr; gap: 8px; }
+.radis-edit-runway .radis-menu-presets button { height: 75px; font-size: 28px; }
+.radis-edit-runway .radis-dialog-actions { margin-top: 12px; }
+.radis-edit-runway .radis-dialog-actions button { width: 100%; height: 70px; font-size: 28px; }
+.radis-dialog.radis-edit-text { width: min(460px, 95vw); padding: 8px; }
+.radis-edit-text .radis-edit-panel { padding: 10px; }
+.radis-edit-text .radis-edit-panel input { height: 46px; font-size: 22px; }
+.radis-edit-text .radis-menu-presets { gap: 8px; margin-bottom: 10px; }
+.radis-edit-text .radis-menu-presets button { height: 44px; font-size: 20px; }
+.radis-edit-text .radis-dialog-actions { gap: 8px; margin-top: 10px; }
+.radis-edit-text .radis-dialog-actions button { height: 44px; font-size: 20px; flex: 1; }
+
+.radis-dialog.radis-fpl { width: min(829px, 95vw, calc(90svh * 829 / 918)); padding: 0; background: #d4d4d4; display: block; container-type: inline-size; }
+.radis-fpl-sheet { padding: 1.6888% 3.0157% 3.3776%; }
+.radis-fpl fieldset { min-width: 0; padding: 0; border: 1px solid #555; }
+.radis-fpl .radis-fpl-services { margin: 0 3% 3%; padding: 2%; }
+.radis-fpl legend { text-align: center; padding: 0 .3cqw; font: 300 2.4125cqw/1 RadisRubik, sans-serif; }
+.radis-fpl .radis-fpl-departure { height: 77.5633cqw; padding: 2.292cqw 5.6164cqw 1.5682cqw; }
+.radis-fpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; }
+.radis-fpl-identity { grid-template-columns: 147.6fr 82fr 62.3fr 123fr 82fr 168.1fr; gap: .4946cqw; }
+.radis-fpl-field { display: flex; flex-direction: column; text-align: center; min-width: 0; font: 300 14px/1.2 RadisRubik, sans-serif; }
+.radis-fpl .radis-fpl-field { font: 300 2.4125cqw/1 RadisRubik, sans-serif; }
+.radis-fpl .radis-fpl-field > span { height: 2.4125cqw; white-space: nowrap; }
+.radis-fpl .radis-fpl-field button, .radis-fpl .radis-fpl-field select { border: 1px solid #555; background: #ededed; height: 4.9457cqw; min-height: 0; padding: 0; font: 600 2.8951cqw/1 RadisRubik, sans-serif; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.radis-fpl .radis-fpl-field button:disabled { opacity: 1; color: black; background: #9f9c9f; }
+.radis-fpl .radis-fpl-field select { appearance: none; background: #9f9c9f; text-align: center; }
+.radis-fpl-slot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4946cqw; }
+.radis-fpl-timing { display: flex; justify-content: space-between; margin-top: 3.0157cqw; }
+.radis-fpl-timing .radis-fpl-field { width: 9.8914cqw; }
+.radis-fpl-timing .radis-fpl-field:nth-child(2) { width: 14.8372cqw; transform: translateX(1.6888cqw); }
+.radis-fpl-performance { display: grid; grid-template-columns: 164fr 82fr 82fr 329.64fr; gap: 1.088cqw; margin-top: 3.0157cqw; }
+.radis-fpl-performance .radis-fpl-field:first-child { text-align: left; }
+.radis-fpl-performance .radis-fpl-field:first-child button { background: #9f9c9f; text-align: left; padding-left: 2.65cqw; }
+.radis-fpl-route { margin-top: 5.1508cqw; }
+.radis-fpl-route .radis-fpl-field, .radis-fpl-remarks .radis-fpl-field, .radis-fpl-notes .radis-fpl-field { text-align: left; }
+.radis-fpl-route .radis-fpl-field > span, .radis-fpl-remarks .radis-fpl-field > span, .radis-fpl-notes .radis-fpl-field > span { height: 1.93cqw; }
+.radis-fpl .radis-fpl-route button { height: 7.7672cqw; padding: .3cqw; display: flex; align-items: flex-start; justify-content: center; white-space: normal; overflow-wrap: anywhere; font-size: 1.6888cqw; font-weight: 400; text-align: center; }
+.radis-fpl-remarks { margin-top: 1.9662cqw; }
+.radis-fpl-notes { display: grid; grid-template-columns: 572.36fr 102.5fr; gap: 1.187cqw; margin-top: 2.1713cqw; }
+.radis-fpl .radis-fpl-remarks button, .radis-fpl .radis-fpl-notes button { background: #9f9c9f; text-align: left; padding: .3cqw; font-size: 1.6888cqw; font-weight: 400; }
+.radis-fpl-clearance { gap: 1.6815cqw; margin-top: 3.0253cqw; }
+.radis-fpl-clearance input[type=checkbox] { width: 100%; height: 4.9457cqw; margin: 0; appearance: none; border: 1px solid #555; background: #ededed; cursor: pointer; }
+.radis-fpl-clearance input[type=checkbox]:checked { background: #1bff16; }
+.radis-fpl-clearance input[type=checkbox]:checked::after { content: "✓"; display: block; text-align: center; color: black; font-size: 2.8951cqw; }
+.radis-fpl .radis-fpl-arrival { height: 18.8179cqw; margin-top: .7238cqw; padding: 3.4982cqw 5.6164cqw 0; }
+.radis-fpl-arrival .radis-fpl-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5.15cqw; }
+.radis-fpl .radis-fpl-dismiss { display: flex; margin: 1.5682cqw auto 0; width: 12.485cqw; height: 6.9964cqw; padding: 0; font-size: 3.8601cqw; font-weight: 600; box-shadow: -2px -2px #eee, 2px 2px 3px #999; }

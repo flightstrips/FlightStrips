@@ -1,5 +1,5 @@
 import {expect, type APIRequestContext, type Page} from "@playwright/test";
-import {test} from "./fixtures";
+import {chooseAirport, test} from "./fixtures";
 
 const backend = "http://127.0.0.1:4184";
 type Row = {ID: number; Callsign: string; Bay: string; Sequence: number; Owner: string | null; BoardState?: {annotations: {notes: string}}};
@@ -9,8 +9,7 @@ async function rows(request: APIRequestContext, airport: string): Promise<Row[]>
   return response.json();
 }
 async function choose(page: Page, airport: string) {
-  await page.goto("/app");
-  await page.getByRole("button", {name: new RegExp(`${airport} · LIVE`)}).click();
+  await chooseAirport(page, airport);
   if (airport === "EKCH") {
     const tower = page.getByRole("button", {name: "TW / TE", exact: true});
     await expect(tower.or(page.locator('[data-bay="TWY-DEP"]')).first()).toBeVisible();
@@ -22,6 +21,18 @@ async function choose(page: Page, airport: string) {
 test("EKCH moves and own-plugin reconnect preserve a concurrent RADIS board", async ({session, request}) => {
   const tower = await session("__TEST_TOKEN__"), peer = await session("__TEST_FRONTEND_TOKEN__"), radis = await session("__TEST_FRONTEND_TOKEN__");
   await Promise.all([choose(tower,"EKCH"),choose(peer,"EKCH"),choose(radis,"EKBI")]);
+  await test.step("RADIS and EKCH use the same command bar height at 720p", async () => {
+    const viewport = {width: 1280, height: 720};
+    const towerViewport = tower.viewportSize()!;
+    const radisViewport = radis.viewportSize()!;
+    await Promise.all([tower.setViewportSize(viewport), radis.setViewportSize(viewport)]);
+    const [ekchBar, radisBar] = await Promise.all([
+      tower.getByRole("contentinfo", {name: "EKCH command bar"}).boundingBox(),
+      radis.getByRole("contentinfo", {name: "RADIS command bar"}).boundingBox(),
+    ]);
+    expect(radisBar!.height).toBeCloseTo(ekchBar!.height);
+    await Promise.all([tower.setViewportSize(towerViewport), radis.setViewportSize(radisViewport)]);
+  });
   const radisBefore = (await rows(request,"EKBI")).find(row=>row.Callsign==="RADIS2")!;
   const ekchStrip = (page: Page, callsign: string) => page.locator(`[data-strip="${callsign}"]`);
   for (const [page,callsign] of [[tower,"SAS301"],[peer,"SAS404"]] as const) {

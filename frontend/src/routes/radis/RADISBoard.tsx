@@ -6,8 +6,6 @@ import {stripRevision, type StripRevision, type StripAnnotations, } from "@/api/
 import {RADIS_BAYS,type RADISBay} from "./bays";
 import {radisCollisionDetection} from "./collision";
 import {useWebSocketStore} from "@/store/store-hooks";
-import {Dialog} from "@/components/ui/dialog";
-import {FlightStripsDialogContent} from "@/components/ui/flightstrips-dialog";
 import {Button} from "@/components/ui/button";
 import {AirportSwitcher} from "@/components/AirportSwitcher";
 import ATIS from "@/components/commandbar/ATIS";
@@ -43,7 +41,6 @@ export default function RADISBoard() {
   const find = useWebSocketStore(s=>s.findConnectedFlights);
   const [creation,setCreation] = useState<"new"|"find"|null>(null);
   const [standCallsign, setStandCallsign] = useState<string | null>(null);
-  const [runwayDialog, setRunwayDialog] = useState(false);
   const [menu, setMenu] = useState<RADISEdit | null>(null);
   const [fpl, setFpl] = useState<string | null>(null);
   const [runwayHeight, setRunwayHeight] = useState(26);
@@ -98,8 +95,12 @@ export default function RADISBoard() {
       </main>
     <footer className="radis-commandbar" aria-label="RADIS command bar">
       <AirportSwitcher compact/>
-      <div className="radis-toolbar-field"><span>DEP</span><Button aria-label="Departure runways" onClick={() => setRunwayDialog(true)}>{runway.departure.join("/") || "—"}</Button></div>
-      <div className="radis-toolbar-field"><span>ARR</span><Button aria-label="Arrival runways" onClick={() => setRunwayDialog(true)}>{runway.arrival.join("/") || "—"}</Button></div>
+      <div className="radis-toolbar-field" role="group" aria-label="Departure runways">
+        <span>DEP</span><span className="radis-toolbar-runway">{runway.departure.join("/") || "—"}</span>
+      </div>
+      <div className="radis-toolbar-field" role="group" aria-label="Arrival runways">
+        <span>ARR</span><span className="radis-toolbar-runway">{runway.arrival.join("/") || "—"}</span>
+      </div>
       <div className="radis-toolbar-field"><span>QNH</span><b>{metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"}</b></div>
       <ATIS label={metar?.match(/\bQ(\d{4})\b/)?.[1] ?? "—"} className="my-0"/>
       <b className="radis-toolbar-atis" aria-label="ATIS">{atis || "—"}</b>
@@ -117,16 +118,6 @@ export default function RADISBoard() {
       </DragOverlay>
     </DndContext>
     <RADISEditDialog key={menu ? `${menu.callsign}:${menu.field}` : "closed"} menu={menu} setMenu={setMenu} submit={submit}/>
-    <Dialog open={runwayDialog} onOpenChange={setRunwayDialog}>
-      <FlightStripsDialogContent title="Active airport runways" className="radis-dialog-font">
-        <dl className="grid grid-cols-2 gap-2 text-center">
-          <div className="border border-bay-header bg-bay-light p-2"><dt>DEP</dt><dd className="font-bold">{runway.departure.join("/") || "—"}</dd></div>
-          <div className="border border-bay-header bg-bay-light p-2"><dt>ARR</dt><dd className="font-bold">{runway.arrival.join("/") || "—"}</dd></div>
-        </dl>
-        <p>Set the active runways in the master controller's EuroScope runway activity dialog.</p>
-        <Button variant="darkaction" className="justify-self-center" onClick={() => setRunwayDialog(false)}>OK</Button>
-      </FlightStripsDialogContent>
-    </Dialog>
     {standCallsign && strips.find(s => s.callsign === standCallsign && !s.board_state?.removed_at) && <RADISStandDialog strip={strips.find(s => s.callsign === standCallsign)!} close={() => setStandCallsign(null)}/>}
     {recovery && <RADISRecovery close={()=>setRecovery(false)}/>}
     {creation && <RADISCreationDialogs mode={creation} close={()=>setCreation(null)}/>}

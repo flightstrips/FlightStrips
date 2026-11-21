@@ -54,7 +54,8 @@ test("RADIS production sessions converge through database, own-plugin commands a
     const chooser = tab.getByRole("dialog", {name: "Choose airport session"});
     await expect(chooser.getByRole("button", {name: "EKYT", exact: true})).toBeVisible();
     await expect(chooser.getByRole("button", {name: "EKBI", exact: true})).toHaveCount(0);
-    await chooser.getByRole("button", {name: "Keep current airport"}).click();
+    await tab.keyboard.press("Escape");
+    await expect(chooser).toBeHidden();
     for (const [page,value] of [[sweat,"EXERCISE ONLY"],[playback,"PLAYBACK ONLY"],[tab,"SECOND TAB EKYT"]] as const) {
       await page.reload(); await expect(page.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText(value);
     }

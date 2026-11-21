@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import type {AuthorizedSession, OwnMembership} from "@/api/sessions";
 import {membershipKey} from "@/api/sessions";
 import {Button} from "@/components/ui/button";
@@ -17,6 +17,18 @@ export function AirportSessionChooser({sessions, initialSessionID, onChoose, onC
     setAirport(code);
   };
 
+  useEffect(() => {
+    if (!onCancel) return;
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        event.preventDefault();
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", dismissOnEscape);
+    return () => window.removeEventListener("keydown", dismissOnEscape);
+  }, [onCancel]);
+
   const airports = new Map<string, OwnMembership[]>();
   for (const session of sessions) {
     airports.set(session.airport, [...(airports.get(session.airport) ?? []), ...session.instances]);
@@ -25,7 +37,8 @@ export function AirportSessionChooser({sessions, initialSessionID, onChoose, onC
   const selectedAirport = hint?.airport ?? airport ?? (airports.size === 1 ? airports.keys().next().value : undefined);
   const instances = hint?.instances ?? (selectedAirport ? airports.get(selectedAirport) : undefined);
   const choosingInstance = instances && (instances.length > 1 || Boolean(hint || airport));
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-bay-dark/90 p-6" role="dialog" aria-modal="true" aria-labelledby="airport-choice-title">
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-bay-dark/90 p-6" role="dialog" aria-modal="true" aria-labelledby="airport-choice-title"
+    onClick={event => {if (event.target === event.currentTarget) onCancel?.();}}>
     <FlightStripsPanel className="max-h-[90svh] w-full max-w-xl overflow-y-auto">
       <h1 id="airport-choice-title" className="text-center text-lg font-semibold">{choosingInstance ? "Choose your plugin instance" : "Choose airport session"}</h1>
       <p className="text-sm">This choice applies to this tab. Open another tab to work at another airport.</p>
@@ -40,7 +53,6 @@ export function AirportSessionChooser({sessions, initialSessionID, onChoose, onC
         </> : Array.from(airports, ([code, members]) => <Button key={code} variant="trf" className="h-10 text-black" onClick={() => members.length === 1 ? onChoose(members[0]) : navigate(code)}>
           {code}
         </Button>)}
-        {onCancel && <Button variant="darkaction" onClick={onCancel}>Keep current airport</Button>}
       </div>
     </FlightStripsPanel>
   </div>;

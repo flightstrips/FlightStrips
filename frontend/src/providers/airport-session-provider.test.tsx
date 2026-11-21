@@ -171,7 +171,7 @@ describe("per-tab airport selection", () => {
     fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
     const airports = screen.getByRole("dialog", {name: "Choose airport session"});
     expect(within(airports).getAllByRole("button").map(button => button.textContent))
-      .toEqual(["AAAA", "BBBB", "Keep current airport"]);
+      .toEqual(["AAAA", "BBBB"]);
     fireEvent.click(within(airports).getByRole("button", {name: "BBBB"}));
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");
     expect(screen.getByText("Local 0")).toBeInTheDocument();
@@ -322,7 +322,7 @@ describe("per-tab airport selection", () => {
     await refresh();
     fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
     await refresh(300_000);
-    fireEvent.click(screen.getByRole("button", {name: "Keep current airport"}));
+    fireEvent.keyDown(window, {key: "Escape"});
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "1");
     expect(screen.getByText("Local 1")).toBeInTheDocument();
@@ -349,7 +349,7 @@ describe("per-tab airport selection", () => {
     mocks.discover.mockResolvedValue([session(member())]);
     await mount();
     fireEvent.click(screen.getByRole("button", {name: "Switch airport session"}));
-    fireEvent.click(screen.getByRole("button", {name: "Keep current airport"}));
+    fireEvent.keyDown(window, {key: "Escape"});
     mocks.discover.mockResolvedValue([session(member({session_id: 2, airport: "BBBB"}))]);
     await refresh(305_000);
     expect(screen.getByTestId("board")).toHaveAttribute("data-session", "2");

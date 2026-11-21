@@ -130,6 +130,8 @@ namespace FlightStrips::websocket {
         std::string last_control_callsign_, last_control_airport_;
         int last_control_range_ = 0;
         std::optional<std::chrono::steady_clock::time_point> last_control_at_;
+        std::optional<std::vector<VisibleController>> visible_controllers_;
+        uint64_t visible_controllers_revision_ = 0;
 
         mutable std::mutex message_mutex_;
         std::vector<std::string> messages_ {};

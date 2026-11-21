@@ -31,6 +31,7 @@ type pluginTransport struct {
 	evidence         es.ControlEvent
 	evidenceAt       time.Time
 	evidenceRevision uint64 // monotonic even when two reports share a clock tick
+	visibleRevision  uint64 // observation high-water mark for this identity/transport
 	pendingLegacy    string // retry failed admission, never an intentional removal
 }
 
@@ -206,6 +207,16 @@ func handleControlEvent(ctx context.Context, root *Client, message Message) (res
 	t.mu.Lock()
 	previous := t.evidence
 	pendingLegacy := t.pendingLegacy
+	if previous.Environment != event.Environment || previous.Callsign != event.Callsign || previous.Observer != event.Observer {
+		t.visibleRevision = 0
+	}
+	if report := event.VisibleStaffing; report != nil {
+		if report.Revision <= t.visibleRevision {
+			report.Complete = false
+		} else if report.Complete {
+			t.visibleRevision = report.Revision
+		}
+	}
 	t.evidence = *proto.Clone(&event).(*es.ControlEvent)
 	t.evidenceAt = time.Now().UTC()
 	t.evidenceRevision++

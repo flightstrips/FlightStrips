@@ -3,6 +3,7 @@ package euroscope
 import (
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"FlightStrips/internal/config"
@@ -51,6 +52,9 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 		members[member.airport] = member
 	}
 	key := coverageControllerKey(root.GetCid(), control.Callsign)
+	if staffing.ESOnly || simulatedPrimaryOnly(control.Environment) {
+		key = coverageControllerKey("", control.Callsign)
+	}
 	var self *CoverageControllerEvidence
 	if own, exists := staffing.instances[coverageInstanceKey{root.GetCid(), t.instance, t.generation}]; exists {
 		self = &own
@@ -58,11 +62,13 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 	participants := make([]config.CoverageParticipant, 0, len(staffing.Controllers))
 	for i := range staffing.Controllers {
 		entry := &staffing.Controllers[i]
-		if entry.Key == key && self != nil {
+		participant := coverageParticipantForStaffing(entry.CoverageParticipant, staffing)
+		if participant.Key == key && self != nil {
 			entry = self
+			participant = coverageParticipantForStaffing(entry.CoverageParticipant, staffing)
 		}
-		participants = append(participants, entry.CoverageParticipant)
-		if entry.Key == key {
+		participants = append(participants, participant)
+		if participant.Key == key {
 			self = entry
 		}
 	}
@@ -90,7 +96,7 @@ func (hub *Hub) reconcileCoverageLocked(root *Client, declared []string, authori
 				}
 				continue
 			}
-			potential := definition.CoverageResponsibilities([]config.CoverageParticipant{self.CoverageParticipant})[key]
+			potential := definition.CoverageResponsibilities([]config.CoverageParticipant{coverageParticipantForStaffing(self.CoverageParticipant, staffing)})[key]
 			if len(potential) == 0 {
 				remove("instance no longer covers airport responsibilities")
 				continue
@@ -126,9 +132,9 @@ func coverageEvidenceComplete(definition *config.AirportDefinition, staffing Cov
 	if staffing.Inventory != CoverageFresh {
 		return false
 	}
-	needsRadios := definition.CoverageUsesTunedFrequencies()
+	needsRadios := definition.CoverageUsesTunedFrequencies() && !staffing.ESOnly && !simulatedPrimaryOnly(staffing.Environment)
 	for _, controller := range staffing.Controllers {
-		if controller.Key == key && self != nil {
+		if coverageParticipantForStaffing(controller.CoverageParticipant, staffing).Key == key && self != nil {
 			controller = *self
 		}
 		if controller.Observer {
@@ -141,6 +147,24 @@ func coverageEvidenceComplete(definition *config.AirportDefinition, staffing Cov
 	return true
 }
 
+func simulatedPrimaryOnly(environment string) bool {
+	return environment == "SWEATBOX" || strings.HasPrefix(environment, "SWEATBOX_") || strings.HasPrefix(environment, "PLAYBACK_")
+}
+
+// ES visible-roster participation uses configured primary/callsign evidence.
+// Transceiver-driven sector selection remains a separate server operation.
+// Legacy in-process providers retain their configured radio policy for LIVE.
+// Use the same policy for assignments and takeover potential.
+func coverageParticipantForStaffing(participant config.CoverageParticipant, staffing CoverageStaffingEvidence) config.CoverageParticipant {
+	if staffing.ESOnly || simulatedPrimaryOnly(staffing.Environment) {
+		// Every instance must use the same tie-break key for a visible callsign,
+		// regardless of which peer is its authenticated local controller.
+		participant.Key = coverageControllerKey("", participant.Callsign)
+		participant.TunedFrequencies = nil
+	}
+	return participant
+}
+
 func (hub *Hub) coverageReplacementsAttached(airport, environment string, keys []string) bool {
 	if len(keys) == 0 {
 		return false
@@ -151,6 +175,9 @@ func (hub *Hub) coverageReplacementsAttached(airport, environment string, keys [
 			continue
 		}
 		attached[coverageControllerKey(member.GetCid(), member.GetCallsign())] = true
+		// SDK-visible peers have callsigns, not authenticated CIDs. Match
+		// their attachment in this same airport/environment by callsign.
+		attached[coverageControllerKey("", member.GetCallsign())] = true
 	}
 	for _, key := range keys {
 		if !attached[key] {

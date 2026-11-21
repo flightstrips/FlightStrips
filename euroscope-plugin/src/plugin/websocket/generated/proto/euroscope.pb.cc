@@ -22,6 +22,31 @@ namespace flightstrips {
 namespace euroscope {
 namespace v1 {
 
+inline constexpr VisibleController::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        primary_frequency_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        observer_{false},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VisibleController::VisibleController(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VisibleControllerDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VisibleControllerDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VisibleControllerDefaultTypeInternal() {}
+  union {
+    VisibleController _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VisibleControllerDefaultTypeInternal _VisibleController_default_instance_;
+
 inline constexpr VacsRequestEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : request_id_(
@@ -1043,44 +1068,6 @@ struct ControllerDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ControllerDefaultTypeInternal _Controller_default_instance_;
 
-inline constexpr ControlEvent::Impl_::Impl_(
-    ::_pbi::ConstantInitialized) noexcept
-      : tuned_frequencies_{},
-        eligible_airports_{},
-        environment_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        callsign_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        primary_frequency_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        local_ip_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        relevant_airport_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        observer_{false},
-        tuned_frequencies_known_{false},
-        range_{0},
-        _cached_size_{0} {}
-
-template <typename>
-PROTOBUF_CONSTEXPR ControlEvent::ControlEvent(::_pbi::ConstantInitialized)
-    : _impl_(::_pbi::ConstantInitialized()) {}
-struct ControlEventDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR ControlEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~ControlEventDefaultTypeInternal() {}
-  union {
-    ControlEvent _instance;
-  };
-};
-
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ControlEventDefaultTypeInternal _ControlEvent_default_instance_;
-
 inline constexpr CommunicationTypeEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : callsign_(
@@ -1596,6 +1583,28 @@ struct AMANGainLossValueDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 AMANGainLossValueDefaultTypeInternal _AMANGainLossValue_default_instance_;
 
+inline constexpr VisibleStaffing::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : controllers_{},
+        revision_{::uint64_t{0u}},
+        observation_age_ms_{::int64_t{0}},
+        complete_{false},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VisibleStaffing::VisibleStaffing(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VisibleStaffingDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VisibleStaffingDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VisibleStaffingDefaultTypeInternal() {}
+  union {
+    VisibleStaffing _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VisibleStaffingDefaultTypeInternal _VisibleStaffing_default_instance_;
+
 inline constexpr VacsState::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : clients_{},
@@ -2023,6 +2032,45 @@ struct StripUpdateEventDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 StripUpdateEventDefaultTypeInternal _StripUpdateEvent_default_instance_;
+
+inline constexpr ControlEvent::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        tuned_frequencies_{},
+        eligible_airports_{},
+        environment_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        primary_frequency_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        local_ip_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        relevant_airport_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        visible_staffing_{nullptr},
+        observer_{false},
+        tuned_frequencies_known_{false},
+        range_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ControlEvent::ControlEvent(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ControlEventDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ControlEventDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ControlEventDefaultTypeInternal() {}
+  union {
+    ControlEvent _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ControlEventDefaultTypeInternal _ControlEvent_default_instance_;
 
 inline constexpr CdmUpdateBatchEvent::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -6324,6 +6372,9 @@ void MembershipContext::InternalSwap(MembershipContext* PROTOBUF_RESTRICT other)
 
 class ControlEvent::_Internal {
  public:
+  using HasBits = decltype(std::declval<ControlEvent>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_._has_bits_);
 };
 
 ControlEvent::ControlEvent(::google::protobuf::Arena* arena)
@@ -6334,14 +6385,15 @@ ControlEvent::ControlEvent(::google::protobuf::Arena* arena)
 inline PROTOBUF_NDEBUG_INLINE ControlEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
     const Impl_& from)
-      : tuned_frequencies_{visibility, arena, from.tuned_frequencies_},
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        tuned_frequencies_{visibility, arena, from.tuned_frequencies_},
         eligible_airports_{visibility, arena, from.eligible_airports_},
         environment_(arena, from.environment_),
         callsign_(arena, from.callsign_),
         primary_frequency_(arena, from.primary_frequency_),
         local_ip_(arena, from.local_ip_),
-        relevant_airport_(arena, from.relevant_airport_),
-        _cached_size_{0} {}
+        relevant_airport_(arena, from.relevant_airport_) {}
 
 ControlEvent::ControlEvent(
     ::google::protobuf::Arena* arena,
@@ -6352,6 +6404,10 @@ ControlEvent::ControlEvent(
   _internal_metadata_.MergeFrom<std::string>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.visible_staffing_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VisibleStaffing>(
+                              arena, *from._impl_.visible_staffing_)
+                        : nullptr;
   ::memcpy(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, observer_),
            reinterpret_cast<const char *>(&from._impl_) +
@@ -6365,22 +6421,22 @@ ControlEvent::ControlEvent(
 inline PROTOBUF_NDEBUG_INLINE ControlEvent::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
-      : tuned_frequencies_{visibility, arena},
+      : _cached_size_{0},
+        tuned_frequencies_{visibility, arena},
         eligible_airports_{visibility, arena},
         environment_(arena),
         callsign_(arena),
         primary_frequency_(arena),
         local_ip_(arena),
-        relevant_airport_(arena),
-        _cached_size_{0} {}
+        relevant_airport_(arena) {}
 
 inline void ControlEvent::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
-               offsetof(Impl_, observer_),
+               offsetof(Impl_, visible_staffing_),
            0,
            offsetof(Impl_, range_) -
-               offsetof(Impl_, observer_) +
+               offsetof(Impl_, visible_staffing_) +
                sizeof(Impl_::range_));
 }
 ControlEvent::~ControlEvent() {
@@ -6395,6 +6451,7 @@ inline void ControlEvent::SharedDtor() {
   _impl_.primary_frequency_.Destroy();
   _impl_.local_ip_.Destroy();
   _impl_.relevant_airport_.Destroy();
+  delete _impl_.visible_staffing_;
   _impl_.~Impl_();
 }
 
@@ -6430,9 +6487,15 @@ PROTOBUF_NOINLINE void ControlEvent::Clear() {
   _impl_.primary_frequency_.ClearToEmpty();
   _impl_.local_ip_.ClearToEmpty();
   _impl_.relevant_airport_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.visible_staffing_ != nullptr);
+    _impl_.visible_staffing_->Clear();
+  }
   ::memset(&_impl_.observer_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.range_) -
       reinterpret_cast<char*>(&_impl_.observer_)) + sizeof(_impl_.range_));
+  _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<std::string>();
 }
 
@@ -6444,17 +6507,17 @@ const char* ControlEvent::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 10, 0, 149, 2> ControlEvent::_table_ = {
+const ::_pbi::TcParseTable<4, 11, 1, 149, 2> ControlEvent::_table_ = {
   {
-    0,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_._has_bits_),
     0, // no _extensions_
-    10, 120,  // max_field_number, fast_idx_mask
+    11, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294966272,  // skipmap
+    4294965248,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    10,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
+    11,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
     &_ControlEvent_default_instance_._instance,
     ::_pbi::TcParser::GenericFallbackLite,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
@@ -6492,7 +6555,9 @@ const ::_pbi::TcParseTable<4, 10, 0, 149, 2> ControlEvent::_table_ = {
     // repeated string eligible_airports = 10;
     {::_pbi::TcParser::FastUR1,
      {82, 63, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.eligible_airports_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // .flightstrips.euroscope.v1.VisibleStaffing visible_staffing = 11;
+    {::_pbi::TcParser::FastMtS1,
+     {90, 0, 0, PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.visible_staffing_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -6501,38 +6566,41 @@ const ::_pbi::TcParseTable<4, 10, 0, 149, 2> ControlEvent::_table_ = {
     65535, 65535
   }}, {{
     // string environment = 1;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.environment_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.environment_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string callsign = 2;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.callsign_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.callsign_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string primary_frequency = 3;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.primary_frequency_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.primary_frequency_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated string tuned_frequencies = 4;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_), -1, 0,
     (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
     // bool observer = 5;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.observer_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.observer_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBool)},
     // string local_ip = 6;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.local_ip_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.local_ip_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string relevant_airport = 7;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.relevant_airport_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.relevant_airport_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // int32 range = 8;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.range_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.range_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
     // bool tuned_frequencies_known = 9;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_known_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.tuned_frequencies_known_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBool)},
     // repeated string eligible_airports = 10;
-    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.eligible_airports_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.eligible_airports_), -1, 0,
     (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
-  }},
-  // no aux_entries
-  {{
+    // .flightstrips.euroscope.v1.VisibleStaffing visible_staffing = 11;
+    {PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.visible_staffing_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VisibleStaffing>()},
+  }}, {{
     "\46\13\10\21\21\0\10\20\0\0\21\0\0\0\0\0"
     "flightstrips.euroscope.v1.ControlEvent"
     "environment"
@@ -6629,6 +6697,13 @@ const ::_pbi::TcParseTable<4, 10, 0, 149, 2> ControlEvent::_table_ = {
     target = stream->WriteString(10, s, target);
   }
 
+  cached_has_bits = _impl_._has_bits_[0];
+  // .flightstrips.euroscope.v1.VisibleStaffing visible_staffing = 11;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        11, *_impl_.visible_staffing_, _impl_.visible_staffing_->GetCachedSize(), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -6688,6 +6763,13 @@ const ::_pbi::TcParseTable<4, 10, 0, 149, 2> ControlEvent::_table_ = {
                                     this->_internal_relevant_airport());
   }
 
+  // .flightstrips.euroscope.v1.VisibleStaffing visible_staffing = 11;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.visible_staffing_);
+  }
+
   // bool observer = 5;
   if (this->_internal_observer() != 0) {
     total_size += 2;
@@ -6719,6 +6801,7 @@ void ControlEvent::CheckTypeAndMergeFrom(
 
 void ControlEvent::MergeFrom(const ControlEvent& from) {
   ControlEvent* const _this = this;
+  ::google::protobuf::Arena* arena = _this->GetArena();
   // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.ControlEvent)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
@@ -6741,6 +6824,16 @@ void ControlEvent::MergeFrom(const ControlEvent& from) {
   if (!from._internal_relevant_airport().empty()) {
     _this->_internal_set_relevant_airport(from._internal_relevant_airport());
   }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.visible_staffing_ != nullptr);
+    if (_this->_impl_.visible_staffing_ == nullptr) {
+      _this->_impl_.visible_staffing_ =
+          ::google::protobuf::MessageLite::CopyConstruct<::flightstrips::euroscope::v1::VisibleStaffing>(arena, *from._impl_.visible_staffing_);
+    } else {
+      _this->_impl_.visible_staffing_->MergeFrom(*from._impl_.visible_staffing_);
+    }
+  }
   if (from._internal_observer() != 0) {
     _this->_impl_.observer_ = from._impl_.observer_;
   }
@@ -6750,6 +6843,7 @@ void ControlEvent::MergeFrom(const ControlEvent& from) {
   if (from._internal_range() != 0) {
     _this->_impl_.range_ = from._impl_.range_;
   }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
 }
 
@@ -6769,6 +6863,7 @@ void ControlEvent::InternalSwap(ControlEvent* PROTOBUF_RESTRICT other) {
   auto* arena = GetArena();
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.tuned_frequencies_.InternalSwap(&other->_impl_.tuned_frequencies_);
   _impl_.eligible_airports_.InternalSwap(&other->_impl_.eligible_airports_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.environment_, &other->_impl_.environment_, arena);
@@ -6779,9 +6874,554 @@ void ControlEvent::InternalSwap(ControlEvent* PROTOBUF_RESTRICT other) {
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.range_)
       + sizeof(ControlEvent::_impl_.range_)
-      - PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.observer_)>(
-          reinterpret_cast<char*>(&_impl_.observer_),
-          reinterpret_cast<char*>(&other->_impl_.observer_));
+      - PROTOBUF_FIELD_OFFSET(ControlEvent, _impl_.visible_staffing_)>(
+          reinterpret_cast<char*>(&_impl_.visible_staffing_),
+          reinterpret_cast<char*>(&other->_impl_.visible_staffing_));
+}
+
+// ===================================================================
+
+class VisibleController::_Internal {
+ public:
+};
+
+VisibleController::VisibleController(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.VisibleController)
+}
+inline PROTOBUF_NDEBUG_INLINE VisibleController::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : callsign_(arena, from.callsign_),
+        primary_frequency_(arena, from.primary_frequency_),
+        _cached_size_{0} {}
+
+VisibleController::VisibleController(
+    ::google::protobuf::Arena* arena,
+    const VisibleController& from)
+    : ::google::protobuf::MessageLite(arena) {
+  VisibleController* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.observer_ = from._impl_.observer_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.VisibleController)
+}
+inline PROTOBUF_NDEBUG_INLINE VisibleController::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : callsign_(arena),
+        primary_frequency_(arena),
+        _cached_size_{0} {}
+
+inline void VisibleController::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.observer_ = {};
+}
+VisibleController::~VisibleController() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.VisibleController)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void VisibleController::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.callsign_.Destroy();
+  _impl_.primary_frequency_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VisibleController::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[44];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(VisibleController, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.VisibleController",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void VisibleController::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.VisibleController)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.primary_frequency_.ClearToEmpty();
+  _impl_.observer_ = false;
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* VisibleController::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 0, 77, 2> VisibleController::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_VisibleController_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VisibleController>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string callsign = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleController, _impl_.callsign_)}},
+    // string primary_frequency = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleController, _impl_.primary_frequency_)}},
+    // bool observer = 3;
+    {::_pbi::TcParser::FastV8S1,
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleController, _impl_.observer_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string callsign = 1;
+    {PROTOBUF_FIELD_OFFSET(VisibleController, _impl_.callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string primary_frequency = 2;
+    {PROTOBUF_FIELD_OFFSET(VisibleController, _impl_.primary_frequency_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // bool observer = 3;
+    {PROTOBUF_FIELD_OFFSET(VisibleController, _impl_.observer_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+  }},
+  // no aux_entries
+  {{
+    "\53\10\21\0\0\0\0\0"
+    "flightstrips.euroscope.v1.VisibleController"
+    "callsign"
+    "primary_frequency"
+  }},
+};
+
+::uint8_t* VisibleController::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.VisibleController)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VisibleController.callsign");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string primary_frequency = 2;
+  if (!this->_internal_primary_frequency().empty()) {
+    const std::string& _s = this->_internal_primary_frequency();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.VisibleController.primary_frequency");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // bool observer = 3;
+  if (this->_internal_observer() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        3, this->_internal_observer(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.VisibleController)
+  return target;
+}
+
+::size_t VisibleController::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.VisibleController)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string primary_frequency = 2;
+  if (!this->_internal_primary_frequency().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_primary_frequency());
+  }
+
+  // bool observer = 3;
+  if (this->_internal_observer() != 0) {
+    total_size += 2;
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void VisibleController::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const VisibleController*>(
+      &from));
+}
+
+void VisibleController::MergeFrom(const VisibleController& from) {
+  VisibleController* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.VisibleController)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_primary_frequency().empty()) {
+    _this->_internal_set_primary_frequency(from._internal_primary_frequency());
+  }
+  if (from._internal_observer() != 0) {
+    _this->_impl_.observer_ = from._impl_.observer_;
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void VisibleController::CopyFrom(const VisibleController& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.VisibleController)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VisibleController::IsInitialized() const {
+  return true;
+}
+
+void VisibleController::InternalSwap(VisibleController* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.primary_frequency_, &other->_impl_.primary_frequency_, arena);
+        swap(_impl_.observer_, other->_impl_.observer_);
+}
+
+// ===================================================================
+
+class VisibleStaffing::_Internal {
+ public:
+};
+
+VisibleStaffing::VisibleStaffing(::google::protobuf::Arena* arena)
+    : ::google::protobuf::MessageLite(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.euroscope.v1.VisibleStaffing)
+}
+inline PROTOBUF_NDEBUG_INLINE VisibleStaffing::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : controllers_{visibility, arena, from.controllers_},
+        _cached_size_{0} {}
+
+VisibleStaffing::VisibleStaffing(
+    ::google::protobuf::Arena* arena,
+    const VisibleStaffing& from)
+    : ::google::protobuf::MessageLite(arena) {
+  VisibleStaffing* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<std::string>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, revision_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, revision_),
+           offsetof(Impl_, complete_) -
+               offsetof(Impl_, revision_) +
+               sizeof(Impl_::complete_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.VisibleStaffing)
+}
+inline PROTOBUF_NDEBUG_INLINE VisibleStaffing::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : controllers_{visibility, arena},
+        _cached_size_{0} {}
+
+inline void VisibleStaffing::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, revision_),
+           0,
+           offsetof(Impl_, complete_) -
+               offsetof(Impl_, revision_) +
+               sizeof(Impl_::complete_));
+}
+VisibleStaffing::~VisibleStaffing() {
+  // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.VisibleStaffing)
+  _internal_metadata_.Delete<std::string>();
+  SharedDtor();
+}
+inline void VisibleStaffing::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VisibleStaffing::GetClassData() const {
+  struct ClassData_ {
+    ::google::protobuf::MessageLite::ClassData header;
+    char type_name[42];
+  };
+
+  PROTOBUF_CONSTINIT static const ClassData_ _data_ = {
+      {
+          nullptr,  // OnDemandRegisterArenaDtor
+          PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_._cached_size_),
+          true,
+      },
+      "flightstrips.euroscope.v1.VisibleStaffing",
+  };
+
+  return &_data_.header;
+}
+PROTOBUF_NOINLINE void VisibleStaffing::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.euroscope.v1.VisibleStaffing)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.controllers_.Clear();
+  ::memset(&_impl_.revision_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.complete_) -
+      reinterpret_cast<char*>(&_impl_.revision_)) + sizeof(_impl_.complete_));
+  _internal_metadata_.Clear<std::string>();
+}
+
+const char* VisibleStaffing::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 1, 0, 2> VisibleStaffing::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_VisibleStaffing_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallbackLite,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VisibleStaffing>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // int64 observation_age_ms = 4;
+    {::_pbi::TcParser::FastV64S1,
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.observation_age_ms_)}},
+    // bool complete = 1;
+    {::_pbi::TcParser::FastV8S1,
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.complete_)}},
+    // uint64 revision = 2;
+    {::_pbi::TcParser::FastV64S1,
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.revision_)}},
+    // repeated .flightstrips.euroscope.v1.VisibleController controllers = 3;
+    {::_pbi::TcParser::FastMtR1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.controllers_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // bool complete = 1;
+    {PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.complete_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // uint64 revision = 2;
+    {PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.revision_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // repeated .flightstrips.euroscope.v1.VisibleController controllers = 3;
+    {PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.controllers_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // int64 observation_age_ms = 4;
+    {PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.observation_age_ms_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::VisibleController>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* VisibleStaffing::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.euroscope.v1.VisibleStaffing)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // bool complete = 1;
+  if (this->_internal_complete() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        1, this->_internal_complete(), target);
+  }
+
+  // uint64 revision = 2;
+  if (this->_internal_revision() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        2, this->_internal_revision(), target);
+  }
+
+  // repeated .flightstrips.euroscope.v1.VisibleController controllers = 3;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_controllers_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_controllers().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            3, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // int64 observation_age_ms = 4;
+  if (this->_internal_observation_age_ms() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<4>(
+            stream, this->_internal_observation_age_ms(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(_internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.euroscope.v1.VisibleStaffing)
+  return target;
+}
+
+::size_t VisibleStaffing::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.euroscope.v1.VisibleStaffing)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.euroscope.v1.VisibleController controllers = 3;
+  total_size += 1UL * this->_internal_controllers_size();
+  for (const auto& msg : this->_internal_controllers()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // uint64 revision = 2;
+  if (this->_internal_revision() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_revision());
+  }
+
+  // int64 observation_age_ms = 4;
+  if (this->_internal_observation_age_ms() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+        this->_internal_observation_age_ms());
+  }
+
+  // bool complete = 1;
+  if (this->_internal_complete() != 0) {
+    total_size += 2;
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  _impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void VisibleStaffing::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::_pbi::DownCast<const VisibleStaffing*>(
+      &from));
+}
+
+void VisibleStaffing::MergeFrom(const VisibleStaffing& from) {
+  VisibleStaffing* const _this = this;
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.euroscope.v1.VisibleStaffing)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_controllers()->MergeFrom(
+      from._internal_controllers());
+  if (from._internal_revision() != 0) {
+    _this->_impl_.revision_ = from._impl_.revision_;
+  }
+  if (from._internal_observation_age_ms() != 0) {
+    _this->_impl_.observation_age_ms_ = from._impl_.observation_age_ms_;
+  }
+  if (from._internal_complete() != 0) {
+    _this->_impl_.complete_ = from._impl_.complete_;
+  }
+  _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
+}
+
+void VisibleStaffing::CopyFrom(const VisibleStaffing& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.euroscope.v1.VisibleStaffing)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VisibleStaffing::IsInitialized() const {
+  return true;
+}
+
+void VisibleStaffing::InternalSwap(VisibleStaffing* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  _impl_.controllers_.InternalSwap(&other->_impl_.controllers_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.complete_)
+      + sizeof(VisibleStaffing::_impl_.complete_)
+      - PROTOBUF_FIELD_OFFSET(VisibleStaffing, _impl_.revision_)>(
+          reinterpret_cast<char*>(&_impl_.revision_),
+          reinterpret_cast<char*>(&other->_impl_.revision_));
 }
 
 // ===================================================================

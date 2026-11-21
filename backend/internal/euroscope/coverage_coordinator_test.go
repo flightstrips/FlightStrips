@@ -239,3 +239,53 @@ func TestCoverageRadioChangesWithoutCallsignChanges(t *testing.T) {
 	require.False(t, b.isClosed())
 	require.Equal(t, "ZZXX_CTR", root.GetCallsign())
 }
+
+func TestCoverageNonLiveUsesPrimaryWithoutAdditionalRadioEvidence(t *testing.T) {
+	for _, environment := range []string{"SWEATBOX", "SWEATBOX_EXERCISE1", "PLAYBACK_EXERCISE1"} {
+		t.Run(environment, func(t *testing.T) {
+			hub, root, a, b := coverageTestInstance(t)
+			hub.airports = coverageFixtureRegistry(t, 0)
+			root.transport.evidence.Environment = environment
+			frame := coverageFrame(coverageEntry("1", "ZZXX_CTR", "120.000"), coverageEntry("3", "ZZZZ_APP", "119.000"))
+			frame.Environment = environment
+			for i := range frame.Controllers {
+				frame.Controllers[i].Radios = CoverageUnknown
+			}
+			// Even a partial/synthetic tuned list must not alter SWEATBOX duties.
+			frame.Controllers[0].TunedFrequencies = []string{"118.000"}
+			apply := func() {
+				t.Helper()
+				require.NoError(t, hub.ReconcileCoverage(root, []string{"AAAA", "BBBB"}, func(string) bool { return true }, frame, time.Now()))
+			}
+			frame.Inventory = CoverageUnknown
+			apply()
+			require.False(t, a.isClosed(), "primary-only mode still requires a complete fresh roster")
+			frame.Inventory = CoverageFresh
+			frame.Controllers[1].Identity = CoverageStale
+			apply()
+			require.False(t, a.isClosed(), "stale identities cannot confirm takeover")
+			frame.Controllers[1].Identity = CoverageFresh
+			apply()
+			require.True(t, a.isClosed(), "APP takes all AAAA duties using its primary frequency")
+			require.False(t, b.isClosed(), "CTR retains BBBB duties using its primary frequency")
+			require.False(t, root.isClosed())
+			require.Equal(t, []string{"118.000"}, frame.Controllers[0].TunedFrequencies, "source data remains immutable")
+		})
+	}
+}
+
+func TestCoveragePrimaryOnlyExceptionDoesNotApplyToLive(t *testing.T) {
+	for _, environment := range []string{"LIVE"} {
+		t.Run(environment, func(t *testing.T) {
+			hub, root, a, _ := coverageTestInstance(t)
+			hub.airports = coverageFixtureRegistry(t, 0)
+			root.transport.evidence.Environment = environment
+			frame := coverageFrame(coverageEntry("1", "ZZXX_CTR", "120.000"), coverageEntry("3", "ZZZZ_APP", "119.000"))
+			frame.Environment = environment
+			frame.Controllers[0].Radios = CoverageUnknown
+			require.NoError(t, hub.ReconcileCoverage(root, []string{"AAAA", "BBBB"}, func(string) bool { return true }, frame, time.Now()))
+			require.False(t, a.isClosed())
+			require.Empty(t, root.transport.takeovers)
+		})
+	}
+}

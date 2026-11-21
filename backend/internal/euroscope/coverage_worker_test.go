@@ -238,6 +238,10 @@ func TestCoverageSimulationRequiresItsOwnFreshInventory(t *testing.T) {
 	source.Timestamp = now
 	_, err = coordinator.Reconcile(t.Context())
 	require.NoError(t, err)
+	require.Empty(t, root.transport.snapshot(), "a fresh empty roster cannot be completed by plugin presences")
+	source.Controllers = []CoverageControllerEvidence{{CoverageParticipant: config.CoverageParticipant{Key: "1/ZZXX_CTR", Callsign: "ZZXX_CTR", PrimaryFrequency: "120.000"}, Identity: CoverageFresh, Radios: CoverageFresh}}
+	_, err = coordinator.Reconcile(t.Context())
+	require.NoError(t, err)
 	require.Len(t, root.transport.snapshot(), 1)
 	require.Equal(t, "SWEATBOX_FIXTURE", root.transport.snapshot()[0].sessionName)
 	require.False(t, hub.HasLiveSourceDemand())

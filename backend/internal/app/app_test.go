@@ -9,12 +9,29 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
 type appTestHoppieClient struct{}
+
+func TestTransceiverSectorProvidersRemainActiveWithoutPublicDatafeed(t *testing.T) {
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"callsign":"EKCH_F_APP","transceivers":[{"frequency":124980000}]},{"callsign":"EKDK_CTR","transceivers":[{"frequency":119005000}]}]`))
+	}))
+	defer feed.Close()
+	transports := assembleTransports(Config{EnableTransceivers: true, EnableVATSIM: false}, Dependencies{TransceiversURL: feed.URL, TransceiversInterval: time.Hour}, func(context.Context) error { return nil })
+	require.NotNil(t, transports.transceivers)
+	require.Len(t, transports.serverFrequencyProviders, 1)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go transports.transceivers.Start(ctx)
+	require.Eventually(t, func() bool { return len(transports.serverFrequencyProviders[0].GetFrequencies("EKDK_CTR")) == 1 }, time.Second, time.Millisecond)
+	require.Equal(t, []string{"124.980"}, transports.serverFrequencyProviders[0].GetFrequencies("EKCH_F_APP"))
+	require.Equal(t, []string{"119.005"}, transports.serverFrequencyProviders[0].GetFrequencies("EKDK_CTR"), "EKBI tower carriage remains available to sector/route selection")
+}
 
 func TestBuildRejectsEFBCallsignLookupInProduction(t *testing.T) {
 	_, err := Build(context.Background(), Config{Environment: "production", EFBCallsignLookup: true}, Dependencies{})

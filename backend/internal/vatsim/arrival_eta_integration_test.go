@@ -107,6 +107,60 @@ func TestArrivalLifecycleUsesPersistedETAAfterAMANFallback(t *testing.T) {
 	}
 }
 
+// AMAN is fresh while the feed updates the strip but expires before the stand
+// pass reloads it. The pass must use the VATSIM fallback, not a missing ETA
+// that would bypass the lifecycle's estimate horizon.
+func TestArrivalLifecycleSelectsFallbackWhenAMANExpiresBeforeStandPass(t *testing.T) {
+	ctx := t.Context()
+	start := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	clock := start
+	expiring := models.ArrivalETA{Time: start.Add(20 * time.Minute), Source: compatibility.ArrivalETASource, CalculatedAt: start.Add(-compatibility.FreshFor + 30*time.Second)}
+	pool, queries := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, "LIVE", nil)
+	repo := postgres.NewStripRepository(pool)
+	const callsign = "SAS101"
+	testdata.SeedTestStrip(t, queries, session, callsign)
+	_, err := repo.UpdateArrivalETA(ctx, session, callsign, expiring)
+	require.NoError(t, err)
+
+	// The assignment read happens after the feed update and before the reload.
+	assignments := &arrivalAssignmentRefreshStore{
+		StandAssignmentRepository: postgres.NewStandAssignmentRepository(pool),
+		afterList:                 func() { clock = start.Add(time.Minute) },
+	}
+	lifecycle := &arrivalETALifecycleRecorder{}
+	source := vatsim.NewSnapshotReplaySource()
+	feed := fmt.Sprintf(`{
+		"general": {"update_timestamp": %q},
+		"pilots": [{
+			"cid": 1, "callsign": %q, "last_updated": %q,
+			"latitude": 55, "longitude": 10, "altitude": 2000, "groundspeed": 30,
+			"flight_plan": {"departure": "EGLL", "arrival": "EKCH", "deptime": "0800", "enroute_time": "0300", "revision_id": 1}
+		}]
+	}`, start.Format(time.RFC3339), callsign, start.Format(time.RFC3339))
+	require.NoError(t, source.Load(strings.NewReader(feed), start))
+	reconciler, err := vatsim.NewReconciler(vatsim.ReconcilerDependencies{
+		Cache: source, Sessions: postgres.NewSessionRepository(pool), Strips: repo,
+		Assignments: assignments, DepartureLifecycle: lifecycle,
+		ArrivalLifecycle: lifecycle, Notifier: lifecycle,
+	}, time.Second, vatsim.WithClock(func() time.Time { return clock }), vatsim.WithLegacyArrivalETAWriter(false),
+		vatsim.WithAirportCoordinates(55.6181, 12.6560))
+	require.NoError(t, err)
+
+	require.NoError(t, reconciler.Reconcile(ctx))
+
+	persisted, err := repo.GetByCallsign(ctx, session, callsign)
+	require.NoError(t, err)
+	require.NotNil(t, persisted.ArrivalETA)
+	require.Equal(t, vatsim.ETAFiled, persisted.ArrivalETA.Source)
+	require.True(t, start.Add(time.Hour).Equal(persisted.ArrivalETA.Time), "EOBT 0800 + 0300 enroute")
+	require.NotEmpty(t, lifecycle.processed)
+	for _, eta := range lifecycle.processed {
+		require.NotNil(t, eta, "the stand pass must never see a missing ETA while a filed fallback exists")
+		require.Equal(t, vatsim.ETAFiled, eta.Source)
+	}
+}
+
 type arrivalETARefreshStore struct {
 	repository.StripRepository
 	afterList     func()

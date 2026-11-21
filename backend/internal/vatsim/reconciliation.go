@@ -487,7 +487,7 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 	}
 	orderer, converge := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
 	if !converge {
-		if err := r.reloadArrivalStrips(ctx, sessionID, strips); err != nil {
+		if err := r.reloadArrivalStrips(ctx, sessionID, strips, flights); err != nil {
 			return err
 		}
 		return r.processArrivalPass(withArrivalETASnapshot(ctx, sessionID, strips, flights), sessionID, strips, flights)
@@ -499,7 +499,7 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 	}
 	// Read committed strip timing after assignments, immediately before
 	// ordering. The write also checks this timing under the strip lock.
-	if err := r.reloadArrivalStrips(ctx, sessionID, strips); err != nil {
+	if err := r.reloadArrivalStrips(ctx, sessionID, strips, flights); err != nil {
 		return err
 	}
 	for pass := 1; pass <= maxArrivalReconciliationPasses; pass++ {
@@ -515,7 +515,7 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 		if err != nil {
 			return err
 		}
-		if err := r.reloadArrivalStrips(ctx, sessionID, strips); err != nil {
+		if err := r.reloadArrivalStrips(ctx, sessionID, strips, flights); err != nil {
 			return err
 		}
 		if passErr == nil && maps.Equal(previousAssignments, snapshotArrivalAssignments(assignments, flights)) &&
@@ -571,16 +571,20 @@ func snapshotArrivalStrips(strips map[string]*models.Strip, flights []Flight) ma
 	return states
 }
 
-func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, strips map[string]*models.Strip) error {
+func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) error {
 	committed, err := r.strips.List(ctx, sessionID)
 	if err != nil {
 		return fmt.Errorf("reload committed arrival strips: %w", err)
 	}
 	clear(strips)
 	now := r.now()
+	expiredAMAN := make(map[string]struct{})
 	for _, strip := range committed {
 		if strip != nil {
 			if eta := effectiveArrivalETA(strip.ArrivalETA, now); eta != strip.ArrivalETA {
+				if strip.ArrivalETA != nil && strip.ArrivalETA.Source == compatibility.ArrivalETASource {
+					expiredAMAN[normalizeCallsign(strip.Callsign)] = struct{}{}
+				}
 				// Apply freshness to the snapshot used by this pass, including
 				// projections published after the fallback pass.
 				snapshot := *strip
@@ -588,6 +592,20 @@ func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, s
 				strip = &snapshot
 			}
 			strips[normalizeCallsign(strip.Callsign)] = strip
+		}
+	}
+	// An AMAN projection can expire between the feed update and this reload.
+	// Select the guarded VATSIM fallback now, so the pass never treats a flight
+	// with a usable filed or live estimate as having no ETA. A projection that
+	// AMAN refreshed meanwhile stays authoritative.
+	for _, flight := range flights {
+		if _, expired := expiredAMAN[normalizeCallsign(flight.Callsign)]; !expired {
+			continue
+		}
+		if strip := strips[flight.Callsign]; strip != nil {
+			if _, err := r.updateArrivalETA(ctx, sessionID, strip, flight, false); err != nil {
+				return fmt.Errorf("select fallback arrival ETA for %s: %w", flight.Callsign, err)
+			}
 		}
 	}
 	return nil

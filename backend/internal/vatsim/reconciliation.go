@@ -577,35 +577,33 @@ func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, s
 		return fmt.Errorf("reload committed arrival strips: %w", err)
 	}
 	clear(strips)
-	now := r.now()
-	expiredAMAN := make(map[string]struct{})
 	for _, strip := range committed {
 		if strip != nil {
-			if eta := effectiveArrivalETA(strip.ArrivalETA, now); eta != strip.ArrivalETA {
-				if strip.ArrivalETA != nil && strip.ArrivalETA.Source == compatibility.ArrivalETASource {
-					expiredAMAN[normalizeCallsign(strip.Callsign)] = struct{}{}
-				}
-				// Apply freshness to the snapshot used by this pass, including
-				// projections published after the fallback pass.
-				snapshot := *strip
-				snapshot.ArrivalETA = eta
-				strip = &snapshot
-			}
 			strips[normalizeCallsign(strip.Callsign)] = strip
 		}
 	}
 	// An AMAN projection can expire between the feed update and this reload.
-	// Select the guarded VATSIM fallback now, so the pass never treats a flight
-	// with a usable filed or live estimate as having no ETA. A projection that
-	// AMAN refreshed meanwhile stays authoritative.
+	// Run the guarded VATSIM fallback against the committed AMAN value: it
+	// writes a filed or live estimate, or clears the expired projection when
+	// none exists, and keeps a projection AMAN refreshed meanwhile.
 	for _, flight := range flights {
-		if _, expired := expiredAMAN[normalizeCallsign(flight.Callsign)]; !expired {
+		strip := strips[flight.Callsign]
+		if strip == nil || strip.ArrivalETA == nil || strip.ArrivalETA.Source != compatibility.ArrivalETASource ||
+			compatibility.IsFresh(strip.ArrivalETA, r.now()) {
 			continue
 		}
-		if strip := strips[flight.Callsign]; strip != nil {
-			if _, err := r.updateArrivalETA(ctx, sessionID, strip, flight, false); err != nil {
-				return fmt.Errorf("select fallback arrival ETA for %s: %w", flight.Callsign, err)
-			}
+		if _, err := r.updateArrivalETA(ctx, sessionID, strip, flight, false); err != nil {
+			return fmt.Errorf("select fallback arrival ETA for %s: %w", flight.Callsign, err)
+		}
+	}
+	// Apply freshness to the view used by this pass, including projections
+	// published after the fallback pass.
+	now := r.now()
+	for key, strip := range strips {
+		if eta := effectiveArrivalETA(strip.ArrivalETA, now); eta != strip.ArrivalETA {
+			snapshot := *strip
+			snapshot.ArrivalETA = eta
+			strips[key] = &snapshot
 		}
 	}
 	return nil

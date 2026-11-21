@@ -161,6 +161,55 @@ func TestArrivalLifecycleSelectsFallbackWhenAMANExpiresBeforeStandPass(t *testin
 	}
 }
 
+// With no usable VATSIM estimate, an AMAN ETA that expires before the stand
+// pass must be cleared in the database, not only hidden from the pass.
+func TestExpiredAMANETAIsClearedWhenNoFallbackExistsBeforeStandPass(t *testing.T) {
+	ctx := t.Context()
+	start := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	clock := start
+	expiring := models.ArrivalETA{Time: start.Add(20 * time.Minute), Source: compatibility.ArrivalETASource, CalculatedAt: start.Add(-compatibility.FreshFor + 30*time.Second)}
+	pool, queries := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, "LIVE", nil)
+	repo := postgres.NewStripRepository(pool)
+	const callsign = "SAS101"
+	testdata.SeedTestStrip(t, queries, session, callsign)
+	_, err := repo.UpdateArrivalETA(ctx, session, callsign, expiring)
+	require.NoError(t, err)
+
+	assignments := &arrivalAssignmentRefreshStore{
+		StandAssignmentRepository: postgres.NewStandAssignmentRepository(pool),
+		afterList:                 func() { clock = start.Add(time.Minute) },
+	}
+	lifecycle := &arrivalETALifecycleRecorder{}
+	source := vatsim.NewSnapshotReplaySource()
+	// No enroute time and a ground-level position: VATSIM cannot estimate.
+	feed := fmt.Sprintf(`{
+		"general": {"update_timestamp": %q},
+		"pilots": [{
+			"cid": 1, "callsign": %q, "last_updated": %q,
+			"latitude": 55, "longitude": 10, "altitude": 0, "groundspeed": 0,
+			"flight_plan": {"departure": "EGLL", "arrival": "EKCH", "deptime": "0800", "enroute_time": "", "revision_id": 1}
+		}]
+	}`, start.Format(time.RFC3339), callsign, start.Format(time.RFC3339))
+	require.NoError(t, source.Load(strings.NewReader(feed), start))
+	reconciler, err := vatsim.NewReconciler(vatsim.ReconcilerDependencies{
+		Cache: source, Sessions: postgres.NewSessionRepository(pool), Strips: repo,
+		Assignments: assignments, DepartureLifecycle: lifecycle,
+		ArrivalLifecycle: lifecycle, Notifier: lifecycle,
+	}, time.Second, vatsim.WithClock(func() time.Time { return clock }), vatsim.WithLegacyArrivalETAWriter(false),
+		vatsim.WithAirportCoordinates(55.6181, 12.6560))
+	require.NoError(t, err)
+
+	require.NoError(t, reconciler.Reconcile(ctx))
+
+	persisted, err := repo.GetByCallsign(ctx, session, callsign)
+	require.NoError(t, err)
+	require.Nil(t, persisted.ArrivalETA, "the expired AMAN projection is cleared from the strip")
+	for _, eta := range lifecycle.processed {
+		require.Nil(t, eta)
+	}
+}
+
 type arrivalETARefreshStore struct {
 	repository.StripRepository
 	afterList     func()

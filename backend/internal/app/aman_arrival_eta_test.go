@@ -26,6 +26,12 @@ func (s *fakeArrivalETAStore) UpdateArrivalETA(_ context.Context, _ int32, calls
 		s.updates = map[string]models.ArrivalETA{}
 	}
 	s.updates[callsign] = eta
+	for _, strip := range s.strips {
+		if strip.Callsign == callsign {
+			stored := eta
+			strip.ArrivalETA = &stored
+		}
+	}
 	return 1, nil
 }
 
@@ -103,6 +109,31 @@ func TestAMANArrivalETAProjectionRefreshesUnchangedETABeforeItGoesStale(t *testi
 
 	require.Contains(t, store.updates, "SAS1")
 	require.True(t, compatibility.IsFresh(&models.ArrivalETA{Time: store.updates["SAS1"].Time, Source: store.updates["SAS1"].Source, CalculatedAt: store.updates["SAS1"].CalculatedAt}, now))
+}
+
+func TestAMANArrivalETAProjectionRejectsOlderPublications(t *testing.T) {
+	now := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
+	newer, older := now.Add(30*time.Minute), now.Add(10*time.Minute)
+	store := &fakeArrivalETAStore{strips: []*models.Strip{{Callsign: "SAS1"}}}
+	projection := newAMANArrivalETAProjection(aman.ModeAuthoritative, store, nil)
+	healthy := aman.TechnicalHealth{AuthorityAllowed: true}
+
+	projection.project(context.Background(), aman.AirportState{SessionID: 7, Revision: 5, Flights: []aman.AMANFlight{
+		{Callsign: "SAS1", Prediction: amanETAPrediction(newer, now)},
+	}}, healthy, now)
+	require.True(t, store.strips[0].ArrivalETA.Time.Equal(newer))
+
+	// An older revision resuming after the newer one has published.
+	projection.project(context.Background(), aman.AirportState{SessionID: 7, Revision: 4, Flights: []aman.AMANFlight{
+		{Callsign: "SAS1", Prediction: amanETAPrediction(older, now.Add(-time.Minute))},
+	}}, healthy, now)
+	require.True(t, store.strips[0].ArrivalETA.Time.Equal(newer), "an older revision must not overwrite the newer ETA")
+
+	// The same revision republished with an older prediction is also ignored.
+	projection.project(context.Background(), aman.AirportState{SessionID: 7, Revision: 5, Flights: []aman.AMANFlight{
+		{Callsign: "SAS1", Prediction: amanETAPrediction(older, now.Add(-time.Minute))},
+	}}, healthy, now)
+	require.True(t, store.strips[0].ArrivalETA.Time.Equal(newer))
 }
 
 func TestAMANArrivalETAProjectionDoesNotWriteWhenAuthorityIsBlocked(t *testing.T) {

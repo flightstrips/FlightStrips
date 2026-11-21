@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -31,6 +32,12 @@ type amanArrivalETAProjection struct {
 	store  arrivalETAStripStore
 	writer compatibility.Writer
 	notify func(session int32, callsign string)
+
+	// mu serializes publications from the coordinator and reconciliation
+	// ticks through the strip read and write, so an older AMAN state cannot
+	// overwrite an ETA a newer revision already projected.
+	mu           sync.Mutex
+	lastRevision map[int32]aman.SequenceRevision
 }
 
 func newAMANArrivalETAProjection(mode aman.RolloutMode, store arrivalETAStripStore, notify func(int32, string)) *amanArrivalETAProjection {
@@ -56,6 +63,15 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 	if !health.AuthorityAllowed {
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if last, seen := p.lastRevision[state.SessionID]; seen && state.Revision < last {
+		return
+	}
+	if p.lastRevision == nil {
+		p.lastRevision = make(map[int32]aman.SequenceRevision)
+	}
+	p.lastRevision[state.SessionID] = state.Revision
 	strips, err := p.store.List(ctx, state.SessionID)
 	if err != nil {
 		slog.WarnContext(ctx, "AMAN arrival ETA projection failed to list strips", slog.Int("session", int(state.SessionID)), slog.Any("error", err))
@@ -76,6 +92,11 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 		if projected == nil {
 			continue
 		}
+		// Within one revision, never replace a newer prediction with an older one.
+		if stored := strip.ArrivalETA; stored != nil && stored.Source == compatibility.ArrivalETASource &&
+			stored.CalculatedAt.After(projected.CalculatedAt) {
+			continue
+		}
 		if sameArrivalETA(strip.ArrivalETA, projected) && !strip.ArrivalETA.CalculatedAt.Before(now.Add(-amanArrivalETARefreshAfter)) {
 			continue
 		}
@@ -88,6 +109,12 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 			p.notify(state.SessionID, strip.Callsign)
 		}
 	}
+}
+
+func (p *amanArrivalETAProjection) forgetSession(session int32) {
+	p.mu.Lock()
+	delete(p.lastRevision, session)
+	p.mu.Unlock()
 }
 
 func sameArrivalETA(existing, projected *models.ArrivalETA) bool {

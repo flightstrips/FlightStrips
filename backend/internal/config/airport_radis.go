@@ -12,8 +12,9 @@ type RADISSettings struct {
 	BayGroundStates          map[string]RADISBayStates `yaml:"bay_ground_states"`
 	AdmissionDistanceNM      float64                   `yaml:"admission_distance_nm"`
 	DepartureAdmissionAGLFT  int32                     `yaml:"departure_admission_agl_ft"`
-	RemovalDistanceNM        float64                   `yaml:"removal_distance_nm"`
-	DepartureRemovalAGLFT    int32                     `yaml:"departure_removal_agl_ft"`
+	RemovalDistanceNM        *float64                  `yaml:"removal_distance_nm"`
+	DepartureRemovalAGLFT    *int32                    `yaml:"departure_removal_agl_ft"`
+	AutomaticATDAGLFT        *int32                    `yaml:"automatic_atd_agl_ft,omitempty"`
 	RecoverySeconds          int                       `yaml:"recovery_seconds"`
 	TimestampSemantics       string                    `yaml:"timestamp_semantics"`
 }
@@ -57,7 +58,7 @@ func RADISDescriptor() HandlerDescriptor {
 					return fmt.Errorf("unknown RADIS bay mapping %s", b)
 				}
 			}
-			if s.RemovalDistanceNM < s.AdmissionDistanceNM || s.DepartureRemovalAGLFT <= s.DepartureAdmissionAGLFT {
+			if s.RemovalDistanceNM != nil && *s.RemovalDistanceNM < s.AdmissionDistanceNM || s.DepartureRemovalAGLFT != nil && *s.DepartureRemovalAGLFT <= s.DepartureAdmissionAGLFT {
 				return fmt.Errorf("RADIS removal bounds must exceed admission bounds")
 			}
 			if d.Services.PDC != nil && d.Services.PDC.Availability != ServiceDisabled || d.Services.AMAN != nil && d.Services.AMAN.Availability != ServiceDisabled {

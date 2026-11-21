@@ -108,7 +108,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 			if scope.MembershipId == "" {
 				transport = proto.Clone(scope).(*es.MembershipContext)
 				mu.Unlock()
-				if control("118.000", "118.000", "119.000") != nil {
+				if control("119.005", "119.005", "118.305") != nil {
 					return
 				}
 				continue
@@ -127,7 +127,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 				}
 				mu.Unlock()
 				if first {
-					snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Callsign: "MA08_CTR", Position: "118.000"}}, Strips: []*es.Strip{{Callsign: "SAME123", Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", HasFp: true, GroundState: es.GroundStateStartup, AssignedSquawk: "2401", Position: &es.Position{Lat: 0, Lon: 0, Altitude: 100}}}}
+					snapshot := &es.SyncEvent{Controllers: []*es.Controller{{Callsign: "MA08_CTR", Position: "119.005"}}, Strips: []*es.Strip{{Callsign: "SAME123", Origin: "EKBI", Destination: "EKYT", AircraftType: "A320", HasFp: true, GroundState: es.GroundStateStartup, AssignedSquawk: "2401", Position: &es.Position{Lat: 55.74032194, Lon: 9.15177778, Altitude: 100}}}}
 					probe := proto.Clone(snapshot.Strips[0]).(*es.Strip)
 					probe.Callsign = "FENCEPROBE"
 					snapshot.Strips = append(snapshot.Strips, probe)
@@ -182,7 +182,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	require.Equal(t, es.GroundStateStartup, state("EKBI"))
 	// A tuned-radio change removes only EKBI; the socket and EKYT incarnation
 	// remain usable. Return coverage through that same zero/new-membership path.
-	require.NoError(t, control("119.000", "119.000"))
+	require.NoError(t, control("118.305", "118.305"))
 	require.Eventually(t, func() bool { return member("EKBI") == nil }, 5*time.Second, 10*time.Millisecond)
 	require.True(t, proto.Equal(b, member("EKYT")))
 	require.NoError(t, ground(a, es.GroundStateDepart))
@@ -191,7 +191,7 @@ func TestMultiAirportReleaseSocketTakeoverRejoinAndFencing(t *testing.T) {
 	require.Equal(t, es.GroundStateTaxi, state("EKYT"))
 	require.NoError(t, ground(b, es.GroundStateParked))
 	require.Eventually(t, func() bool { return state("EKYT") == es.GroundStateParked }, 5*time.Second, 10*time.Millisecond)
-	require.NoError(t, control("118.000", "118.000", "119.000"))
+	require.NoError(t, control("119.005", "119.005", "118.305"))
 	require.Eventually(t, func() bool { return member("EKBI") != nil && member("EKBI").MembershipId != a.MembershipId }, 5*time.Second, 10*time.Millisecond)
 	require.NoError(t, ground(a, es.GroundStateDepart))
 	barrier(es.GroundStateTaxi)

@@ -3,7 +3,7 @@ import {test} from "./fixtures";
 import {identity} from "./identity";
 
 const backend = "http://127.0.0.1:4184";
-type Row = {ID: number; Version: number; Callsign: string; Bay: string; Sequence: number; FlightPlanEET: string; CdmData: {tobt?: string}; BoardState: {local?: boolean; annotations: {notes: string}; removed_at?: string}};
+type Row = {ID: number; Version: number; Callsign: string; State: string; Bay: string; Sequence: number; FlightPlanEET: string; CdmData: {tobt?: string}; BoardState: {local?: boolean; annotations: {notes: string}; removed_at?: string}};
 const strip = (page: Page, callsign = "RADIS1") => page.getByTestId(`radis-strip-${callsign}`);
 async function rows(request: APIRequestContext, airport = "EKBI", environment = "LIVE"): Promise<Row[]> {
   const response = await request.get(`${backend}/e2e/persisted?airport=${airport}&environment=${environment}`);
@@ -66,26 +66,23 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(b.getByRole("button",{name:"Notes RADIS1",exact:true})).toHaveText("PRODUCTION SHARED NOTE");
     await Promise.all([tab.close(),sweat.close(),playback.close()]);
   });
-  await test.step("CDM, SAT and configured text pilot use existing services", async () => {
-    const tobt = new Date(Date.now()+3600000).toISOString().slice(11,16).replace(":", "");
+  await test.step("real stand resources are ready while deferred regional services remain disabled", async () => {
     await fpl(b);
-    await b.getByRole("textbox", {name: "CDM TOBT"}).fill(tobt);
-    await b.getByRole("button", {name: "SET TOBT", exact: true}).click();
-    await expect.poll(async () => JSON.stringify((await rows(request)).find(s => s.Callsign === "RADIS1")?.CdmData)).toContain(tobt);
-    await b.getByRole("button", {name: "TEXT PILOT", exact: true}).click();
-    await expect(b.getByRole("dialog", {name: "RADIS1 text message"})).toBeVisible();
-    await b.getByRole("button", {name: "TEST HOLD", exact: true}).click();
-    await expect(b.getByRole("textbox", {name: "Text message"})).toHaveValue("Synthetic EKBI hold.");
-    await b.getByRole("button", {name: "SEND", exact: true}).click();
-    await expect(b.getByRole("dialog", {name: "RADIS1 text message"})).toBeHidden();
+    await expect(b.getByRole("textbox", {name: "CDM TOBT"})).toBeHidden();
+    await expect(b.getByRole("button", {name: "TEXT PILOT", exact: true})).toBeHidden();
+    await b.getByRole("button", {name: "OK", exact: true}).click();
     await strip(b).getByRole("button", {name: /Stand/}).click();
-    await expect(b.getByRole("dialog", {name: "Stand · RADIS1"})).toBeVisible();
-    await b.getByRole("textbox", {name: "Airport stand"}).fill("S3");
+    await expect(b.getByRole("dialog", {name: "Stand \u00b7 RADIS1"})).toBeVisible();
+    await expect(b.getByRole("button", {name: "AUTO", exact: true})).toBeEnabled();
+    await b.getByRole("textbox", {name: "Airport stand"}).fill("35");
     await b.getByRole("button", {name: "ASSIGN STAND"}).click();
-    await expect(strip(a).locator(".radis-stand")).toContainText("S3");
+    await expect(strip(a).locator(".radis-stand")).toContainText("35");
     await b.getByRole("button", {name: "DISMISS", exact: true}).click();
-    const commands = await (await request.get(`${backend}/e2e/commands`)).json();
-    expect(commands).toEqual(expect.arrayContaining([expect.objectContaining({kind: "EVENT_SEND_FREQUENCY_MESSAGE", token: "__TEST_FRONTEND_TOKEN__", airport: "EKBI"})]));
+    await expect(strip(other).locator(".radis-stand")).not.toContainText("35");
+    await strip(other).getByRole("button", {name: /Stand/}).click();
+    await other.getByRole("button", {name: "AUTO", exact: true}).click();
+    await expect(strip(other).locator(".radis-stand strong")).toHaveText(/^[4-8]$/);
+    await other.getByRole("button", {name: "DISMISS", exact: true}).click();
   });
   await test.step("NEW and shared FIND use production persistence and the shared connected source", async () => {
     await b.getByRole("button", {name: "NEW", exact: true, includeHidden:true}).click();
@@ -95,7 +92,7 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(strip(other,"LOCAL7")).toBeHidden();
     expect((await rows(request)).find(s => s.Callsign === "LOCAL7")?.BoardState.local).toBe(true);
     await b.getByRole("button", {name: "FIND", exact: true}).click();
-    await expect(b.getByRole("status").filter({hasText: "24 connected flights"})).toBeVisible();
+    await expect(b.getByRole("status").filter({hasText: "26 connected flights"})).toBeVisible();
     await b.getByRole("button", {name: /FIND23/}).click();
     await expect(strip(a,"FIND23")).toBeVisible();
     await expect(a.getByRole("button", {name:"ALT FT FIND23",exact:true})).toBeDisabled();
@@ -114,6 +111,16 @@ test("RADIS production sessions converge through database, own-plugin commands a
       await drag(callsign,b.locator(".radis-runway"));
       await expect.poll(async () => (await rows(request)).find(s => s.Callsign === callsign)?.Bay).toBe("RUNWAY");
       for (const page of [a,b]) await expect(page.locator(".radis-runway").getByTestId(`radis-strip-${callsign}`)).toBeVisible();
+      // The bay publication precedes the own-plugin ground-state echo. Wait for
+      // that committed revision before starting the next optimistic write.
+      let observedVersion: number | undefined;
+      await expect.poll(async () => {
+        const current = (await rows(request)).find(s => s.Callsign === callsign)!;
+        const settled = current.State === "TKOFF" && observedVersion === current.Version &&
+          await strip(b,callsign).getAttribute("data-strip-version") === String(current.Version);
+        observedVersion = current.Version;
+        return settled;
+      }).toBe(true);
     }
     const runwayOrder = async () => (await rows(request)).filter(s => s.Bay === "RUNWAY").sort((a,b)=>a.Sequence-b.Sequence).map(s=>s.Callsign);
     const before = await runwayOrder();
@@ -149,18 +156,11 @@ test("RADIS production sessions converge through database, own-plugin commands a
     expect(restored.BoardState.annotations.notes).toBe("PRODUCTION SHARED NOTE");
   });
   await test.step("own disconnect blocks every edit while peer updates and independent airport remain live", async () => {
-    await fpl(b); await b.getByRole("textbox", {name:"CDM TOBT"}).fill("0045");
+    await fpl(b);
     expect((await request.post(`${backend}/e2e/own-plugin/disconnect`)).ok()).toBe(true);
     for (const name of ["NEW","FIND","RESTORE"]) await expect(b.getByRole("button", {name, exact: true, includeHidden:true})).toBeDisabled();
     await expect(b.getByRole("button", {name: "Notes RADIS1", exact: true, includeHidden:true})).toBeDisabled();
-    await expect(b.getByRole("button", {name: "SET TOBT", exact: true})).toBeDisabled();
-    await expect(b.getByRole("button", {name: "TEXT PILOT", exact: true})).toBeDisabled();
-    await fpl(a);
-    const peerTobt=new Date(Date.now()+2*60*60*1000).toISOString().slice(11,16).replace(":","");
-    await a.getByRole("textbox",{name:"CDM TOBT"}).fill(peerTobt);
-    await a.getByRole("button",{name:"SET TOBT",exact:true}).click();
-    await expect(b.getByRole("textbox",{name:"CDM TOBT"})).toHaveValue(peerTobt);
-    await a.getByRole("button",{name:"OK",exact:true}).click();
+    await expect(b.getByRole("button", {name: "TEXT PILOT", exact: true})).toBeHidden();
     await note(a,"PEER WHILE DISCONNECTED");
     await expect(b.getByRole("button", {name: "Notes RADIS1", exact: true, includeHidden:true})).toHaveText("PEER WHILE DISCONNECTED");
     await expect(other.getByRole("button", {name: "NEW", exact: true})).toBeEnabled();
@@ -168,7 +168,6 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(b.getByRole("button", {name: "NEW", exact: true, includeHidden:true})).toBeEnabled();
     await expect(b.getByRole("dialog",{name:"Flight plan · RADIS1"})).toBeHidden();
     await fpl(b);
-    await expect(b.getByRole("textbox",{name:"CDM TOBT"})).toHaveValue(peerTobt);
     await b.getByRole("button",{name:"OK",exact:true}).click();
     await expect(b.getByRole("button", {name: "Notes RADIS1", exact: true, includeHidden:true})).toHaveText("PEER WHILE DISCONNECTED");
   });
@@ -177,7 +176,7 @@ test("RADIS production sessions converge through database, own-plugin commands a
     await expect(other.locator(".radis-commandbar")).toContainText("1002");
     expect((await request.post(`${backend}/e2e/runways`)).ok()).toBe(true);
     for (const page of [a,b]) await expect(page.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 27");
-    await expect(other.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 09");
+    await expect(other.getByRole("button", {name: "Departure runways"})).toHaveText("DEP 08R");
   });
   await a.screenshot({path:info.outputPath("radis-production-board.png")});
 });

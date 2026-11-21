@@ -174,6 +174,9 @@ func (s *StripService) applyStripBoardDecision(ctx context.Context, session int3
 	if d.Annotations != nil {
 		state.Annotations = *d.Annotations
 	}
+	if d.ATDManual {
+		state.ATDManual = true
+	}
 	if d.Visibility != nil {
 		if d.Visibility.Visible {
 			state.RemovedAt = nil

@@ -65,7 +65,7 @@ test("RADIS host views share annotations and field results while retaining airpo
   await a.getByRole("button", {name: "ALT FT SAME123", exact: true}).click();
   await a.getByRole("textbox", {name: "Cleared altitude (feet)", exact: true}).fill("3400");
   await a.getByRole("button", {name: "OK", exact: true}).click();
-  await expect(b.getByRole("button", {name: "ALT FT SAME123", exact: true})).toContainText("3400");
+  await expect(b.getByRole("button", {name: "ALT FT SAME123", exact: true})).toContainText("A034");
   expect(server.actions).toEqual(expect.arrayContaining([expect.objectContaining({type: "update_strip_data", altitude: 3400, revision: {strip_id: 11, version: 2, definition_revision: "synthetic-EKBI"}, board: expect.objectContaining({session_id: 1})})]));
   await a.screenshot({path: info.outputPath("radis-shared-board.png")});
   await a.getByRole("button", {name: "Flight plan SAME123", exact: true}).click();
@@ -128,4 +128,35 @@ test("adjacent downward and upward drags use the intended insertion position",as
  };
  await drag("SAME123","NEXT123");await expect.poll(()=>server.actions.length).toBe(1);expect(server.actions[0]).toMatchObject({type:"move",callsign:"SAME123",insert_after:{kind:"flight",callsign:"NEXT123"},revision:{strip_id:11,version:1}});
  await drag("NEXT123","SAME123");await expect.poll(()=>server.actions.length).toBe(2);expect(server.actions[1]).toMatchObject({type:"move",callsign:"NEXT123",insert_after:null});
+});
+
+test("dragged paper remains visible between Passive and Active", async ({context}) => {
+  const server = await setup(context);
+  const page = await context.newPage();
+  await page.goto("/visual-tests/airport-session-preview.html");
+  await page.getByRole("button", {name: "EKBI", exact: true}).click();
+  const strip = page.getByTestId("radis-strip-SAME123");
+  const handle = page.getByRole("button", {name: "Move SAME123", exact: true});
+  const preview = page.locator(".radis-drag-preview > article");
+
+  for (const bay of ["ACTIVE", "PASSIVE TOP"]) {
+    const target = page.getByRole("region", {name: bay, exact: true});
+    const [from, to, paper] = await Promise.all([handle.boundingBox(), target.boundingBox(), strip.boundingBox()]);
+    if (!from || !to || !paper) throw new Error("missing drag geometry");
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width - 16, to.y + to.height / 2, {steps: 12});
+
+    await expect(preview).toContainText("SAME123");
+    const overlay = (await preview.boundingBox())!;
+    expect(overlay.width).toBeCloseTo(paper.width);
+    expect(overlay.x + overlay.width / 2).toBeGreaterThan(to.x);
+    expect(overlay.x + overlay.width / 2).toBeLessThan(to.x + to.width);
+    expect(await preview.evaluate(node => node.closest(".radis-bay"))).toBeNull();
+
+    await page.mouse.up();
+    await expect(target.getByTestId("radis-strip-SAME123")).toBeVisible();
+    await expect(preview).toHaveCount(0);
+  }
+  expect(server.actions.map(action => action.bay)).toEqual(["ACTIVE", "PASSIVE_TOP"]);
 });

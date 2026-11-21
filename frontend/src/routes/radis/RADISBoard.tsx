@@ -1,5 +1,5 @@
 import {useRef, useState, type CSSProperties, type ReactNode} from "react";
-import {DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, useDroppable, type DragEndEvent} from "@dnd-kit/core";
+import {DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, useDroppable, type DragEndEvent} from "@dnd-kit/core";
 import {SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates} from "@dnd-kit/sortable";
 import type {FrontendStrip} from "@/api/models";
 import {stripRevision, type StripRevision, type StripAnnotations, } from "@/api/strip-board";
@@ -12,7 +12,7 @@ import {AirportSwitcher} from "@/components/AirportSwitcher";
 import ATIS from "@/components/commandbar/ATIS";
 import Time from "@/components/Time";
 import {RADISEditDialog} from "./RADISEditDialog";
-import {RADISStrip, type RADISEdit} from "./RADISStrip";
+import {RADISStrip, RADISStripPreview, type RADISEdit} from "./RADISStrip";
 import {RADISFlightPlan} from "./RADISFlightPlan";
 import {RADISCreationDialogs} from "./RADISCreationDialogs";
 import {RADIS_DELETE,RADISDeleteTarget,RADISRecovery} from "./RADISRecovery";
@@ -32,7 +32,7 @@ export default function RADISBoard() {
   const definition = useWebSocketStore(s => s.boardDefinition);
   const remove=useWebSocketStore(s=>s.removeStripBoardEntry);
   const [recovery,setRecovery]=useState(false);
-  const [dragRevision,setDragRevision]=useState<StripRevision|null>(null);
+  const [drag, setDrag] = useState<{callsign: string; revision: StripRevision | null} | null>(null);
   const move = useWebSocketStore(s => s.moveBoardStrip);
   const update = useWebSocketStore(s => s.updateBoardStrip);
   const annotate = useWebSocketStore(s => s.annotateStrip);
@@ -53,9 +53,14 @@ export default function RADISBoard() {
   const byBay = (bay: string) => strips.filter(s => s.bay === bay && !s.board_state?.removed_at).sort((a, b) => a.sequence - b.sequence || (a.id ?? 0) - (b.id ?? 0));
   const edit = (strip: FrontendStrip, field: RADISEdit["field"], title: string, value: string) => {if (field === "stand" && definition?.capabilities.stands) {setFpl(null); setStandCallsign(strip.callsign);} else setMenu({callsign: strip.callsign, field, title, value,revision:stripRevision(strip,definition)??undefined});};
   const selected = strips.find(s => s.callsign === fpl && !s.board_state?.removed_at);
+  const draggedStrip = drag && strips.find(s => s.callsign === drag.callsign && !s.board_state?.removed_at);
   const dragEnd = ({active, over}: DragEndEvent) => {
+    setDrag(null);
     if (readOnly || !over || active.id === over.id) return;
-    if(over.id===RADIS_DELETE){remove(String(active.id),dragRevision??undefined);setDragRevision(null);return;}
+    if (over.id === RADIS_DELETE) {
+      remove(String(active.id), drag?.revision ?? undefined);
+      return;
+    }
     const targetStrip = strips.find(s => s.callsign === over.id);
     const bay = targetStrip?.bay ?? String(over.id);
     if (!RADIS_BAYS.includes(bay as RADISBay)) return;
@@ -63,8 +68,7 @@ export default function RADISBoard() {
     let index = targetStrip ? ordered.findIndex(s => s.callsign === targetStrip.callsign) : ordered.length;
     const original = byBay(bay);
     if (targetStrip && original.findIndex(s => s.callsign === active.id) >= 0 && original.findIndex(s => s.callsign === active.id) < original.findIndex(s => s.callsign === targetStrip.callsign)) index++;
-    move(String(active.id), bay as RADISBay, index > 0 ? ordered[index - 1].callsign : null,dragRevision??undefined);
-    setDragRevision(null);
+    move(String(active.id), bay as RADISBay, index > 0 ? ordered[index - 1].callsign : null, drag?.revision ?? undefined);
   };
   const submit = (selectedValue?: string) => {
     if (!menu || readOnly) return;
@@ -77,7 +81,16 @@ export default function RADISBoard() {
   };
   const renderBay = (bay: RADISBay) => {const list = byBay(bay); return <RADISBayPanel bay={bay} strips={list}>{list.map(strip => <RADISStrip key={strip.id ?? strip.callsign} strip={strip} open={() => setFpl(strip.callsign)} edit={(field, title, value) => edit(strip, field, title, value)}/>)}</RADISBayPanel>;};
   return <div className="radis-view" style={{"--radis-runway-height": `${runwayHeight}dvh`} as CSSProperties}>
-    <DndContext sensors={sensors} collisionDetection={radisCollisionDetection} onDragStart={({active})=>setDragRevision(stripRevision(strips.find(s=>s.callsign===active.id),definition))} onDragCancel={()=>setDragRevision(null)} onDragEnd={dragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={radisCollisionDetection}
+      onDragStart={({active}) => {
+        const strip = strips.find(s => s.callsign === active.id);
+        if (strip) setDrag({callsign: strip.callsign, revision: stripRevision(strip, definition)});
+      }}
+      onDragCancel={() => setDrag(null)}
+      onDragEnd={dragEnd}
+    >
       <main className="radis-board" aria-label="RADIS board">
         <div className="radis-left"><h1>ACTIVE</h1>{renderBay("ACTIVE")}<h2 className="radis-runway-title"><span role="separator" tabIndex={0} aria-label="Runway area height" aria-orientation="horizontal" aria-valuemin={15} aria-valuemax={60} aria-valuenow={Math.round(runwayHeight)} onKeyDown={e => {if (["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) {e.preventDefault(); setRunwayHeight(h => e.key === "Home" ? 15 : e.key === "End" ? 60 : Math.max(15, Math.min(60, h + (e.key === "ArrowUp" ? 1 : -1))));}}} onPointerDown={e => {runwayDrag.current = {y: e.clientY, height: runwayHeight}; e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e => {if (e.currentTarget.hasPointerCapture(e.pointerId)) setRunwayHeight(Math.max(15, Math.min(60, runwayDrag.current.height + (runwayDrag.current.y - e.clientY) / window.innerHeight * 100)));}}>RUNWAY</span></h2>{renderBay("RUNWAY")}</div>
         <div className="radis-right"><h2>PASSIVE</h2>{renderBay("PASSIVE_TOP")}{renderBay("PASSIVE_BOTTOM")}</div>
@@ -98,6 +111,9 @@ export default function RADISBoard() {
       <RADISDeleteTarget/>
       <div className="radis-clock"><Time/></div>
     </footer>
+      <DragOverlay dropAnimation={{duration: 100}} style={{opacity: 0.5, pointerEvents: "none", touchAction: "none"}}>
+        {draggedStrip && <RADISStripPreview strip={draggedStrip}/>}
+      </DragOverlay>
     </DndContext>
     <RADISEditDialog key={menu ? `${menu.callsign}:${menu.field}` : "closed"} menu={menu} setMenu={setMenu} submit={submit}/>
     <Dialog open={runwayDialog} onOpenChange={setRunwayDialog}><DialogContent className="radis-dialog"><DialogTitle>Active airport runways</DialogTitle><p>DEP {runway.departure.join("/") || "—"} · ARR {runway.arrival.join("/") || "—"}</p><p>Set active departure and arrival runways in the master controller's EuroScope runway activity dialog. FlightStrips shares the confirmed configuration with this airport session.</p><Button onClick={() => setRunwayDialog(false)}>OK</Button></DialogContent></Dialog>

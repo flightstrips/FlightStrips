@@ -22,6 +22,7 @@
 .radis-strip .border-b-2 { border-bottom-width: var(--radis-line); }
 .radis-strip.is-selected { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }
 .radis-strip.is-dragging { opacity: .35; }
+.radis-drag-preview { container-type: inline-size; }
 .radis-strip button { cursor: pointer; }
 .radis-strip button:disabled { cursor: default; }
 .radis-strip button:focus-visible { outline: 2px solid var(--color-strip-selection); outline-offset: -2px; }

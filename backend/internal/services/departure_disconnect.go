@@ -10,6 +10,9 @@ import (
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/vatsim"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -26,17 +29,22 @@ var (
 	errDepartureObservedAgain = errors.New("departure observed again before stand release")
 )
 
+// departureOnlineSightingThrottle limits how often a feed poll rewrites the
+// online sighting. It is far below the observation timeout, so the heartbeat
+// never sees a sighting older than it really is by more than this.
+const departureOnlineSightingThrottle = 30 * time.Second
+
 // departureLastSighting returns the most recent live evidence that the
 // aircraft exists. EuroScope refreshes euroscope_seen_at on every position
-// report and sync; the VATSIM reconciler refreshes vatsim_seen_at from the
-// pilot's last_updated on every feed poll. Neither timestamp advances once
-// its source stops seeing the aircraft, even when no disconnect is ever
-// reported (EuroScope crash, dropped disconnect timer, non-LIVE session).
-// Without either timestamp, the block's own assignment time is the last
-// observation the lifecycle recorded.
-func departureLastSighting(strip *models.Strip, assignment *models.StandAssignment) *time.Time {
+// report and sync. onlineSeen is the last time the VATSIM feed showed the
+// pilot online; strips.vatsim_seen_at is not used because offline prefiles
+// refresh it too. Neither timestamp advances once its source stops seeing the
+// aircraft, even when no disconnect is ever reported (EuroScope crash,
+// dropped disconnect timer, non-LIVE session). Without either timestamp, the
+// block's own assignment time is the last observation the lifecycle recorded.
+func departureLastSighting(strip *models.Strip, onlineSeen *time.Time, assignment *models.StandAssignment) *time.Time {
 	var latest *time.Time
-	for _, candidate := range []*time.Time{strip.EuroscopeSeenAt, strip.VatsimSeenAt} {
+	for _, candidate := range []*time.Time{strip.EuroscopeSeenAt, onlineSeen} {
 		if candidate != nil && (latest == nil || candidate.After(*latest)) {
 			latest = candidate
 		}
@@ -50,15 +58,67 @@ func departureLastSighting(strip *models.Strip, assignment *models.StandAssignme
 // departureBlockUnobserved reports whether a departure block's aircraft has
 // not been seen by any live source within the observation timeout. Departure
 // blocks deliberately carry no ExpiresAt (the allocator reads it as the end of
-// occupancy), so this heartbeat is their only time-based release.
-func (s *DepartureLifecycleService) departureBlockUnobserved(strip *models.Strip, assignment *models.StandAssignment, now time.Time) bool {
+// occupancy), so this heartbeat is their only time-based release. A running
+// disconnect grace deadline is left to the disconnect path: it ends at that
+// deadline and lets a EuroScope reconnect keep the stand.
+func (s *DepartureLifecycleService) departureBlockUnobserved(strip *models.Strip, onlineSeen *time.Time, assignment *models.StandAssignment, now time.Time) bool {
 	if strip == nil || assignment == nil ||
 		!strings.EqualFold(assignment.Direction, string(sat.AssignmentDirectionDeparture)) ||
-		assignment.Stage != StageDepartureBlock {
+		assignment.Stage != StageDepartureBlock ||
+		(assignment.ExpiresAt != nil && assignment.ExpiresAt.After(now)) {
 		return false
 	}
-	lastSeen := departureLastSighting(strip, assignment)
+	lastSeen := departureLastSighting(strip, onlineSeen, assignment)
 	return lastSeen == nil || now.Sub(*lastSeen) > s.observationTimeout
+}
+
+// staleOnlineFeedSighting reports whether the feed claims an online pilot but
+// its sighting is older than the observation timeout. A cached snapshot that
+// stopped refreshing keeps replaying the last gate position; it must neither
+// recreate a block the heartbeat released nor refresh the heartbeat.
+func (s *DepartureLifecycleService) staleOnlineFeedSighting(flight vatsim.DepartureFlightInfo) bool {
+	return flight.Online && !flight.SeenAt.IsZero() && s.now().Sub(flight.SeenAt) > s.observationTimeout
+}
+
+// recordOnlineSighting persists when the feed last showed this departure's
+// pilot online. Writes are throttled; the row is removed with its strip.
+func (s *DepartureLifecycleService) recordOnlineSighting(ctx context.Context, session int32, callsign string, flight vatsim.DepartureFlightInfo) error {
+	if !flight.Online || flight.SeenAt.IsZero() {
+		return nil
+	}
+	_, err := s.allocations.pool.Exec(ctx, `INSERT INTO departure_online_sightings (strip_id, seen_at)
+		SELECT id, $3 FROM strips WHERE session = $1 AND callsign = $2
+		ON CONFLICT (strip_id) DO UPDATE SET seen_at = EXCLUDED.seen_at
+		WHERE departure_online_sightings.seen_at < EXCLUDED.seen_at - $4::interval`,
+		session, callsign, flight.SeenAt.UTC(), departureOnlineSightingThrottle.String())
+	return err
+}
+
+// departureOnlineSighting returns the last online feed sighting for a strip.
+func (s *DepartureLifecycleService) departureOnlineSighting(ctx context.Context, stripID int32) (*time.Time, error) {
+	var seenAt time.Time
+	err := s.allocations.pool.QueryRow(ctx, "SELECT seen_at FROM departure_online_sightings WHERE strip_id = $1", stripID).Scan(&seenAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &seenAt, nil
+}
+
+// departureBlockUnobservedNow loads the strip's online feed sighting and
+// applies the heartbeat rule. The sighting is only read once EuroScope alone
+// no longer keeps the block alive.
+func (s *DepartureLifecycleService) departureBlockUnobservedNow(ctx context.Context, strip *models.Strip, assignment *models.StandAssignment, now time.Time) (bool, error) {
+	if !s.departureBlockUnobserved(strip, nil, assignment, now) {
+		return false, nil
+	}
+	onlineSeen, err := s.departureOnlineSighting(ctx, strip.ID)
+	if err != nil {
+		return false, err
+	}
+	return s.departureBlockUnobserved(strip, onlineSeen, assignment, now), nil
 }
 
 // releaseUnobservedDepartureBlock frees a departure block whose aircraft no
@@ -66,7 +126,14 @@ func (s *DepartureLifecycleService) departureBlockUnobserved(strip *models.Strip
 // rechecked so a sighting that lands after the sweep's read keeps the stand.
 func (s *DepartureLifecycleService) releaseUnobservedDepartureBlock(ctx context.Context, assignment *models.StandAssignment, now time.Time) error {
 	err := s.allocations.releaseAssignmentChecked(ctx, assignment, false, func(locked *models.Strip) error {
-		if locked != nil && !s.departureBlockUnobserved(locked, assignment, now) {
+		if locked == nil {
+			return nil
+		}
+		unobserved, err := s.departureBlockUnobservedNow(ctx, locked, assignment, now)
+		if err != nil {
+			return err
+		}
+		if !unobserved {
 			return errDepartureObservedAgain
 		}
 		return nil

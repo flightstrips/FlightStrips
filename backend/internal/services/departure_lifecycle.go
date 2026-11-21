@@ -204,6 +204,15 @@ func (s *DepartureLifecycleService) ReconcilePilotDeparture(ctx context.Context,
 	if s.pilotStands == nil {
 		return false, nil
 	}
+	if s.staleOnlineFeedSighting(flight) {
+		// ProcessDeparture still applies movement releases for this flight.
+		return false, nil
+	}
+	if strip != nil {
+		if err := s.recordOnlineSighting(ctx, session, strip.Callsign, flight); err != nil {
+			return false, err
+		}
+	}
 	return s.pilotStands.reconcile(ctx, session, strip, flight)
 }
 
@@ -216,6 +225,14 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 	}
 	if departureStandReleasedByMovement(strip) {
 		return s.ReleaseDepartureStand(ctx, session, strip.Callsign)
+	}
+	if s.staleOnlineFeedSighting(flight) {
+		// Replaying an old snapshot is not a live observation: it must not
+		// recreate, renew or cancel the expiry of this departure's block.
+		return nil
+	}
+	if err := s.recordOnlineSighting(ctx, session, strip.Callsign, flight); err != nil {
+		return err
 	}
 	if s.pilotStands != nil {
 		if managed, err := s.pilotStands.reconcile(ctx, session, strip, flight); managed || err != nil {
@@ -796,7 +813,9 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	// Every other release path depends on a disconnect being reported. This
 	// heartbeat covers the cases where none ever is: a crashed EuroScope, a
 	// dropped disconnect timer, or a session the VATSIM reconciler skips.
-	if s.departureBlockUnobserved(strip, assignment, now) {
+	if unobserved, err := s.departureBlockUnobservedNow(ctx, strip, assignment, now); err != nil {
+		return err
+	} else if unobserved {
 		return s.releaseUnobservedDepartureBlock(ctx, assignment, now)
 	}
 	if s.pilotStands != nil {

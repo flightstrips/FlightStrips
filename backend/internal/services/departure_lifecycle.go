@@ -52,13 +52,16 @@ type DepartureLifecycleService struct {
 	hold           time.Duration
 	blockExtension time.Duration
 	sweepInterval  time.Duration
-	allowPrefiles  bool
-	messenger      wrongStandMessenger
-	routeRecalc    RouteRecalculator
-	standPublisher observedStandPublisher
-	warningMu      sync.Mutex
-	warnings       map[string]string
-	pilotStands    *PilotDepartureStandService
+	// observationTimeout releases a departure block once no live source has
+	// seen its aircraft for this long.
+	observationTimeout time.Duration
+	allowPrefiles      bool
+	messenger          wrongStandMessenger
+	routeRecalc        RouteRecalculator
+	standPublisher     observedStandPublisher
+	warningMu          sync.Mutex
+	warnings           map[string]string
+	pilotStands        *PilotDepartureStandService
 }
 
 type wrongStandMessenger interface {
@@ -134,6 +137,16 @@ func WithDepartureSweepInterval(duration time.Duration) DepartureLifecycleOption
 	}
 }
 
+// WithDepartureObservationTimeout sets how long a departure block survives
+// without any live EuroScope or VATSIM sighting of its aircraft.
+func WithDepartureObservationTimeout(duration time.Duration) DepartureLifecycleOption {
+	return func(s *DepartureLifecycleService) {
+		if duration > 0 {
+			s.observationTimeout = duration
+		}
+	}
+}
+
 // WithDeparturePrefileAssignments enables advance stand reservations for
 // offline VATSIM prefiles. The production default is false.
 func WithDeparturePrefileAssignments(enabled bool) DepartureLifecycleOption {
@@ -155,19 +168,20 @@ func NewDepartureLifecycleService(
 		return nil, errors.New("departure lifecycle requires allocation service, repositories, session store, and stand registry")
 	}
 	service := &DepartureLifecycleService{
-		allocations:    allocations,
-		assignments:    assignments,
-		strips:         strips,
-		sessions:       sessions,
-		stands:         stands,
-		aircraft:       aircraft,
-		engines:        engines,
-		borders:        borders,
-		now:            time.Now,
-		hold:           defaultDepartureHoldDuration,
-		blockExtension: defaultDepartureBlockExtension,
-		sweepInterval:  defaultDepartureSweepInterval,
-		warnings:       make(map[string]string),
+		allocations:        allocations,
+		assignments:        assignments,
+		strips:             strips,
+		sessions:           sessions,
+		stands:             stands,
+		aircraft:           aircraft,
+		engines:            engines,
+		borders:            borders,
+		now:                time.Now,
+		hold:               defaultDepartureHoldDuration,
+		blockExtension:     defaultDepartureBlockExtension,
+		sweepInterval:      defaultDepartureSweepInterval,
+		observationTimeout: defaultDepartureObservationTimeout,
+		warnings:           make(map[string]string),
 	}
 	for _, option := range options {
 		if option != nil {
@@ -778,6 +792,12 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	}
 	if departureStandReleasedByMovement(strip) && assignment.Direction == string(sat.AssignmentDirectionDeparture) {
 		return s.ReleaseDepartureStand(ctx, session, assignment.Callsign)
+	}
+	// Every other release path depends on a disconnect being reported. This
+	// heartbeat covers the cases where none ever is: a crashed EuroScope, a
+	// dropped disconnect timer, or a session the VATSIM reconciler skips.
+	if s.departureBlockUnobserved(strip, assignment, now) {
+		return s.releaseUnobservedDepartureBlock(ctx, assignment, now)
 	}
 	if s.pilotStands != nil {
 		if managed, err := s.pilotStands.opened(ctx, session, strip); managed || err != nil {

@@ -90,6 +90,7 @@ func TestDepartureDisconnectLifecycle(t *testing.T) {
 		clock.advance(10 * time.Second)
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlight(callsign, 1)))
 		clock.advance(time.Hour)
+		seenByFeed(t, pool, session, clock.current(), callsign)
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		assignment, err := assignments.GetAssignment(ctx, session, callsign)
 		require.NoError(t, err)
@@ -172,6 +173,7 @@ func TestDepartureDisconnectLifecycle(t *testing.T) {
 		returning.Latitude, returning.Longitude = 0, 0
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), returning))
 		clock.advance(time.Hour)
+		seenByFeed(t, pool, session, clock.current(), callsign)
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		assignment, err := assignments.GetAssignment(ctx, session, callsign)
 		require.NoError(t, err)

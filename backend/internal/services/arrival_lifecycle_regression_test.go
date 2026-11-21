@@ -102,7 +102,7 @@ func TestArrivalAdvisoryRecoveryPreservesAcceptedStage(t *testing.T) {
 	}
 }
 
-func TestArrivalEstimateDeferralUsesActiveBlocks(t *testing.T) {
+func TestArrivalEstimateKeepsStandDespiteBlocks(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
 	for _, active := range []bool{false, true} {
@@ -129,11 +129,8 @@ func TestArrivalEstimateDeferralUsesActiveBlocks(t *testing.T) {
 			updated, err := assignments.GetAssignment(ctx, session, "SAS910")
 			require.NoError(t, err)
 			assert.Equal(t, StageEstimated, updated.Stage)
-			if active {
-				assert.NotEqual(t, estimate.Stand, updated.Stand)
-			} else {
-				assert.Equal(t, estimate.Stand, updated.Stand)
-			}
+			// ESTIMATED stands are only re-evaluated at promotion to ASSIGNED.
+			assert.Equal(t, estimate.Stand, updated.Stand)
 		})
 	}
 }

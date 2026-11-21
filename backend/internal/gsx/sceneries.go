@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -24,6 +25,101 @@ type SceneryConfig struct {
 	// Gates is keyed by the stand as controllers know it - the same string that
 	// goes in strips.stand - then by scenery name.
 	Gates map[string]map[string]GateScenery `json:"gates"`
+
+	// ReleasePoints places each FlightStrips release point on the ground. It is
+	// what makes the feed work for any GSX profile: route names differ from one
+	// profile to the next (and are sometimes wrong), but where a route ends does
+	// not, so the handler picks the route ending nearest the point.
+	ReleasePoints map[string]PointPosition `json:"release_points,omitempty"`
+	// ReleasePointRadiusMeters is how far a route may end from its point and
+	// still count. It must stay below half the distance between the two
+	// closest points, or a stand without one could be sent to its neighbour.
+	ReleasePointRadiusMeters float64 `json:"release_point_radius_m,omitempty"`
+	// Facings are the airport's own rules for a point a stand can leave in two
+	// facings: gate -> point -> compass direction (N, NE, E ... NW). Operational
+	// knowledge, so it is stated once here rather than in any profile's labels.
+	Facings map[string]map[string]string `json:"facings,omitempty"`
+}
+
+// PointPosition is where a release point is, in degrees.
+type PointPosition struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+// Target is where a departure should end up, for the handler to match against
+// the routes its own profile offers at the stand. A named point carries a
+// position and perhaps a facing; a bare direction carries a heading only.
+type Target struct {
+	Lat          *float64 `json:"lat"`
+	Lon          *float64 `json:"lon"`
+	Heading      *float64 `json:"heading"`
+	RadiusMeters float64  `json:"radius_m"`
+	// Avoid lists the named points, for a bare direction only. A direction is
+	// how a controller assigns a bare taxiway, so a route ending at a named
+	// point (W2 facing west) is the wrong answer to "face west" when the stand
+	// also has a route that ends on the taxiway itself.
+	Avoid []PointPosition `json:"avoid,omitempty"`
+}
+
+const defaultReleasePointRadius = 40
+
+var compassHeadings = map[string]float64{
+	"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315,
+	"NORTH": 0, "NORTHEAST": 45, "EAST": 90, "SOUTHEAST": 135,
+	"SOUTH": 180, "SOUTHWEST": 225, "WEST": 270, "NORTHWEST": 315,
+}
+
+// Target resolves a release point at a gate to something a handler can match
+// by geometry. nil when the point is neither a known position nor a direction.
+func (s Sceneries) Target(icao, gate, releasePoint string) *Target {
+	point := normalizeKey(releasePoint)
+	if point == "" {
+		return nil
+	}
+
+	radius := float64(defaultReleasePointRadius)
+	var cfg *SceneryConfig
+	if s != nil {
+		cfg = s[normalizeKey(icao)]
+	}
+	if cfg != nil && cfg.ReleasePointRadiusMeters > 0 {
+		radius = cfg.ReleasePointRadiusMeters
+	}
+
+	// The direction buttons on the pushback map: no point, only which way to
+	// face. That is how a bare taxiway is assigned.
+	if heading, ok := compassHeadings[point]; ok {
+		target := &Target{Heading: &heading, RadiusMeters: radius}
+		if cfg != nil {
+			names := make([]string, 0, len(cfg.ReleasePoints))
+			for name := range cfg.ReleasePoints {
+				names = append(names, name)
+			}
+			sort.Strings(names) // a stable body, so the ETag stays meaningful
+			for _, name := range names {
+				target.Avoid = append(target.Avoid, cfg.ReleasePoints[name])
+			}
+		}
+		return target
+	}
+
+	if cfg == nil {
+		return nil
+	}
+	position, ok := lookup(cfg.ReleasePoints, point)
+	if !ok {
+		return nil
+	}
+	target := &Target{Lat: &position.Lat, Lon: &position.Lon, RadiusMeters: radius}
+	if rules, ok := lookup(cfg.Facings, gate); ok {
+		if facing, ok := lookup(rules, point); ok {
+			if heading, ok := compassHeadings[normalizeKey(facing)]; ok {
+				target.Heading = &heading
+			}
+		}
+	}
+	return target
 }
 
 type GateScenery struct {

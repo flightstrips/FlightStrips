@@ -11,12 +11,21 @@ If you publish GSX airport profiles, you can ship FlightStrips assignment with
 one: a handler script beside your `.ini`. Pilots copy both files into their GSX
 folder and fly. What they get is described in [GSX for pilots](/gsx/pilots/).
 
+It works with any GSX profile, and nothing has to be registered with
+FlightStrips first:
+
+- **Pushback points are matched by position, not by name.** FlightStrips knows
+  where each release point is. The script picks your stand's route that ends
+  there, whatever you call it. `S1 Face N` and `Release Point S1 (NORTH)` both
+  work, and so does a name that's wrong.
+- **Stands** are sent as the controller names them (`D2`). GSX matches that to
+  your parking (`Gate D2`) by itself.
+
 The work is in three parts:
 
-1. **Map your scenery.** FlightStrips learns your stand names and pushback
-   route labels. This is a change to the FlightStrips repository.
-2. **Prepare the script.** Copy the shipped handler, rename it for your profile,
-   and set one value.
+1. **Add the script** to your profile: a new handler script, or the
+   FlightStrips block added to the one you already ship.
+2. **Check your profile** against FlightStrips' release points.
 3. **Test it, then publish it** alongside your profile.
 
 ## How it works
@@ -24,100 +33,41 @@ The work is in three parts:
 The script polls FlightStrips every five seconds:
 
 ```
-GET https://api.flightstrips.dk/api/gsx/stand?callsign=XNO10&icao=EKCH&scenery=Simnord-Sonnich
+GET https://api.flightstrips.dk/api/gsx/stand?callsign=XNO10&icao=EKCH&scenery=
 ```
 
 FlightStrips looks up the strip for that callsign in the live session at that
-airport. It translates what the controller assigned into your scenery's own
-names, and answers with at most one of:
+airport, and answers with an arrival stand or a departure target:
 
 ```json
-{ "stand": "Gate A31", "pushback": null, "revision": "stand:Gate A31" }
-{ "stand": null, "pushback": ["S1 Face N"], "revision": "push:S1 Face N" }
+{ "stand": "D2", "point": null, "target": null, ... }
+{ "stand": null, "point": "S1",
+  "target": { "lat": 55.626033, "lon": 12.653220, "heading": null, "radius_m": 40 }, ... }
 ```
 
 - **Arriving:** the script calls `selectGate()` with the stand.
 - **Departing:** the script adds an **ATC Assigned** entry to the pushback menu,
-  a copy of the route that reaches the assigned point.
+  a copy of your route that ends nearest the target, within 40 m.
+  - **Two facings:** where your stand has two routes ending at that point, the
+    airport's facing rule for the stand picks one. Without a rule, the nearest
+    route is taken.
+  - **Direction buttons:** a controller assigns a bare taxiway with one, and
+    the script takes your route facing that way.
 
 The endpoint is public: GSX scripts can only make a plain GET request, with no
 headers. It discloses nothing beyond what is already public on the VATSIM
 datafeed. The details are in the [GSX stand feed](/dev/gsx-stand-feed/)
 reference.
 
-## 1. Map your scenery
+## 1. Add the script
 
-Every add-on numbers stands and names routes its own way. What controllers call
-`F91` is `Parking 91` in one EKCH scenery, and a push onto S1 facing north is
-`S1 Face N` in exactly one profile. FlightStrips keeps that translation in
-`backend/config/<icao>/gsx_sceneries.json`:
-
-```json
-{
-  "icao": "EKCH",
-  "gates": {
-    "D2": {
-      "Simnord-Sonnich": {
-        "stand": "Gate D2",
-        "points": {
-          "S1": ["S1 Face N"],
-          "S2": ["S2 Face S"],
-          "S3": ["S3 Face N"],
-          "R1": ["R1 Face N"]
-        },
-        "available": ["S2 Face S", "S3 Face N", "R1 Face N", "S1 Face N"]
-      }
-    }
-  }
-}
-```
-
-Read it as **gate → scenery → what your scenery calls it**:
-
-| Field | What goes in it |
-| --- | --- |
-| Gate key (`D2`) | The stand as FlightStrips controllers know it. |
-| Scenery key (`Simnord-Sonnich`) | A name for your scenery. Your script sends it as `SCENERY`. |
-| `stand` | The name GSX's `selectGate()` resolves in your scenery. Omit it if it matches the gate key. |
-| `points` | Each FlightStrips release point, mapped to every route label in your profile that reaches it. |
-| `available` | Every route your profile offers at the stand. Only there to help whoever edits the file. |
-| `review` | Optional free-text note about anything unresolved. Ignored by the server. |
-
-<Steps>
-
-1. **Find the stand in your `.ini`.** Each stand is a section such as
-   `[gate d 2]`.
-
-2. **Collect its route labels.** `pushbacklabels` holds the two default routes,
-   left then right. Each `pushbackaddpos` entry adds one more, with its own
-   `label`.
-
-3. **Map each label to a release point.** A label such as `S1 Face N` is
-   `<release point> Face <direction>`. The part before `Face` is the point a
-   controller assigns. Copy the labels exactly: the server compares them
-   ignoring case and extra spaces, nothing more.
-
-4. **List both facings when a stand has both.** If a stand offers `Z2 Face E`
-   and `Z2 Face W`, list both under `Z2`, preferred first. The script takes the
-   first one the stand has.
-
-5. **Open a pull request** against the FlightStrips repository with the new or
-   changed file.
-
-</Steps>
-
-Anything unmapped degrades quietly. With an unknown scenery or unmapped point,
-the stand is still published in the controller's own naming, and no pushback
-point is sent.
-
-## 2. Prepare the script
+### If your profile has no handler script yet
 
 <Steps>
 
 1. **Copy the shipped handler.** Start from the latest
    `gsx-client/EKCH-Simnord-Sonnich_handler.py` in the FlightStrips repository.
-   It works for any airport and scenery: nothing in it is specific to EKCH
-   apart from the two settings below.
+   It works for any airport and any profile.
 
 2. **Name it after your profile.** GSX loads an airport script only when its
    name is the profile's name plus `_handler`:
@@ -129,22 +79,44 @@ point is sent.
 
    A wrong name means the script never loads, and GSX gives no warning.
 
-3. **Set the scenery key.** Near the top of the file:
+3. **Clear the scenery key.** Near the top of the file:
 
    ```python
    API_BASE = "https://api.flightstrips.dk"
-   SCENERY = "Simnord-Sonnich"
+   SCENERY = ""
    ```
 
-   `SCENERY` must match the scenery key you used in `gsx_sceneries.json`.
-   Leave `API_BASE` on the production server unless your vACC runs its own
-   FlightStrips instance.
+   The shipped script says `"Simnord-Sonnich"`, which only renames stands for
+   that one EKCH profile. Leave `API_BASE` on the production server unless your
+   vACC runs its own FlightStrips instance.
 
 </Steps>
+
+### If your profile already ships a handler script
+
+Add FlightStrips to it with the embed tool, from the FlightStrips repository:
+
+```bash
+node gsx-client/tools/embed.js path/to/EGKK-MyScenery_handler.py
+```
+
+This appends the FlightStrips block between two marker lines at the end of
+your script. Its settings and constants get an `FS_` prefix there
+(`FS_API_BASE`, `FS_SCENERY`, `FS_ATC_ENTRY_LABEL`...), so they never replace
+a name your own code uses. Run it again to update to a newer FlightStrips: it
+replaces the block and keeps the `FS_API_BASE` and `FS_SCENERY` set in it.
+`--scenery KEY` and `--api-base URL` set those.
+
+Your script's own callbacks keep working. If it defines
+`onAirportBeforeVehicleSelect`, `onEnterAirport`, `onAirportDepartureRequested`,
+`onAirportBypassPinConnected`, `onAirportGateReset` or `onExitAirport`, the
+block keeps yours and calls it before its own. Don't name anything starting
+`_stand` or `FS_` in your own code; the tool warns if your script defines one.
 
 ### Settings
 
 The defaults are what pilots should get. Change them only for a reason.
+In an embedded block each one has the `FS_` prefix.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
@@ -154,6 +126,27 @@ The defaults are what pilots should get. Change them only for a reason.
 | `POLL_INTERVAL_MS` | `5000` | How often the script asks FlightStrips. |
 | `ANNOUNCE_WAITING` | `False` | Tell a pilot who calls the tug that no point is assigned yet. Off, because offline the pilot would wait for a point that never comes. |
 | `ATC_ENTRY` | `True` | Turn off only to fall back to the older marking modes. |
+
+## 2. Check your profile
+
+The audit tool reads your `.ini` and reports which release point each route
+actually ends at:
+
+```bash
+node gsx-client/tools/audit.js path/to/EKCH-MyScenery.ini
+```
+
+| Flag | Meaning | Effect for pilots |
+| --- | --- | --- |
+| `MISLABEL` | The name says one point, the route ends at another. | The script uses it for where it goes, and shows pilots the right point. Worth renaming. |
+| `NO POINT` | The name says a point, but the route ends more than 40 m from it. | The route is never offered for that point. Check its position. |
+| `NO POS` | The `.ini` gives the route no position; GSX computes it in the sim. | Matched normally in the sim. The audit can't check it. |
+
+`--all` also lists the routes that are fine. The two EKCH Simnord profiles
+audit clean apart from three known mislabels and one doubtful point.
+
+A route that ends at no release point, like `Face West`, is reachable with the
+controller's direction buttons, so it needs nothing.
 
 ## 3. Test it
 
@@ -169,8 +162,12 @@ controller.
    powershell -ExecutionPolicy Bypass -File gsx-client\mock\api-tui.ps1
    ```
 
-   Edit `$Points` at the top to list route labels from the stand you will test
-   at. The mock does not know which stand you are on.
+   It offers EKCH D2's four release points, with their real positions. To test
+   another airport, edit the top of the script: `$Points` for the points to
+   offer, and `$ConfigPath` for that airport's `gsx_sceneries.json`, where the
+   positions come from. Each point needs an entry under `release_points` in that
+   file. If it has none, add the point's latitude and longitude there first;
+   without a position the mock has no target to send.
 
 2. **Point your installed script at it.** This copies your script into your GSX
    folder under its own filename, and sets `API_BASE`:
@@ -194,25 +191,57 @@ controller.
 
    | Assign | When | Expect |
    | --- | --- | --- |
-   | A route | Before the tug is called | An announcement. The menu is untouched until pushback is requested. |
-   | A route | While the tug drives out | The entry is renamed `ATC Assigned: <route>`. Picking it pushes there. |
-   | A route | With the direction menu on screen | The entry is still called `ATC Assigned`. Picking it pushes to the route. |
-   | A route the stand lacks | Any time | `no route to it from this stand`. |
+   | A point | Before the tug is called | An announcement. The menu is untouched until pushback is requested. |
+   | A point | While the tug drives out | The entry is renamed `ATC Assigned: <route>`. Picking it pushes there. |
+   | A point | With the direction menu on screen | The entry is still called `ATC Assigned`. Picking it pushes to the point. |
+   | A point the stand lacks | Any time | `no route to it from this stand`. |
    | Reset | After assigning | The entry goes back to the scenery's first route. |
 
 5. **Watch the log.** Every line the script writes starts with `[stands]`, in
-   `%APPDATA%\Virtuali\Couatl.log`. A script with an error is skipped with a
-   single `WARNING: airport handler script` line and nothing in the sim.
+   `%APPDATA%\Virtuali\Couatl.log`. A route chosen by position under another
+   name is logged as `S2 is "S1 Face S" at this stand, by position`. A script
+   with an error is skipped with a single `WARNING: airport handler script`
+   line and nothing in the sim.
 
 </Steps>
 
 ## Publish
 
-- Ship the script next to the `.ini`, named for it, with `API_BASE` on the
-  production URL.
+- Ship the script next to the `.ini`, named for it, with `API_BASE` (or
+  `FS_API_BASE` in an embedded block) on the production URL.
 - Link pilots to [GSX for pilots](/gsx/pilots/).
-- Check that your scenery's mapping has been merged into FlightStrips. Until
-  it is, pilots get stands in the controller's naming and no pushback point.
+
+## When to map your scenery
+
+Almost never. Pushback points need nothing from you, and facing rules belong to
+the airport, so FlightStrips keeps them for every profile. Only one case is
+left:
+
+- **Your stand names don't end in the controller's name**, so GSX can't match
+  `D2` to your parking by itself. One EKCH scenery calls stand F91
+  `Parking 91`.
+
+Then add your scenery to `backend/config/<icao>/gsx_sceneries.json` with a pull
+request against the FlightStrips repository:
+
+```json
+{
+  "gates": {
+    "F91": {
+      "MyScenery": { "stand": "Parking 91" }
+    }
+  }
+}
+```
+
+The gate key is the stand as controllers know it, the scenery key is a name of
+your choosing, and `stand` is what GSX's `selectGate()` resolves in your
+scenery. Once merged, set `SCENERY = "MyScenery"` in your script
+(`FS_SCENERY` in an embedded block, or re-run the embed tool with
+`--scenery MyScenery`).
+
+The file also has a per-scenery `points` mapping to route labels. It only
+serves handler scripts older than position matching, so leave it out.
 
 ## If you change the script
 
@@ -236,8 +265,8 @@ already cost a test flight:
 - **Use `True`, not `TRUE`.** A typo like that is reported only as one warning
   line in the log.
 
-Run the test suite before flying. It needs Python 3.7, the version GSX ships.
-From `gsx-client/`:
+Run the test suite before flying, against your script or the shipped one. It
+needs Python 3.7, the version GSX ships. From `gsx-client/`:
 
 ```bash
 docker run --rm -v "$PWD:/w" -w /w python:3.7-alpine \

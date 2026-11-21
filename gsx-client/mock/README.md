@@ -9,12 +9,13 @@ node gsx-client/mock/server.js
 ```
 
 Or, on Windows, a keyboard-driven version for **Gate D2 at EKCH**. Park
-there, with the `EKCH-Simnord-Sonnich` profile active, before you start: the
-options are D2's route labels, and the mock does not know which stand you are
-on. `1`–`4` assign one of D2's four routes (`S1 Face N`, `S2 Face S`, `R1 Face N`, `S3 Face N`), `R` resets to nothing assigned, and the screen
-lists recent polls. A label the stand does not have gives "no route to it
-from this stand". Edit `$Points` at the top of the script to change the
-options.
+there with either EKCH Simnord profile active before you start: the mock
+doesn't know which stand you are on. `1` to `4` assign S1, S2, R1 or S3, each
+sent as the real server sends it to an unmapped scenery: the bare point and
+its position from `backend/config/ekch/gsx_sceneries.json`. So this tests the
+position matching every profile relies on. `R` resets to nothing assigned,
+and the screen lists recent polls. Edit `$Points` at the top of the script
+to change the options.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File gsx-client\mock\api-tui.ps1
@@ -91,14 +92,16 @@ Editor's output panel. `GSX departure state` is logged on every transition.
 
 ## Contract
 
-Three fields, and the handler reads only the first two. At most one of them is
-ever set — a stand is where arriving traffic parks, a pushback point is how
-departing traffic leaves the stand it is on.
+Five fields, and the handler reads the first four. A stand and a pushback are
+never both set — a stand is where arriving traffic parks, a pushback point is
+how departing traffic leaves the stand it is on.
 
 | Field | Meaning |
 | --- | --- |
 | `stand` | The parking to select. Arrivals only. |
-| `pushback` | Every route reaching the assigned point. Departures only. A list, because a stand often offers the same taxiway in two facings; the pilot keeps the facing. |
+| `pushback` | The assigned point as this scenery's route labels. Departures only, and only for a scenery mapped in `gsx_sceneries.json`. A list, because a stand often offers the same taxiway in two facings. |
+| `point` | The bare release point, such as `S1`, or a direction, such as `W`. Every departure, whatever the scenery. |
+| `target` | Where the push should end: `lat`, `lon`, `heading` and `radius_m`, plus `avoid` for a direction. The handler picks the route ending there, by position. Without it, the handler falls back to the route names. |
 | `revision` | What the real endpoint puts in its `ETag`. The mock sends no `ETag`, so this is only along for the ride. |
 
 The mock answers `503` for malformed JSON, which is what the handler is built to

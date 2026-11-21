@@ -23,9 +23,9 @@ there to pick.
 ## What you need
 
 - **GSX Pro** for MSFS 2020 or MSFS 2024.
-- **A supported scenery, with its GSX profile.** Today that is EKCH Copenhagen
-  with the `EKCH-Simnord-Sonnich` profile. The script only works with the
-  profile it was made for.
+- **A GSX profile that ships the FlightStrips script.** Any scenery and any
+  profile can, at any airport controlled with FlightStrips. The script has to be
+  the one made for your profile: its file name must match the profile's.
 - **A SimBrief plan with your VATSIM callsign.** This is how FlightStrips finds
   your strip. See [Your callsign](#your-callsign).
 
@@ -94,10 +94,21 @@ to the new point anyway.
 - **Once you are moving:** the push already under way is not changed. If you
   are told `too late for this tug`, cancel the pushback and request it again.
 
+### Which route it takes
+
+The script picks your scenery's route that ends at the point ATC gave you,
+whatever the scenery calls it. The entry normally carries the scenery's own
+name, such as `ATC Assigned: Release Point S1 (NORTH)`. If the scenery has
+named the route after a different point, the entry shows ATC's point instead,
+such as `ATC Assigned: S2`, because that's where the route really goes.
+
+If ATC gives you a direction rather than a point, such as "push facing west",
+the entry goes to the scenery's route facing that way.
+
 ### If there is no route
 
-`ATC assigned R2 Face N - no route to it from this stand` means your scenery has
-no pushback route to that point from your stand. Pick one of the scenery's
+`ATC assigned R2 - no route to it from this stand` means your scenery has no
+pushback route ending at that point from your stand. Pick one of the scenery's
 routes, or ask ATC for a different point.
 
 ## Arriving: the assigned stand

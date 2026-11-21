@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/metrics"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -160,15 +161,11 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 				delete(w.known, callsign)
 				known = false
 			}
-			sameSource := known
-			observation, err := w.mapFlight(ctx, flight, snapshot.Timestamp, status, now, optionalObservation(previous, sameSource))
+			observation, err := w.mapFlight(ctx, flight, snapshot.Timestamp, status, now, optionalObservation(previous, known))
 			if err != nil {
 				failed[callsign] = struct{}{}
 				publishErrors = append(publishErrors, fmt.Errorf("map VATSIM observation for callsign %s: %w", callsign, err))
 				continue
-			}
-			if sameSource {
-				observation = preserveNewerObservationFacts(previous, observation)
 			}
 			current[callsign] = observation
 		}
@@ -272,24 +269,58 @@ func (w *ObservationWorker) retractKnown(ctx context.Context) error {
 
 func (w *ObservationWorker) mapFlight(_ context.Context, flight Flight, snapshotAt time.Time, status aman.DataStatus, reconciledAt time.Time, previous *aman.FlightObservation) (aman.FlightObservation, error) {
 	callsign := strings.ToUpper(strings.TrimSpace(flight.Callsign))
-	observedAt := flight.LastUpdated.UTC()
-	if observedAt.IsZero() {
-		observedAt = snapshotAt.UTC()
-	}
+	observedAt := flightObservedAt(flight, snapshotAt)
 	observation := aman.FlightObservation{
 		Callsign: callsign,
 		Origin:   strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Origin)), Destination: strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination)),
 		AircraftType: optionalString(flight.FlightPlan.AircraftShort), WakeCategory: wakeCategory(flight.FlightPlan.Aircraft),
 		FiledRoute: optionalString(flight.FlightPlan.Route), RequestedLevel: requestedLevelFeet(flight.FlightPlan.RequestedLevel),
 		PlannedTiming: plannedTiming(observedAt, flight.FlightPlan), FlightPlan: flightPlanFact(flight.FlightPlan.Revision, observedAt),
-		Surveillance: surveillanceFact(flight, observedAt, previous), TakeoffDetected: takeoffDetected(flight, observedAt),
+		TakeoffDetected:    takeoffDetected(flight, observedAt),
 		SurveillanceSource: aman.SurveillanceSourceVATSIM, Provider: aman.ObservationProviderVATSIM,
 		ReconciledAt: reconciledAt, SourceStatus: status,
+	}
+	observation.VATSIMFlight = &aman.VATSIMFlightFact{Connection: flightConnection(flight), Prefiled: flight.Prefile(), SnapshotAt: snapshotAt.UTC()}
+	if flight.Prefile() && observation.PlannedTiming != nil {
+		observation.VATSIMFlight.PrefiledDepartureAt = observation.PlannedTiming.EstimatedOffBlockTime
+	}
+	if previous != nil && !sameFlightSource(*previous, observation) {
+		previous = nil
+	}
+	observation.Surveillance = surveillanceFact(flight, observedAt, previous)
+	if previous != nil {
+		observation = preserveNewerObservationFacts(*previous, observation)
 	}
 	if err := observation.Validate(); err != nil {
 		return aman.FlightObservation{}, fmt.Errorf("map VATSIM observation: %w", err)
 	}
 	return observation, nil
+}
+
+func sameFlightSource(previous, next aman.FlightObservation) bool {
+	oldFact, newFact := previous.VATSIMFlight, next.VATSIMFlight
+	if oldFact == nil {
+		return true
+	}
+	if newFact.Prefiled {
+		if !oldFact.Prefiled {
+			return false
+		}
+		if departure := newFact.PrefiledDepartureAt; departure != nil &&
+			(oldFact.PrefiledDepartureAt == nil || departure.After(*oldFact.PrefiledDepartureAt)) &&
+			!next.FlightPlan.ObservedAt.Before(*previous.FlightPlan.ObservedAt) {
+			return false
+		}
+	}
+	return !oldFact.Connection.ReplacedBy(newFact.Connection)
+}
+
+func flightConnection(flight Flight) *aman.VATSIMConnection {
+	if !flight.Online() || flight.CID == "" || flight.CID == "0" || flight.LogonTime.IsZero() {
+		return nil
+	}
+	fingerprint := sha256.Sum256([]byte(strings.ToUpper(strings.TrimSpace(flight.Callsign)) + "/" + flight.CID))
+	return &aman.VATSIMConnection{PilotFingerprint: fmt.Sprintf("%x", fingerprint), LogonAt: flight.LogonTime.UTC()}
 }
 
 func observationSourceStatus(snapshot Snapshot, now time.Time, staleAfter time.Duration) aman.DataStatus {
@@ -420,10 +451,22 @@ func requestedLevelFeet(value string) *int {
 }
 
 func preserveNewerObservationFacts(previous, next aman.FlightObservation) aman.FlightObservation {
+	if previous.VATSIMFlight != nil && previous.VATSIMFlight.Connection != nil && next.VATSIMFlight != nil && next.VATSIMFlight.Connection != nil &&
+		previous.VATSIMFlight.Connection.LogonAt.Equal(next.VATSIMFlight.Connection.LogonAt) &&
+		previous.VATSIMFlight.Connection.PilotFingerprint != next.VATSIMFlight.Connection.PilotFingerprint {
+		flight := *next.VATSIMFlight
+		flight.Connection = previous.VATSIMFlight.Connection
+		next.VATSIMFlight = &flight
+	}
 	if flightPlanIsOlder(previous.FlightPlan, next.FlightPlan) {
 		next.Origin, next.Destination = previous.Origin, previous.Destination
 		next.AircraftType, next.WakeCategory, next.FiledRoute = previous.AircraftType, previous.WakeCategory, previous.FiledRoute
 		next.RequestedLevel, next.PlannedTiming, next.FlightPlan = previous.RequestedLevel, previous.PlannedTiming, previous.FlightPlan
+		if previous.VATSIMFlight != nil && previous.VATSIMFlight.Prefiled && next.VATSIMFlight != nil && next.VATSIMFlight.Prefiled {
+			fact := *next.VATSIMFlight
+			fact.PrefiledDepartureAt = previous.VATSIMFlight.PrefiledDepartureAt
+			next.VATSIMFlight = &fact
+		}
 	}
 	if surveillanceIsOlder(previous.Surveillance, next.Surveillance) {
 		next.Surveillance, next.TakeoffDetected = previous.Surveillance, previous.TakeoffDetected
@@ -455,8 +498,14 @@ func surveillanceIsOlder(previous, next *aman.SurveillanceFact) bool {
 }
 
 func sameObservation(previous, next aman.FlightObservation) bool {
-	previous.ReconciledAt = time.Time{}
-	next.ReconciledAt = time.Time{}
+	for _, observation := range []*aman.FlightObservation{&previous, &next} {
+		observation.ReconciledAt = time.Time{}
+		if observation.VATSIMFlight != nil {
+			fact := *observation.VATSIMFlight
+			fact.SnapshotAt = time.Time{}
+			observation.VATSIMFlight = &fact
+		}
+	}
 	return reflect.DeepEqual(previous, next)
 }
 

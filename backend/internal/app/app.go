@@ -661,8 +661,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, fmt.Errorf("register EuroScope PDC handlers: %w", err)
 		}
 	}
-	if cfg.EnablePDC && amanRuntime.Enabled() && defaultAMAN.transport != nil {
-		arrivalInfoService, err = buildArrivalInfoService(cfg, deps.PDCClient, sessionRepo, stripRepo, dbpool, navigationSource, satNow)
+	if cfg.EnablePDC && amanRuntime.Ownership().SequenceAuthoritative && defaultAMAN.transport != nil {
+		arrivalInfoService, err = buildArrivalInfoService(cfg, deps.PDCClient, sessionRepo, stripRepo, dbpool, navigationSource, satNow, defaultAMAN.transport.arrivalInfoAuthorityAllowed)
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -1181,6 +1181,7 @@ func buildArrivalInfoService(
 	dbpool *pgxpool.Pool,
 	navigationSource *navigation.Source,
 	now func() time.Time,
+	authorityAllowed func(context.Context) bool,
 ) (*arrivalinfo.Service, error) {
 	if dependencies.IsNil(client) {
 		hoppieLogon := strings.TrimSpace(cfg.HoppieLogon)
@@ -1194,13 +1195,14 @@ func buildArrivalInfoService(
 		terminalConfig = &navigationSource.Terminal
 	}
 	service, err := arrivalinfo.New(arrivalinfo.Dependencies{
-		Sender:         client,
-		Sessions:       sessionRepo,
-		Strips:         stripRepo,
-		Store:          postgres.NewArrivalTelexStore(dbpool),
-		Terminal:       terminalConfig,
-		AirportEnabled: func(airport string) bool { return airportCapabilityEnabled(cfg, "pdc", airport) },
-		Now:            now,
+		Sender:           client,
+		Sessions:         sessionRepo,
+		Strips:           stripRepo,
+		Store:            postgres.NewArrivalTelexStore(dbpool),
+		Terminal:         terminalConfig,
+		AirportEnabled:   func(airport string) bool { return airportCapabilityEnabled(cfg, "pdc", airport) },
+		AuthorityAllowed: authorityAllowed,
+		Now:              now,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize arrival info telex: %w", err)

@@ -2,13 +2,13 @@ package arrivalinfo
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/pdc"
 )
 
 const testSession int32 = 7
@@ -44,12 +44,13 @@ func (f *fakeStrips) List(_ context.Context, session int32) ([]*models.Strip, er
 }
 
 type fakeStore struct {
-	mu       sync.Mutex
-	nextID   int64
-	messages []SentMessage
+	mu           sync.Mutex
+	nextID       int64
+	messages     []SentMessage
+	afterReserve func()
 }
 
-func (f *fakeStore) ListEpisode(_ context.Context, session int32, episode int64) ([]SentMessage, error) {
+func (f *fakeStore) ListEpisode(_ context.Context, session int32, episode string) ([]SentMessage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var result []SentMessage
@@ -74,6 +75,9 @@ func (f *fakeStore) Reserve(_ context.Context, message SentMessage) (int64, bool
 	f.nextID++
 	message.ID = f.nextID
 	f.messages = append(f.messages, message)
+	if f.afterReserve != nil {
+		f.afterReserve()
+	}
 	return message.ID, true, nil
 }
 
@@ -90,28 +94,30 @@ func (f *fakeStore) Release(_ context.Context, id int64) error {
 }
 
 type harness struct {
-	t        *testing.T
-	now      time.Time
-	sender   *fakeSender
-	sessions fakeSessions
-	strips   *fakeStrips
-	store    *fakeStore
-	service  *Service
-	strip    *models.Strip
-	flight   aman.AMANFlight
-	enabled  bool
+	t                *testing.T
+	now              time.Time
+	sender           *fakeSender
+	sessions         fakeSessions
+	strips           *fakeStrips
+	store            *fakeStore
+	service          *Service
+	strip            *models.Strip
+	flight           aman.AMANFlight
+	enabled          bool
+	authorityAllowed bool
 }
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	h := &harness{
-		t:        t,
-		now:      time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC),
-		sender:   &fakeSender{},
-		sessions: fakeSessions{sessions: map[int32]*models.Session{testSession: {ID: testSession, Name: "LIVE", Airport: "EKCH"}}},
-		store:    &fakeStore{},
-		enabled:  true,
-		strip:    &models.Strip{ID: 42, Callsign: "SAS123", Session: testSession, Stand: ptr("C27"), Star: ptr("MONAK5C"), PositionAltitude: ptr(int32(9000))},
+		t:                t,
+		now:              time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC),
+		sender:           &fakeSender{},
+		sessions:         fakeSessions{sessions: map[int32]*models.Session{testSession: {ID: testSession, Name: "LIVE", Airport: "EKCH"}}},
+		store:            &fakeStore{},
+		enabled:          true,
+		authorityAllowed: true,
+		strip:            &models.Strip{ID: 42, Callsign: "SAS123", Session: testSession, Stand: ptr("C27"), Star: ptr("MONAK5C"), PositionAltitude: ptr(int32(9000))},
 	}
 	h.strips = &fakeStrips{strips: map[int32][]*models.Strip{testSession: {h.strip}}}
 	h.flight = aman.AMANFlight{Callsign: "SAS123", State: aman.StateUnstable}
@@ -123,9 +129,10 @@ func newHarness(t *testing.T) *harness {
 func (h *harness) newService() *Service {
 	service, err := New(Dependencies{
 		Sender: h.sender, Sessions: h.sessions, Strips: h.strips, Store: h.store,
-		Terminal:       testTerminal(),
-		AirportEnabled: func(string) bool { return h.enabled },
-		Now:            func() time.Time { return h.now },
+		Terminal:         testTerminal(),
+		AirportEnabled:   func(string) bool { return h.enabled },
+		AuthorityAllowed: func(context.Context) bool { return h.authorityAllowed },
+		Now:              func() time.Time { return h.now },
 	})
 	if err != nil {
 		h.t.Fatal(err)
@@ -145,8 +152,12 @@ func (h *harness) advance(d time.Duration) {
 }
 
 func (h *harness) tick() {
-	h.service.ObserveAMANState(aman.AirportState{SessionID: testSession, Airport: "EKCH", Flights: []aman.AMANFlight{h.flight}})
+	h.service.ObserveAMANState(h.snapshot())
 	h.service.Tick(context.Background())
+}
+
+func (h *harness) snapshot() aman.AirportState {
+	return aman.AirportState{SessionID: testSession, Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{h.flight}}
 }
 
 func (h *harness) expectSent(packets ...string) {
@@ -190,7 +201,7 @@ func TestArrivalInfoFiresOnceAtFortyMinutes(t *testing.T) {
 	h.tick()
 	h.expectSent(infoC27)
 
-	if got := len(h.store.messages); got != 1 || h.store.messages[0].Kind != KindArrivalInfo || h.store.messages[0].Stand != "C27" || h.store.messages[0].Episode != 42 {
+	if got := len(h.store.messages); got != 1 || h.store.messages[0].Kind != KindArrivalInfo || h.store.messages[0].Stand != "C27" || h.store.messages[0].Episode != "legacy/SAS123" {
 		t.Fatalf("persisted %+v", h.store.messages)
 	}
 }
@@ -217,6 +228,52 @@ func TestArrivalInfoSkippedAfterConfirmedGoAroundWhenNeverSent(t *testing.T) {
 	h.flight.GoAroundConfirmation = &aman.GoAroundConfirmation{Status: aman.GoAroundConfirmationConfirmed}
 	h.setTiming(30*time.Minute, 0)
 	h.tick()
+	h.expectSent()
+
+	// The detector prompt can be cleared before resequencing, and a manual
+	// report can record the controller command without ever creating a prompt.
+	h.flight.GoAroundConfirmation = nil
+	h.flight.GoAroundDetection = &aman.GoAroundDetectionState{LastControllerCommandID: "report-1"}
+	h.tick()
+	h.expectSent()
+}
+
+func TestArrivalInfoUsesNewEpisodeWhenCallsignAndStripAreReused(t *testing.T) {
+	h := newHarness(t)
+	h.sendInfo()
+
+	h.advance(time.Hour)
+	h.flight.ArrivalEpisodeID = "SAS123/new-arrival"
+	h.strip.Stand = ptr("D2")
+	h.setTiming(35*time.Minute, 10*time.Minute)
+	h.service = h.newService()
+	h.tick()
+	h.expectSent(infoC27, "EKCH ARR INFO: EXP STAND D2. MONAK5C. DELAY 5-10MIN.")
+
+	h.service = h.newService()
+	h.tick()
+	h.expectSent(infoC27, "EKCH ARR INFO: EXP STAND D2. MONAK5C. DELAY 5-10MIN.")
+}
+
+func TestArrivalInfoLegacyEpisodeSurvivesStripReplacement(t *testing.T) {
+	h := newHarness(t)
+	h.sendInfo()
+	h.strip.ID++
+	h.service = h.newService()
+	h.tick()
+	h.expectSent(infoC27)
+}
+
+func TestArrivalInfoWaitsForUnresolvedEpisode(t *testing.T) {
+	h := newHarness(t)
+	h.flight.ArrivalEpisodeID = "provisional"
+	h.setTiming(35*time.Minute, 10*time.Minute)
+	state := h.snapshot()
+	state.DisconnectedArrivals = map[aman.Callsign]aman.DisconnectedArrival{
+		h.flight.Callsign: {EpisodeID: "old-arrival", GoAroundCommandID: "report"},
+	}
+	h.service.ObserveAMANState(state)
+	h.service.Tick(t.Context())
 	h.expectSent()
 }
 
@@ -318,7 +375,9 @@ func TestArrivalInfoGates(t *testing.T) {
 		h := newHarness(t)
 		h.sessions.sessions[testSession].Airport = "ESSA"
 		h.setTiming(35*time.Minute, 0)
-		h.service.ObserveAMANState(aman.AirportState{SessionID: testSession, Airport: "ESSA", Flights: []aman.AMANFlight{h.flight}})
+		state := h.snapshot()
+		state.Airport = "ESSA"
+		h.service.ObserveAMANState(state)
 		h.service.Tick(context.Background())
 		if len(h.sender.sent) != 1 || h.sender.sent[0].from != "ESSA" || h.sender.sent[0].packet != "ESSA ARR INFO: EXP STAND C27. MONAK5C. NO DELAY EXPECTED." {
 			t.Fatalf("sent %+v", h.sender.sent)
@@ -326,17 +385,116 @@ func TestArrivalInfoGates(t *testing.T) {
 	})
 }
 
-func TestArrivalInfoSendFailureReleasesReservation(t *testing.T) {
-	h := newHarness(t)
-	h.sender.fail = errors.New("hoppie down")
-	h.setTiming(35*time.Minute, 10*time.Minute)
-	h.tick()
-	if len(h.store.messages) != 0 {
-		t.Fatalf("failed send left %+v", h.store.messages)
+func TestArrivalInfoDefinitelyUnacceptedTelexReleasesReservation(t *testing.T) {
+	for _, failure := range []error{pdc.ErrHoppieRejected, pdc.ErrHoppieNotSent} {
+		t.Run(failure.Error(), func(t *testing.T) {
+			h := newHarness(t)
+			h.sender.fail = failure
+			h.setTiming(35*time.Minute, 10*time.Minute)
+			h.tick()
+			if len(h.store.messages) != 0 {
+				t.Fatalf("failed send left %+v", h.store.messages)
+			}
+			h.sender.fail = nil
+			h.tick()
+			h.expectSent(infoC27)
+		})
 	}
-	h.sender.fail = nil
-	h.tick()
+}
+
+func TestArrivalTelexKeepsReservationAfterAmbiguousSend(t *testing.T) {
+	t.Run("arrival info", func(t *testing.T) {
+		h := newHarness(t)
+		h.sender.fail = context.DeadlineExceeded
+		h.setTiming(35*time.Minute, 10*time.Minute)
+		h.tick()
+		h.sender.fail = nil
+		h.tick()
+		h.service = h.newService()
+		h.tick()
+		h.expectSent()
+		if len(h.store.messages) != 1 {
+			t.Fatalf("persisted %+v", h.store.messages)
+		}
+	})
+	t.Run("stand update", func(t *testing.T) {
+		h := newHarness(t)
+		h.sendInfo()
+		h.strip.Stand = ptr("D2")
+		h.tick()
+		h.advance(StandDebounce)
+		h.sender.fail = context.DeadlineExceeded
+		h.tick()
+		h.sender.fail = nil
+		h.tick()
+		h.service = h.newService()
+		h.tick()
+		h.advance(StandDebounce)
+		h.tick()
+		h.expectSent(infoC27)
+		if len(h.store.messages) != 2 || h.store.messages[1].Stand != "D2" {
+			t.Fatalf("persisted %+v", h.store.messages)
+		}
+	})
+}
+
+func TestArrivalInfoUsesLatestRevisionAndEqualRevisionAuthority(t *testing.T) {
+	h := newHarness(t)
+	h.setTiming(35*time.Minute, 10*time.Minute)
+	older := h.snapshot()
+	older.Revision = 1
+	latest := h.snapshot()
+	latest.Revision, latest.Authoritative = 2, false
+	h.service.ObserveAMANState(latest)
+	h.service.ObserveAMANState(older)
+	h.service.Tick(t.Context())
+	h.expectSent()
+
+	latest.Authoritative = true
+	h.service.ObserveAMANState(latest)
+	h.service.Tick(t.Context())
 	h.expectSent(infoC27)
+}
+
+func TestArrivalInfoDiscardsAnOlderAuthoritativeSnapshot(t *testing.T) {
+	h := newHarness(t)
+	h.setTiming(35*time.Minute, 10*time.Minute)
+	older := h.snapshot()
+	older.Revision = 1
+	latest := h.snapshot()
+	latest.Revision = 2
+	latest.Flights[0].Slot = nil
+	h.service.ObserveAMANState(latest)
+	h.service.ObserveAMANState(older)
+	h.service.Tick(t.Context())
+	h.expectSent()
+}
+
+func TestArrivalInfoCancelsSendWhenAuthorityOrRevisionChangesDuringReserve(t *testing.T) {
+	for _, change := range []string{"health loss", "authority publication", "newer revision"} {
+		t.Run(change, func(t *testing.T) {
+			h := newHarness(t)
+			h.setTiming(35*time.Minute, 10*time.Minute)
+			h.store.afterReserve = func() {
+				state := h.snapshot()
+				switch change {
+				case "health loss":
+					h.authorityAllowed = false
+				case "authority publication":
+					state.Authoritative = false
+					h.service.ObserveAMANState(state)
+				case "newer revision":
+					state.Revision++
+					h.service.ObserveAMANState(state)
+				}
+			}
+			h.tick()
+			h.expectSent()
+			if len(h.store.messages) != 0 {
+				t.Fatalf("unsent telex left %+v", h.store.messages)
+			}
+		})
+	}
 }
 
 func TestStandUpdateAfterDebounceAboveThreeThousandFeet(t *testing.T) {
@@ -389,6 +547,28 @@ func TestStandUpdateAltitudeGate(t *testing.T) {
 		h.tick()
 		h.expectSent(infoC27, "EKCH ARR INFO: NEW STAND D2.")
 	})
+}
+
+func TestStandUpdateDoesNotSendAfterLandingOrRemoval(t *testing.T) {
+	for _, state := range []aman.FlightState{aman.StateLanded, aman.StateRemoved} {
+		t.Run(string(state), func(t *testing.T) {
+			h := newHarness(t)
+			h.sendInfo()
+			h.strip.Stand = ptr("D2")
+			h.tick()
+			h.advance(StandDebounce)
+			h.flight.State = state
+			h.tick()
+			h.expectSent(infoC27)
+
+			h.flight.State = aman.StateUnstable
+			h.tick()
+			h.expectSent(infoC27)
+			h.advance(StandDebounce)
+			h.tick()
+			h.expectSent(infoC27, "EKCH ARR INFO: NEW STAND D2.")
+		})
+	}
 }
 
 func TestStandUpdateDebounceSendsOnlyTheFinalStand(t *testing.T) {

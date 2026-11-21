@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -65,6 +67,7 @@ func TestHoppieResponses(t *testing.T) {
 				{"ok", 200, "ok", false},
 				{"whitespace", 200, " \r\nok\t\n", false},
 				{"provider rejection", 200, "error {callsign already in use}", true},
+				{"truncated provider response", 200, "error {callsign already", true},
 				{"empty", 200, "", true},
 				{"html", 200, "<html>Unavailable</html>", true},
 				{"invalid success prefix", 200, "okay", true},
@@ -94,6 +97,7 @@ func TestHoppieResponses(t *testing.T) {
 					if tc.wantError {
 						require.Error(t, err)
 						require.NotContains(t, err.Error(), client.logon)
+						require.Equal(t, tc.name == "provider rejection", errors.Is(err, ErrHoppieRejected))
 					} else {
 						require.NoError(t, err)
 					}
@@ -128,6 +132,7 @@ func TestPollValidatesMessageEnvelope(t *testing.T) {
 			messages, err := client.Poll(context.Background(), "EKCH")
 			if tc.wantError {
 				require.Error(t, err)
+				require.NotErrorIs(t, err, ErrHoppieRejected)
 				require.Empty(t, messages, "do not return partial poll results as a successful poll")
 			} else {
 				require.NoError(t, err)
@@ -151,12 +156,13 @@ func TestHoppieTransportAndReadFailures(t *testing.T) {
 		for _, readFailure := range []bool{false, true} {
 			t.Run(operation+map[bool]string{true: "/read", false: "/transport"}[readFailure], func(t *testing.T) {
 				client := NewClient("secret logon+code")
-				client.httpClient.Transport = hoppieTestTransport(func(r *http.Request) (*http.Response, error) {
+				transport := hoppieTestTransport(func(r *http.Request) (*http.Response, error) {
 					if readFailure {
 						return &http.Response{StatusCode: 200, Body: hoppieBrokenBody{}, Header: make(http.Header)}, nil
 					}
 					return nil, &url.Error{Op: "Get", URL: r.URL.String(), Err: context.DeadlineExceeded}
 				})
+				client.httpClient.Transport, client.sendClient.Transport = transport, transport
 				var err error
 				if operation == "poll" {
 					_, err = client.Poll(context.Background(), "EKCH")
@@ -164,6 +170,7 @@ func TestHoppieTransportAndReadFailures(t *testing.T) {
 					err = client.SendCPDLC(context.Background(), "EKCH", "SAS123", "/data2/7//WU/clearance")
 				}
 				require.Error(t, err)
+				require.NotErrorIs(t, err, ErrHoppieNotSent)
 				require.NotContains(t, err.Error(), client.logon)
 				require.NotContains(t, err.Error(), url.QueryEscape(client.logon))
 				if !readFailure {
@@ -172,6 +179,64 @@ func TestHoppieTransportAndReadFailures(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestHoppieTelexDoesNotReplayWhenResponseIsLost(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requests.Add(1) == 2 {
+			conn, _, err := http.NewResponseController(w).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	t.Cleanup(server.Close)
+	client := NewClient("secret-logon")
+	client.baseURL = server.URL
+	require.NoError(t, client.SendTelex(t.Context(), "EKCH", "SAS123", "first message"))
+	err := client.SendTelex(t.Context(), "EKCH", "SAS123", "second message")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrHoppieNotSent)
+	require.EqualValues(t, 2, requests.Load())
+}
+
+func TestHoppieTelexDoesNotFollowRedirects(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/resend", http.StatusTemporaryRedirect)
+			return
+		}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	t.Cleanup(server.Close)
+	client := NewClient("secret-logon")
+	client.baseURL = server.URL
+	err := client.SendTelex(t.Context(), "EKCH", "SAS123", "message")
+	require.ErrorContains(t, err, "HTTP status 307")
+	require.NotErrorIs(t, err, ErrHoppieNotSent)
+	require.EqualValues(t, 1, requests.Load())
+}
+
+func TestHoppieTelexIdentifiesFailureBeforeConnection(t *testing.T) {
+	client := NewClient("secret-logon")
+	transport := client.sendClient.Transport.(*http.Transport)
+	transport.Proxy = nil
+	dialErr := &net.DNSError{Err: "temporary failure", Name: "hoppie.invalid", IsTemporary: true}
+	transport.DialContext = func(context.Context, string, string) (net.Conn, error) {
+		return nil, dialErr
+	}
+	client.baseURL = "http://hoppie.invalid/"
+	err := client.SendTelex(t.Context(), "EKCH", "SAS123", "message")
+	require.ErrorIs(t, err, ErrHoppieNotSent)
+	require.ErrorIs(t, err, dialErr)
+	require.NotContains(t, err.Error(), client.logon)
 }
 
 func TestHoppieRedactsProviderResponse(t *testing.T) {

@@ -284,6 +284,51 @@ func TestAMANTransportReevaluatesHoldingEATOnUnchangedTickWithoutGainLoss(t *tes
 	require.Equal(t, 1, geometryCalls)
 }
 
+type arrivalInfoObserverStub struct{ states []aman.AirportState }
+
+func (o *arrivalInfoObserverStub) ObserveAMANState(state aman.AirportState) {
+	o.states = append(o.states, state)
+}
+
+func TestAMANTransportGatesArrivalInfoOnBothPublicationPaths(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		mode            aman.RolloutMode
+		stateAuthority  bool
+		healthAuthority bool
+		want            bool
+	}{
+		{"authoritative", aman.ModeAuthoritative, true, true, true},
+		{"shadow", aman.ModeShadow, false, true, false},
+		{"read only", aman.ModeReadOnly, false, true, false},
+		{"state lost authority", aman.ModeAuthoritative, false, true, false},
+		{"health lost authority", aman.ModeAuthoritative, true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ready := aman.ComponentHealth{Status: aman.HealthReady}
+			source := ready
+			if !tc.healthAuthority {
+				source.Status = aman.HealthUnavailable
+			}
+			health := aman.EvaluateTechnicalHealth(tc.mode, source, ready, ready, ready, ready, ready)
+			transport := &amanTransport{mode: tc.mode, health: testAMANHealthReporter{report: &health}}
+			observer := &arrivalInfoObserverStub{}
+			transport.setArrivalInfo(observer)
+			state := aman.AirportState{
+				Airport: "EKCH", SessionID: 42, Revision: 3, GeneratedAt: time.Now().UTC(), PolicyVersion: "test",
+				Mode: tc.mode, Authoritative: tc.stateAuthority, Flights: []aman.AMANFlight{},
+			}
+			require.NoError(t, transport.PublishAMANState(t.Context(), state))
+			require.NoError(t, transport.PublishAMANAuthority(t.Context(), state))
+			require.Len(t, observer.states, 2)
+			for _, observed := range observer.states {
+				require.Equal(t, state.Revision, observed.Revision)
+				require.Equal(t, tc.want, observed.Authoritative)
+			}
+		})
+	}
+}
+
 func holdingEATTransport(holdingID, fix string) *amanTransport {
 	return &amanTransport{
 		health: testAMANHealthReporter{authorityAllowed: true}, holdingEATEnabled: true,

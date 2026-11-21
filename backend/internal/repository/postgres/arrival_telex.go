@@ -17,7 +17,7 @@ func NewArrivalTelexStore(pool *pgxpool.Pool) arrivalinfo.Store {
 	return &arrivalTelexStore{pool: pool}
 }
 
-func (r *arrivalTelexStore) ListEpisode(ctx context.Context, session int32, episode int64) ([]arrivalinfo.SentMessage, error) {
+func (r *arrivalTelexStore) ListEpisode(ctx context.Context, session int32, episode string) ([]arrivalinfo.SentMessage, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, session_id, callsign, arrival_episode, kind, message, COALESCE(stand, ''), sent_at
 FROM arrival_telex_messages WHERE session_id = $1 AND arrival_episode = $2 ORDER BY sent_at, id`, session, episode)
 	if err != nil {

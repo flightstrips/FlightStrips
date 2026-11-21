@@ -278,6 +278,7 @@ type FlightObservation struct {
 	PlannedTiming  *PlannedTiming
 	FlightPlan     FlightPlanFact
 	Surveillance   *SurveillanceFact
+	VATSIMFlight   *VATSIMFlightFact
 	// HoldingClearance is an optional EuroScope strip fact. Keeping it with the
 	// observation lets initial strip synchronization create the aggregate and
 	// its clearance atomically on the next reconciliation.
@@ -377,6 +378,27 @@ type PlannedTiming struct {
 type FlightPlanFact struct {
 	Revision   *uint64
 	ObservedAt *time.Time
+}
+
+// VATSIMFlightFact identifies the network pilot and distinguishes a prefile
+// for a future leg from a pilot reconnecting in the air.
+type VATSIMFlightFact struct {
+	Connection          *VATSIMConnection
+	Prefiled            bool
+	PrefiledDepartureAt *time.Time
+	// SnapshotAt dates source visibility separately from when the plan was filed.
+	SnapshotAt time.Time
+}
+
+// VATSIMConnection carries private arrival-episode evidence scoped to a callsign.
+type VATSIMConnection struct {
+	PilotFingerprint string
+	LogonAt          time.Time
+}
+
+// ReplacedBy requires a different pilot and logon. A pilot can log back on in flight.
+func (c *VATSIMConnection) ReplacedBy(next *VATSIMConnection) bool {
+	return c != nil && next != nil && c.PilotFingerprint != next.PilotFingerprint && !c.LogonAt.Equal(next.LogonAt)
 }
 
 // SurveillanceFact is an optional positional observation. Coordinates are
@@ -1009,9 +1031,16 @@ type ManualSequencePosition struct {
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
 // freeze, slot, and order changes are backend-owned.
 type AMANFlight struct {
-	Callsign            string
-	State               FlightState
-	SequenceDisposition SequenceDisposition
+	Callsign string
+	// ArrivalEpisodeID survives go-arounds and restoration of retained flights.
+	ArrivalEpisodeID string
+	// PrefileResetAt is the evidence boundary when a prefile replaced an airborne leg.
+	PrefileResetAt *time.Time
+	// ConsumedPrefileDepartureAt identifies the prefile already associated with this leg.
+	ConsumedPrefileDepartureAt *time.Time
+	VATSIMConnection           *VATSIMConnection
+	State                      FlightState
+	SequenceDisposition        SequenceDisposition
 	// Expedited records an FMP admission outside the managed runway sequence.
 	// Keep the compatible desequenced disposition, and count the arrival in intake.
 	Expedited           bool
@@ -1123,6 +1152,26 @@ func (f AMANFlight) TerminalPathIdentity() (feederFix, legacySTARFamily string) 
 	return "", ""
 }
 
+// DisconnectedArrival retains pilot-message history after a flight's sequencing
+// state is removed for source disappearance.
+type DisconnectedArrival struct {
+	EpisodeID                  string
+	Origin                     string
+	VATSIMConnection           *VATSIMConnection
+	ConsumedPrefileDepartureAt *time.Time
+	MissingSince               time.Time
+	RemovedAt                  time.Time
+	GoAroundCommandID          string
+}
+
+// TelexEpisodeID gives legacy aggregates a stable key even if their strip is replaced.
+func (f AMANFlight) TelexEpisodeID() string {
+	if f.ArrivalEpisodeID != "" {
+		return f.ArrivalEpisodeID
+	}
+	return "legacy/" + strings.ToUpper(strings.TrimSpace(f.Callsign))
+}
+
 // AirportState is the sole source for one coherent AMAN replacement state.
 // Revisions are allocated only when a committed domain result changes it.
 type AirportState struct {
@@ -1137,6 +1186,7 @@ type AirportState struct {
 	HoldingEATWritebackEnabled *bool
 	Authoritative              bool
 	Flights                    []AMANFlight
+	DisconnectedArrivals       map[Callsign]DisconnectedArrival
 	RunwayGroups               []RunwayGroupPolicy
 	// ActiveRunwayGroups is the canonical active landing-runway set. A nil slice
 	// denotes persisted legacy state that is still represented by Selected.
@@ -1437,6 +1487,16 @@ func (s BaselineSource) holdsAirborneBaseline() bool {
 func (f AMANFlight) Validate() error {
 	if f.LastGroundedAt != nil {
 		if err := requireUTCTime("last grounded at", *f.LastGroundedAt); err != nil {
+			return err
+		}
+	}
+	if f.PrefileResetAt != nil {
+		if err := requireUTCTime("prefile reset at", *f.PrefileResetAt); err != nil {
+			return err
+		}
+	}
+	if f.ConsumedPrefileDepartureAt != nil {
+		if err := requireUTCTime("consumed prefile departure at", *f.ConsumedPrefileDepartureAt); err != nil {
 			return err
 		}
 	}

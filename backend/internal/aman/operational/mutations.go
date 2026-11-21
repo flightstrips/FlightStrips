@@ -338,7 +338,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 				!observation.ReconciledAt.After(auth.ReceivedAt.Add(-tmaSurveillanceFresh)) {
 				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "restoration requires current arrival observations"}
 			}
-			restored, err := s.reconcileFlight(aman.WithSession(context.Background(), auth.SessionID), state, newFlight(observation, auth.ReceivedAt), observation, auth.ReceivedAt)
+			restored, err := s.reconcileFlight(aman.WithSession(context.Background(), auth.SessionID), state, restoreArrivalFlight(before, observation, auth.ReceivedAt), observation, auth.ReceivedAt)
 			clearSequencingState(&restored)
 			if err != nil || !sequenceEligible(restored) {
 				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "restoration requires a usable operational prediction"}

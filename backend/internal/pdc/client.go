@@ -8,17 +8,31 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const HoppieBaseURL = "http://www.hoppie.nl/acars/system/connect.html"
 
+// ErrHoppieRejected means Hoppie explicitly declined the request.
+const ErrHoppieRejected = hoppieNonAcceptance("Hoppie rejected request")
+
+// ErrHoppieNotSent means no part of the request was transmitted.
+const ErrHoppieNotSent = hoppieNonAcceptance("Hoppie request was not sent")
+
+type hoppieNonAcceptance string
+
+func (e hoppieNonAcceptance) Error() string             { return string(e) }
+func (hoppieNonAcceptance) DefinitelyNotAccepted() bool { return true }
+
 type Client struct {
 	baseURL    string
 	logon      string
 	httpClient *http.Client
+	sendClient *http.Client
 }
 
 type Message struct {
@@ -30,11 +44,27 @@ type Message struct {
 }
 
 func NewClient(logon string) *Client {
+	// Hoppie sends use side-effecting GETs. The HTTP/1 transport can replay
+	// a GET on a reused connection if the response is lost. Give each send
+	// a fresh connection and stop at redirects so the request is made once.
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
 	return &Client{
 		baseURL: HoppieBaseURL,
 		logon:   logon,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
+		},
+		sendClient: &http.Client{
+			Transport: &http.Transport{
+				Proxy:             http.ProxyFromEnvironment,
+				DisableKeepAlives: true,
+				Protocols:         protocols,
+			},
+			Timeout: 15 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
 		},
 	}
 }
@@ -53,7 +83,7 @@ func (c *Client) Poll(ctx context.Context, callsign string) ([]Message, error) {
 	params.Set("type", "poll")
 	params.Set("packet", "")
 
-	body, err := c.request(ctx, params)
+	body, err := c.request(ctx, c.httpClient, params)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +122,7 @@ func (c *Client) sendMessage(ctx context.Context, from, to, msgType, packet stri
 	params.Set("type", msgType)
 	params.Set("packet", packet)
 
-	body, err := c.request(ctx, params)
+	body, err := c.request(ctx, c.sendClient, params)
 	if err != nil {
 		return err
 	}
@@ -106,14 +136,24 @@ const maxHoppieResponseBytes = 1024 * 1024
 
 // request validates HTTP status and the provider's application-level status.
 // Never expose the request URL: its query includes the secret logon code.
-func (c *Client) request(ctx context.Context, params url.Values) (string, error) {
+func (c *Client) request(ctx context.Context, client *http.Client, params url.Values) (string, error) {
 	reqURL := fmt.Sprintf("%s?%s", c.baseURL, params.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create Hoppie request: %s", c.responseSummary(err.Error()))
+		return "", fmt.Errorf("%w: failed to create request: %s", ErrHoppieNotSent, c.responseSummary(err.Error()))
 	}
 
-	resp, err := c.httpClient.Do(req)
+	var connected atomic.Bool
+	// The standard transport calls GotConn before writing the request. After
+	// this point, even a write error can leave the delivery outcome uncertain.
+	_, standardTransport := client.Transport.(*http.Transport)
+	trackConnection := client == c.sendClient && standardTransport
+	if trackConnection {
+		req = req.WithContext(httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+			GotConn: func(httptrace.GotConnInfo) { connected.Store(true) },
+		}))
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		for {
 			var urlErr *url.Error
@@ -122,7 +162,11 @@ func (c *Client) request(ctx context.Context, params url.Values) (string, error)
 			}
 			err = urlErr.Err
 		}
-		return "", &hoppieTransportError{cause: err, summary: c.responseSummary(err.Error())}
+		transportErr := &hoppieTransportError{cause: err, summary: c.responseSummary(err.Error())}
+		if trackConnection && !connected.Load() {
+			return "", fmt.Errorf("%w: %w", ErrHoppieNotSent, transportErr)
+		}
+		return "", transportErr
 	}
 	defer resp.Body.Close()
 
@@ -137,8 +181,11 @@ func (c *Client) request(ctx context.Context, params url.Values) (string, error)
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("Hoppie HTTP status %d: %s", resp.StatusCode, c.responseSummary(text))
 	}
+	if text == "error" || (strings.HasPrefix(text, "error {") && strings.HasSuffix(text, "}")) {
+		return "", fmt.Errorf("%w: %s", ErrHoppieRejected, c.responseSummary(text))
+	}
 	if text != "ok" && (len(text) < 3 || text[:2] != "ok" || !strings.ContainsAny(text[2:3], " \t\r\n")) {
-		return "", fmt.Errorf("Hoppie rejected request or returned an invalid response: %s", c.responseSummary(text))
+		return "", fmt.Errorf("invalid Hoppie response: %s", c.responseSummary(text))
 	}
 	return text, nil
 }

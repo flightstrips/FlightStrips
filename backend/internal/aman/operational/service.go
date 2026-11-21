@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -228,7 +229,7 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 		if s.destinationFacts[key] == nil {
 			s.destinationFacts[key] = map[aman.ObservationProvider]aman.FlightObservation{}
 		}
-		if previous, found := s.destinationFacts[key][owner]; found && observationFactTime(observation).Before(observationFactTime(previous)) {
+		if previous, found := s.destinationFacts[key][owner]; found && observationPrecedes(observation, previous) {
 			return nil
 		}
 		s.destinationFacts[key][owner] = observation
@@ -353,10 +354,12 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 			}
 			merged.PlannedTiming = &timing
 		}
-		if incoming.Surveillance != nil {
+		keepNetworkRadar := previous.SurveillanceSource == aman.SurveillanceSourceVATSIM && previous.Surveillance != nil &&
+			!freshEuroScopeSurveillance(incoming, previous.ReconciledAt)
+		if incoming.Surveillance != nil && !keepNetworkRadar {
 			merged.Surveillance, merged.SurveillanceSource = incoming.Surveillance, aman.SurveillanceSourceEuroScope
 		}
-		if incoming.TakeoffDetected != nil {
+		if incoming.TakeoffDetected != nil && !keepNetworkRadar {
 			merged.TakeoffDetected = incoming.TakeoffDetected
 		}
 		merged.TakeoffDetected = takeoffAfterGroundReport(merged.TakeoffDetected, incoming)
@@ -403,7 +406,7 @@ func (s *Service) destinationObservation(ctx context.Context, callsign string, _
 	local := s.destinationFacts[aman.SessionAirportKey(ctx, callsign)]
 	network := local[aman.ObservationProviderVATSIM]
 	if s.liveSessions[aman.SessionID(ctx)] {
-		if shared := s.destinationFacts[callsign][aman.ObservationProviderVATSIM]; observationFactTime(shared).After(observationFactTime(network)) {
+		if shared := s.destinationFacts[callsign][aman.ObservationProviderVATSIM]; observationPrecedes(network, shared) {
 			network = shared
 		}
 	}
@@ -420,13 +423,13 @@ func (s *Service) destinationObservation(ctx context.Context, callsign string, _
 
 func applyDestinationObservation(observation, fact aman.FlightObservation) aman.FlightObservation {
 	if observation.Destination == fact.Destination && observationOwner(observation) == observationOwner(fact) &&
-		!observationFactTime(fact).After(observationFactTime(observation)) {
+		!observationPrecedes(observation, fact) {
 		return observation
 	}
 	// Missing reports must retain disappearance semantics. Replaying the last
 	// known fact for the same destination would otherwise revive disconnected flights.
 	if observation.Missing && observation.Destination == fact.Destination &&
-		!observationFactTime(fact).After(observationFactTime(observation)) {
+		!observationPrecedes(observation, fact) {
 		return observation
 	}
 	if observationOwner(fact) == aman.ObservationProviderEuroScope {
@@ -447,6 +450,18 @@ func observationFactTime(observation aman.FlightObservation) time.Time {
 		return *observation.FlightPlan.ObservedAt
 	}
 	return observation.ReconciledAt
+}
+
+func observationPrecedes(candidate, previous aman.FlightObservation) bool {
+	nextNetwork, priorNetwork := candidate.VATSIMFlight, previous.VATSIMFlight
+	if nextNetwork != nil && priorNetwork != nil && (nextNetwork.Prefiled || priorNetwork.Prefiled) &&
+		!nextNetwork.SnapshotAt.IsZero() && !priorNetwork.SnapshotAt.IsZero() &&
+		observationOwner(candidate) == aman.ObservationProviderVATSIM && observationOwner(previous) == aman.ObservationProviderVATSIM {
+		// An online record can hide a prefile until a later feed generation.
+		// Its filing time dates the plan, while the generation dates source presence.
+		return nextNetwork.SnapshotAt.Before(priorNetwork.SnapshotAt)
+	}
+	return observationFactTime(candidate).Before(observationFactTime(previous))
 }
 
 func freshEuroScopeSurveillance(observation aman.FlightObservation, at time.Time) bool {
@@ -705,6 +720,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	next.Authoritative = s.deps.Mode == aman.ModeAuthoritative
 	next.PolicyVersion = policyVersion
 	next.Flights = slices.Clone(current.Flights)
+	next.DisconnectedArrivals = maps.Clone(current.DisconnectedArrivals)
 	if !s.deps.DisablePredictionFiltering {
 		for i := range next.Flights {
 			next.Flights[i] = prediction.ExpireFilter(next.Flights[i], now)
@@ -752,12 +768,14 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 
 	for _, observation := range observations {
 		index, found := indexes[observation.Callsign]
+		disconnected, wasDisconnected := next.DisconnectedArrivals[observation.Callsign]
 		if !found {
 			// Removed flights are excluded from subsequent repository reads.
 			// Cached missing/stale records must not recreate them and reserve
 			// capacity again; require a current fresh observation to re-enter.
 			if observation.Destination != airport || observation.Missing || observation.SourceStatus != aman.DataFresh ||
-				!observation.ReconciledAt.After(now.Add(-lifecycle.DefaultConfig().RemovalTimeout)) {
+				!observation.ReconciledAt.After(now.Add(-lifecycle.DefaultConfig().RemovalTimeout)) ||
+				wasDisconnected && !observation.ReconciledAt.After(disconnected.RemovedAt) {
 				continue
 			}
 			excluded, err := s.manuallyExcludedElsewhere(ctx, airport, observation.Callsign)
@@ -777,10 +795,17 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 			slog.WarnContext(ctx, "AMAN flight prediction degraded", "scope", "flight", "session", aman.SessionID(ctx), "airport", airport, "callsign", observation.Callsign, "error", updateErr)
 			// Reconciliation retains takeoff history and authoritative source
 			// facts. Do not overwrite them with the original report on failure.
+			predictionObservation := observation
 			if updated.LatestObservation != nil {
-				observation = *updated.LatestObservation
+				predictionObservation = *updated.LatestObservation
 			}
-			updated = applyUnavailablePrediction(updated, observation, now, updateErr)
+			updated = applyUnavailablePrediction(updated, predictionObservation, now, updateErr)
+		}
+		if wasDisconnected && s.resolveDisconnectedArrival(&updated, disconnected, observation, now) {
+			delete(next.DisconnectedArrivals, observation.Callsign)
+			if len(next.DisconnectedArrivals) == 0 {
+				next.DisconnectedArrivals = nil
+			}
 		}
 		next.Flights[index] = updated
 		if flight.FreezeReason != aman.FreezeSuperstable && updated.FreezeReason == aman.FreezeSuperstable {
@@ -824,13 +849,19 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		if !seen && next.Flights[i].LatestObservation == nil && next.Flights[i].DataStatus != aman.DataDisconnected {
 			continue
 		}
-		previousSlot := next.Flights[i].Slot
+		previous := next.Flights[i]
 		markMissing(&next.Flights[i], now)
 		if next.Flights[i].State == aman.StateRemoved {
-			payload, marshalErr := json.Marshal(map[string]any{
+			rememberDisconnectedArrival(&next, previous, next.Flights[i].Lifecycle.Absence.MissingSince, now)
+			facts := map[string]any{
 				"callsign": next.Flights[i].Callsign, "missing_since": next.Flights[i].Lifecycle.Absence.MissingSince,
-				"removed_at": now, "released_slot": previousSlot,
-			})
+				"removed_at": now, "released_slot": previous.Slot, "flight_state": previous.State,
+			}
+			if arrival, ok := next.DisconnectedArrivals[previous.Callsign]; ok && arrival.EpisodeID == previous.TelexEpisodeID() {
+				facts["arrival_episode_id"], facts["origin"] = arrival.EpisodeID, arrival.Origin
+				facts["consumed_prefile_departure_at"] = arrival.ConsumedPrefileDepartureAt
+			}
+			payload, marshalErr := json.Marshal(facts)
 			if marshalErr != nil {
 				return marshalErr
 			}
@@ -1067,17 +1098,183 @@ func defaultRateForAirport(airport string) uint32 {
 }
 
 func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFlight {
+	observation = freshPrefileSurveillance(observation, now)
 	state := aman.StatePlanned
 	if observation.TakeoffDetected != nil && !groundedSurveillance(observation.Surveillance) {
 		state = aman.StateAirborne
 	}
 	copy := observation
 	return aman.AMANFlight{
-		Callsign: observation.Callsign,
-		State:    state, SequenceDisposition: aman.SequenceDispositionActive,
+		Callsign: observation.Callsign, ArrivalEpisodeID: fmt.Sprintf("%s/%d", observation.Callsign, now.UnixNano()),
+		ConsumedPrefileDepartureAt: prefiledDeparture(observation),
+		VATSIMConnection:           vatsimConnection(observation),
+		State:                      state, SequenceDisposition: aman.SequenceDispositionActive,
 		DataStatus: observation.SourceStatus, LatestObservation: &copy, HoldingClearance: cloneHoldingClearance(observation.HoldingClearance),
 		FreezeReason: aman.FreezeNone, UpdatedAt: now,
 	}
+}
+
+// restoreArrivalFlight rebuilds operational state for the same arrival after a removal.
+func restoreArrivalFlight(previous aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
+	flight := newFlight(observation, now)
+	flight.ArrivalEpisodeID = previous.TelexEpisodeID()
+	flight.PrefileResetAt = previous.PrefileResetAt
+	consumePrefile(&flight, previous.ConsumedPrefileDepartureAt)
+	if flight.VATSIMConnection == nil {
+		flight.VATSIMConnection = previous.VATSIMConnection
+	}
+	flight.LastGroundedAt = previous.LastGroundedAt
+	if detection := previous.GoAroundDetection; detection != nil && detection.LastControllerCommandID != "" {
+		flight.GoAroundDetection = &aman.GoAroundDetectionState{
+			PolicyVersion: detection.PolicyVersion, LastControllerCommandID: detection.LastControllerCommandID,
+		}
+	}
+	return flight
+}
+
+func rememberDisconnectedArrival(state *aman.AirportState, flight aman.AMANFlight, missingSince, removedAt time.Time) {
+	if state.SessionID <= 0 || flight.State == aman.StateLanded {
+		return
+	}
+	// A provisional return can expire again. Keep the original arrival
+	// history and advance the watermark that rejects replayed reports.
+	if arrival, exists := state.DisconnectedArrivals[flight.Callsign]; exists {
+		arrival.RemovedAt = removedAt
+		state.DisconnectedArrivals[flight.Callsign] = arrival
+		return
+	}
+	if flight.State == aman.StatePlanned {
+		return
+	}
+	arrival := aman.DisconnectedArrival{
+		EpisodeID: flight.TelexEpisodeID(), VATSIMConnection: flight.VATSIMConnection,
+		ConsumedPrefileDepartureAt: flight.ConsumedPrefileDepartureAt,
+		MissingSince:               missingSince, RemovedAt: removedAt,
+	}
+	if flight.LatestObservation != nil {
+		arrival.Origin = flight.LatestObservation.Origin
+	}
+	if flight.GoAroundDetection != nil {
+		arrival.GoAroundCommandID = flight.GoAroundDetection.LastControllerCommandID
+	}
+	if state.DisconnectedArrivals == nil {
+		state.DisconnectedArrivals = make(map[aman.Callsign]aman.DisconnectedArrival)
+	}
+	state.DisconnectedArrivals[flight.Callsign] = arrival
+}
+
+func (s *Service) resolveDisconnectedArrival(flight *aman.AMANFlight, previous aman.DisconnectedArrival, observation aman.FlightObservation, now time.Time) bool {
+	if flight.State == aman.StateRemoved || observation.Missing || observation.SourceStatus != aman.DataFresh ||
+		!observation.ReconciledAt.After(previous.RemovedAt) {
+		return false
+	}
+	if newLegAfterDisappearance(previous, observation, now) {
+		return true
+	}
+	if flight.State == aman.StatePlanned || !aman.HasFreshArrivalSurveillance(&observation, now) ||
+		!observation.Surveillance.ObservedAt.After(previous.RemovedAt) {
+		return false
+	}
+	flight.ArrivalEpisodeID = previous.EpisodeID
+	flight.ArrivalEpisodeID = flight.TelexEpisodeID()
+	consumePrefile(flight, previous.ConsumedPrefileDepartureAt)
+	if flight.VATSIMConnection == nil {
+		flight.VATSIMConnection = previous.VATSIMConnection
+	}
+	if previous.GoAroundCommandID != "" && (flight.GoAroundDetection == nil || flight.GoAroundDetection.LastControllerCommandID == "") {
+		detection := aman.GoAroundDetectionState{PolicyVersion: liveGoAroundPolicyVersion + "/" + s.deps.Terminal.ConfigVersion}
+		if flight.GoAroundDetection != nil {
+			detection = *flight.GoAroundDetection
+		}
+		detection.LastControllerCommandID = previous.GoAroundCommandID
+		flight.GoAroundDetection = &detection
+	}
+	return true
+}
+
+func newLegAfterDisappearance(previous aman.DisconnectedArrival, observation aman.FlightObservation, now time.Time) bool {
+	if groundedSurveillance(observation.Surveillance) && hasFreshLandedRadar(observation, now) ||
+		previous.Origin != "" && previous.Origin != observation.Origin || previous.VATSIMConnection.ReplacedBy(vatsimConnection(observation)) {
+		return true
+	}
+	// Only a prefile for a departure after the previous flight went missing
+	// is new-leg evidence. A changed logon time alone can be a reconnect.
+	boundary := previous.MissingSince
+	if boundary.IsZero() {
+		boundary = previous.RemovedAt
+	}
+	return newPrefileAfter(observation, previous.ConsumedPrefileDepartureAt, boundary)
+}
+
+func prefiledDeparture(observation aman.FlightObservation) *time.Time {
+	network := observation.VATSIMFlight
+	if network == nil || !network.Prefiled {
+		return nil
+	}
+	return network.PrefiledDepartureAt
+}
+
+func newPrefileAfter(observation aman.FlightObservation, consumed *time.Time, boundary time.Time) bool {
+	departure := prefiledDeparture(observation)
+	return departure != nil && departure.After(boundary) && (consumed == nil || departure.After(*consumed))
+}
+
+func consumePrefile(flight *aman.AMANFlight, departure *time.Time) {
+	if departure != nil && (flight.ConsumedPrefileDepartureAt == nil || departure.After(*flight.ConsumedPrefileDepartureAt)) {
+		flight.ConsumedPrefileDepartureAt = departure
+	}
+}
+
+func prefileStartsNextLeg(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) bool {
+	switch flight.State {
+	case aman.StateAirborne, aman.StateUnstable, aman.StateStable, aman.StateGoAround:
+	default:
+		return false
+	}
+	// Fresh airborne surveillance still identifies the current arrival, even
+	// when the network also has a prefile. A prefile alone can follow an
+	// airborne leg before reconciliation has timed out the old aggregate.
+	if observation.Missing || observation.SourceStatus != aman.DataFresh || aman.HasFreshArrivalSurveillance(&observation, now) {
+		return false
+	}
+	boundary := flight.UpdatedAt
+	if flight.LatestObservation != nil {
+		boundary = flight.LatestObservation.ReconciledAt
+	}
+	if flight.Lifecycle != nil && flight.Lifecycle.Absence != nil {
+		boundary = flight.Lifecycle.Absence.MissingSince
+	}
+	return !observation.ReconciledAt.Before(boundary) && newPrefileAfter(observation, flight.ConsumedPrefileDepartureAt, boundary)
+}
+
+func freshPrefileSurveillance(observation aman.FlightObservation, now time.Time) aman.FlightObservation {
+	if observation.VATSIMFlight != nil && observation.VATSIMFlight.Prefiled && !hasFreshLandedRadar(observation, now) {
+		observation.Surveillance, observation.TakeoffDetected = nil, nil
+	}
+	return observation
+}
+
+func observationAfterPrefileReset(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.FlightObservation {
+	observation = freshPrefileSurveillance(observation, now)
+	if flight.PrefileResetAt == nil {
+		return observation
+	}
+	if position := observation.Surveillance; position != nil &&
+		(position.ObservedAt == nil || !position.ObservedAt.After(*flight.PrefileResetAt)) {
+		observation.Surveillance = nil
+	}
+	if observation.TakeoffDetected != nil && (!observation.TakeoffDetected.After(*flight.PrefileResetAt) ||
+		flight.State == aman.StatePlanned && !aman.HasFreshArrivalSurveillance(&observation, now)) {
+		observation.TakeoffDetected = nil
+	}
+	return observation
+}
+
+func vatsimConnection(observation aman.FlightObservation) *aman.VATSIMConnection {
+	if observation.VATSIMFlight != nil {
+		return observation.VATSIMFlight.Connection
+	}
+	return nil
 }
 
 // Restore session-wide controller facts before processing network arrivals.
@@ -1168,7 +1365,7 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 				return flight, nil
 			}
 		} else if observation.ReconciledAt.Before(previous.ReconciledAt) ||
-			(observation.Destination != previous.Destination && observationFactTime(observation).Before(observationFactTime(*previous))) {
+			(observation.Destination != previous.Destination && observationPrecedes(observation, *previous)) {
 			return flight, nil
 		}
 	}
@@ -1207,9 +1404,11 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			observation.Missing || observation.SourceStatus != aman.DataFresh || !reappearedAt.After(boundary) {
 			return flight, nil
 		}
-		groundedAt := flight.LastGroundedAt
-		flight = newFlight(observation, now)
-		flight.LastGroundedAt = groundedAt
+		if _, ok := state.DisconnectedArrivals[flight.Callsign]; ok && flight.Lifecycle.Reason == aman.LifecycleReasonSourceDisappearance {
+			flight = newFlight(observation, now)
+		} else {
+			flight = restoreArrivalFlight(flight, observation, now)
+		}
 	}
 	if previous := flight.LatestObservation; previous != nil {
 		// Bootstrap aggregates persisted before the ground boundary was explicit.
@@ -1230,6 +1429,18 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 		flight = newFlight(observation, now)
 		flight.LastGroundedAt = groundedAt
 		updateLifecycle(&flight, aman.StateLanded, aman.StateAirborne, now)
+	}
+	if prefileStartsNextLeg(flight, observation, now) {
+		observation.TakeoffDetected, observation.Surveillance = nil, nil
+		flight = newFlight(observation, now)
+		flight.PrefileResetAt = timePointer(now)
+	}
+	observation = observationAfterPrefileReset(flight, observation, now)
+	if connection := vatsimConnection(observation); connection != nil && observation.SourceStatus == aman.DataFresh && !observation.Missing {
+		if flight.State != aman.StateLanded && flight.VATSIMConnection.ReplacedBy(connection) {
+			flight = newFlight(observation, now)
+		}
+		flight.VATSIMConnection = connection
 	}
 	previousObservation := flight.LatestObservation
 	flight.PredictionFailureReason = nil
@@ -1272,6 +1483,9 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 		return flight, nil
 	}
 	flight.Lifecycle = clearAbsence(flight.Lifecycle)
+	if flight.State == aman.StatePlanned {
+		consumePrefile(&flight, prefiledDeparture(observation))
+	}
 	if flight.ArrivalPathChanged {
 		invalidateArrivalPath(&flight)
 	} else if flight.RunwayChangePending {

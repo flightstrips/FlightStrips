@@ -115,6 +115,7 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	require.NoError(t, service.detectLiveGoAround(&resetFlight, outsideFinal, "ARRIVAL-22", false, false, outsideFinal.ReconciledAt))
 	require.False(t, resetFlight.GoAroundDetection.AwaitingReset)
 	require.Nil(t, resetFlight.GoAroundConfirmation)
+	require.Equal(t, "confirm-1", resetFlight.GoAroundDetection.LastControllerCommandID)
 	resetFlight.State = aman.StateStable
 	confirmed.State.Flights[0] = resetFlight
 	reportNext, err := service.ReportGoAround(auth, aman.ReportGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "report-next", ExpectedRevision: 4}, Callsign: flight.Callsign, DetectedAt: base.Add(2 * time.Minute)})
@@ -122,6 +123,9 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	secondEpisode, err := reportNext(confirmed.State)
 	require.NoError(t, err)
 	require.Equal(t, aman.StateGoAround, secondEpisode.State.Flights[0].State)
+	manual := cloneGapState(t, secondEpisode.State).Flights[0]
+	require.Nil(t, manual.GoAroundConfirmation)
+	require.Equal(t, "report-next", manual.GoAroundDetection.LastControllerCommandID)
 }
 
 func TestReconcileInvalidatesPendingGoAroundWhenEvidenceBecomesStaleOrLands(t *testing.T) {

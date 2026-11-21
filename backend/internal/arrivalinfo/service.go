@@ -32,7 +32,8 @@ const (
 )
 
 // TelexSender is the Hoppie client. Telex is used rather than CPDLC because
-// arrivals are normally logged on to an ACC or approach station.
+// arrivals are normally logged on to an ACC or approach station. An error can
+// implement DefinitelyNotAccepted() bool to permit retrying a telex that could not be queued.
 type TelexSender interface {
 	SendTelex(ctx context.Context, from, to, packet string) error
 }
@@ -45,14 +46,13 @@ type StripLister interface {
 	List(ctx context.Context, session int32) ([]*models.Strip, error)
 }
 
-// SentMessage is one persisted automatic telex.
+// SentMessage records an automatic telex that was sent or may have been accepted.
 type SentMessage struct {
 	ID       int64
 	Session  int32
 	Callsign string
-	// Episode identifies one arrival. It is the strip id, which survives a
-	// go-around but changes for a later flight with the same callsign.
-	Episode int64
+	// Episode is the AMAN arrival episode ID.
+	Episode string
 	Kind    Kind
 	Text    string
 	Stand   string
@@ -62,11 +62,11 @@ type SentMessage struct {
 // Store persists sent messages so a restart never sends a duplicate.
 type Store interface {
 	// ListEpisode returns the episode's messages oldest first.
-	ListEpisode(ctx context.Context, session int32, episode int64) ([]SentMessage, error)
+	ListEpisode(ctx context.Context, session int32, episode string) ([]SentMessage, error)
 	// Reserve records a message before it is sent. For arrival information it
 	// returns inserted=false when the episode already has one.
 	Reserve(ctx context.Context, message SentMessage) (id int64, inserted bool, err error)
-	// Release removes a reservation whose telex was not accepted.
+	// Release removes a reservation whose telex was definitively not accepted.
 	Release(ctx context.Context, id int64) error
 }
 
@@ -79,13 +79,15 @@ type Dependencies struct {
 	Terminal *terminal.Configuration
 	// AirportEnabled reports the airport's "pdc" capability.
 	AirportEnabled func(airport string) bool
-	Now            func() time.Time
-	Interval       time.Duration
+	// AuthorityAllowed rechecks technical health before sending.
+	AuthorityAllowed func(context.Context) bool
+	Now              func() time.Time
+	Interval         time.Duration
 }
 
 type episodeKey struct {
 	session int32
-	episode int64
+	episode string
 }
 
 type episodeState struct {
@@ -100,6 +102,7 @@ type episodeState struct {
 type Service struct {
 	deps Dependencies
 
+	tickMu   sync.Mutex
 	mu       sync.Mutex
 	states   map[int32]aman.AirportState
 	episodes map[episodeKey]*episodeState
@@ -137,7 +140,7 @@ func (s *Service) ObserveAMANState(state aman.AirportState) {
 	}
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	s.mu.Lock()
-	if _, removed := s.removed[state.SessionID]; !removed {
+	if _, removed := s.removed[state.SessionID]; !removed && state.Revision >= s.states[state.SessionID].Revision {
 		s.states[state.SessionID] = state
 	}
 	s.mu.Unlock()
@@ -174,6 +177,9 @@ func (s *Service) Start(ctx context.Context) {
 
 // Tick evaluates every observed session once.
 func (s *Service) Tick(ctx context.Context) {
+	s.tickMu.Lock()
+	defer s.tickMu.Unlock()
+
 	s.mu.Lock()
 	sessions := make([]int32, 0, len(s.states))
 	for session := range s.states {
@@ -185,7 +191,7 @@ func (s *Service) Tick(ctx context.Context) {
 		s.mu.Lock()
 		state, ok := s.states[session]
 		s.mu.Unlock()
-		if !ok {
+		if !ok || !state.Authoritative {
 			continue
 		}
 		if err := s.processSession(ctx, state); err != nil {
@@ -221,13 +227,16 @@ func (s *Service) processSession(ctx context.Context, state aman.AirportState) e
 	seen := make(map[episodeKey]struct{}, len(state.Flights))
 	var failures []error
 	for _, flight := range state.Flights {
-		strip := byCallsign[strings.ToUpper(strings.TrimSpace(flight.Callsign))]
-		if strip == nil {
+		if _, unresolved := state.DisconnectedArrivals[flight.Callsign]; unresolved {
 			continue
 		}
-		key := episodeKey{session: session.ID, episode: int64(strip.ID)}
+		strip := byCallsign[strings.ToUpper(strings.TrimSpace(flight.Callsign))]
+		if strip == nil || flight.State == aman.StateLanded || flight.State == aman.StateRemoved || flight.State == aman.StatePlanned {
+			continue
+		}
+		key := episodeKey{session: session.ID, episode: flight.TelexEpisodeID()}
 		seen[key] = struct{}{}
-		if err := s.processFlight(ctx, station, key, flight, strip, now); err != nil {
+		if err := s.processFlight(ctx, station, state.Revision, key, flight, strip, now); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -241,7 +250,7 @@ func (s *Service) processSession(ctx context.Context, state aman.AirportState) e
 	return errors.Join(failures...)
 }
 
-func (s *Service) processFlight(ctx context.Context, station string, key episodeKey, flight aman.AMANFlight, strip *models.Strip, now time.Time) error {
+func (s *Service) processFlight(ctx context.Context, station string, revision aman.SequenceRevision, key episodeKey, flight aman.AMANFlight, strip *models.Strip, now time.Time) error {
 	episode, err := s.episode(ctx, key)
 	if err != nil {
 		return err
@@ -253,7 +262,7 @@ func (s *Service) processFlight(ctx context.Context, station string, key episode
 		delay, _ := Delay(flight)
 		stand := ExpectedStand(strip)
 		text := ArrivalInfoText(station, stand, ExpectedSTAR(strip, flight, s.deps.Terminal), delay)
-		return s.send(ctx, station, key, episode, SentMessage{
+		return s.send(ctx, station, revision, key, episode, SentMessage{
 			Session: key.session, Callsign: strip.Callsign, Episode: key.episode,
 			Kind: KindArrivalInfo, Text: text, Stand: stand, SentAt: now,
 		})
@@ -263,7 +272,7 @@ func (s *Service) processFlight(ctx context.Context, station string, key episode
 	if !due {
 		return nil
 	}
-	return s.send(ctx, station, key, episode, SentMessage{
+	return s.send(ctx, station, revision, key, episode, SentMessage{
 		Session: key.session, Callsign: strip.Callsign, Episode: key.episode,
 		Kind: KindStandUpdate, Text: StandUpdateText(station, stand), Stand: stand, SentAt: now,
 	})
@@ -280,6 +289,9 @@ func ArrivalInfoDue(flight aman.AMANFlight, now time.Time) bool {
 	}
 	// A flight that went around before it was ever told is not told now.
 	if flight.GoAroundConfirmation != nil && flight.GoAroundConfirmation.Status == aman.GoAroundConfirmationConfirmed {
+		return false
+	}
+	if flight.GoAroundDetection != nil && flight.GoAroundDetection.LastControllerCommandID != "" {
 		return false
 	}
 	if flight.Prediction.OperationalTETA.Sub(now) > TriggerHorizon {
@@ -338,7 +350,20 @@ func episodeFromMessages(messages []SentMessage) *episodeState {
 	return episode
 }
 
-func (s *Service) send(ctx context.Context, station string, key episodeKey, episode *episodeState, message SentMessage) error {
+func (s *Service) canSend(ctx context.Context, session int32, revision aman.SequenceRevision) bool {
+	if ctx.Err() != nil || s.deps.AuthorityAllowed != nil && !s.deps.AuthorityAllowed(aman.WithSession(ctx, session)) {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	state := s.states[session]
+	return state.Authoritative && state.Revision == revision
+}
+
+func (s *Service) send(ctx context.Context, station string, revision aman.SequenceRevision, key episodeKey, episode *episodeState, message SentMessage) error {
+	if !s.canSend(ctx, key.session, revision) {
+		return nil
+	}
 	id, inserted, err := s.deps.Store.Reserve(ctx, message)
 	if err != nil {
 		return err
@@ -352,19 +377,25 @@ func (s *Service) send(ctx context.Context, station string, key episodeKey, epis
 		*episode = *episodeFromMessages(messages)
 		return nil
 	}
-	if err := s.deps.Sender.SendTelex(ctx, station, strings.ToUpper(strings.TrimSpace(message.Callsign)), message.Text); err != nil {
-		if releaseErr := s.deps.Store.Release(context.WithoutCancel(ctx), id); releaseErr != nil {
-			err = errors.Join(err, releaseErr)
-		}
-		return err
+	// Authority or the sequence can change while the database reserves the message.
+	if !s.canSend(ctx, key.session, revision) {
+		return s.deps.Store.Release(context.WithoutCancel(ctx), id)
 	}
-	slog.InfoContext(ctx, "Arrival info: telex sent",
-		slog.Int("session", int(key.session)), slog.String("callsign", message.Callsign),
-		slog.String("kind", string(message.Kind)), slog.String("message", message.Text))
+	err = s.deps.Sender.SendTelex(ctx, station, strings.ToUpper(strings.TrimSpace(message.Callsign)), message.Text)
+	var outcome interface{ DefinitelyNotAccepted() bool }
+	if errors.As(err, &outcome) && outcome.DefinitelyNotAccepted() {
+		return errors.Join(err, s.deps.Store.Release(context.WithoutCancel(ctx), id))
+	}
+	if err == nil {
+		slog.InfoContext(ctx, "Arrival info: telex sent",
+			slog.Int("session", int(key.session)), slog.String("callsign", message.Callsign),
+			slog.String("kind", string(message.Kind)), slog.String("message", message.Text))
+	}
+	// Keep the reservation when Hoppie may already have accepted the telex.
 	if message.Kind == KindArrivalInfo {
 		episode.infoSent = true
 	}
 	episode.lastStand = message.Stand
 	episode.pendingStand, episode.pendingSince = "", time.Time{}
-	return nil
+	return err
 }

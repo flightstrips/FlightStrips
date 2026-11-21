@@ -83,12 +83,18 @@ func TestAMANSessionRemovalPersistsOnlyWithinOwningSession(t *testing.T) {
 			flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 			flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
 			flight.Lifecycle = &aman.LifecycleState{EnteredAt: state.GeneratedAt, Reason: reason, LastEventAt: state.GeneratedAt, LastEventID: "remove", LastEventFingerprint: "test"}
+			if reason == aman.LifecycleReasonSourceDisappearance {
+				state.DisconnectedArrivals = map[aman.Callsign]aman.DisconnectedArrival{
+					flight.Callsign: {EpisodeID: "SAS123/1234", Origin: "ESSA", RemovedAt: state.GeneratedAt, GoAroundCommandID: "report-go-around"},
+				}
+			}
 			_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{State: state})
 			require.NoError(t, err)
 			loaded, err := NewAMANRepository(pool).LoadAirportState(ctx, "EKCH")
 			require.NoError(t, err)
 			if reason == aman.LifecycleReasonSourceDisappearance {
 				require.Empty(t, loaded.Flights)
+				require.Equal(t, state.DisconnectedArrivals, loaded.DisconnectedArrivals)
 			} else {
 				require.Equal(t, state.Flights, loaded.Flights)
 			}

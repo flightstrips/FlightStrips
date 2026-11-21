@@ -491,10 +491,16 @@ func (s *cacheSnapshot) add(flight Flight) {
 func preserveNewerFlightPlans(current, next cacheSnapshot) cacheSnapshot {
 	for callsign, nextFlight := range next.flightsByCallsign {
 		currentFlight, ok := current.flightsByCallsign[callsign]
-		if !ok || currentFlight.CID != nextFlight.CID || currentFlight.FlightPlan.Revision <= nextFlight.FlightPlan.Revision {
+		if !ok || currentFlight.CID != nextFlight.CID || currentFlight.FlightPlan.Revision <= nextFlight.FlightPlan.Revision ||
+			replacementPrefile(currentFlight, nextFlight, current.timestamp, next.timestamp) {
 			continue
 		}
 		nextFlight.FlightPlan = currentFlight.FlightPlan
+		if nextFlight.Prefile() {
+			// The timestamp also belongs to the retained prefile. Using the
+			// rejected record's time could make stale replacements look newer.
+			nextFlight.LastUpdated = flightObservedAt(currentFlight, current.timestamp)
+		}
 		next.flightsByCallsign[callsign] = nextFlight
 	}
 
@@ -506,6 +512,27 @@ func preserveNewerFlightPlans(current, next cacheSnapshot) cacheSnapshot {
 		next.flightsByCID[flight.CID] = flight
 	}
 	return next
+}
+
+func replacementPrefile(previous, next Flight, previousSnapshot, nextSnapshot time.Time) bool {
+	if !next.Prefile() {
+		return false
+	}
+	if previous.Online() {
+		return true
+	}
+	previousAt := flightObservedAt(previous, previousSnapshot)
+	nextAt := flightObservedAt(next, nextSnapshot)
+	previousDeparture, _ := plannedOffBlockTime(previousAt, previous.FlightPlan.EOBT)
+	nextDeparture, valid := plannedOffBlockTime(nextAt, next.FlightPlan.EOBT)
+	return valid && !nextAt.Before(previousAt) && nextDeparture.After(previousDeparture)
+}
+
+func flightObservedAt(flight Flight, snapshotAt time.Time) time.Time {
+	if flight.LastUpdated.IsZero() {
+		return snapshotAt.UTC()
+	}
+	return flight.LastUpdated.UTC()
 }
 
 func preferFlight(candidate, current Flight) bool {

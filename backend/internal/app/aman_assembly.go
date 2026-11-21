@@ -118,6 +118,27 @@ type amanTransport struct {
 	// lastHoldingEAT tracks the last complete authoritative projection so a
 	// later publication can explicitly withdraw values that disappeared.
 	lastHoldingEAT map[string]map[string]holdingEATProjection
+	// arrivalInfo receives each published state for automatic pilot telex.
+	arrivalInfo amanStateObserver
+}
+
+type amanStateObserver interface {
+	ObserveAMANState(aman.AirportState)
+}
+
+func (p *amanTransport) setArrivalInfo(observer amanStateObserver) {
+	p.mu.Lock()
+	p.arrivalInfo = observer
+	p.mu.Unlock()
+}
+
+func (p *amanTransport) observeArrivalInfo(state aman.AirportState) {
+	p.mu.RLock()
+	observer := p.arrivalInfo
+	p.mu.RUnlock()
+	if observer != nil {
+		observer.ObserveAMANState(state)
+	}
 }
 
 func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
@@ -388,6 +409,7 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 	if euroscopeHub != nil && p.holdingEATEnabled {
 		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.holdingEATPublicationWithGeometry(ctx, state, geometry), state.SessionID)
 	}
+	p.observeArrivalInfo(state)
 	return nil
 }
 
@@ -446,6 +468,7 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 	if hub != nil && p.holdingEATEnabled {
 		hub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATPublication(ctx, state), state.SessionID)
 	}
+	p.observeArrivalInfo(state)
 	return nil
 }
 

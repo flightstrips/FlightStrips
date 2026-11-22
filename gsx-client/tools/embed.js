@@ -58,22 +58,25 @@ let text = original.replace(/\r\n/g, "\n");
 // style and a trailing comment are fine; a setting line that cannot be read
 // stops the run rather than quietly resetting it. A block embedded before the
 // FS_ prefix holds the bare name.
-const begin = text.indexOf(BEGIN);
-const inside = begin >= 0 ? text.slice(begin, text.indexOf(END, begin) >>> 0) : "";
+const markerOffset = (marker, start = 0) => (`\n${text}\n`).indexOf(`\n${marker}\n`, start);
+const begin = markerOffset(BEGIN);
+const end = begin >= 0 ? markerOffset(END, begin) : -1;
+if (begin >= 0 && end < 0) fail(`found the start marker but not "${END}" in ${target}`);
+const inside = begin >= 0 ? text.slice(begin, end) : "";
 const setting = (name, flag, fallback) => {
   const given = option(flag);
-  if (given !== undefined) return given;
+  if (given !== undefined) return JSON.stringify(given);
   const line = inside.match(new RegExp(`^(?:${PREFIX})?${name}\\s*=(.*)$`, "m"));
-  if (!line) return fallback;
-  const kept = line[1].match(/^\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*(?:#.*)?$/);
+  if (!line) return JSON.stringify(fallback);
+  const kept = line[1].match(/^\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')\s*(?:#.*)?$/);
   if (!kept) fail(`cannot read ${name} in ${target}: ${line[0].trim()}\nfix that line, or pass ${flag}`);
-  return kept[1] !== undefined ? kept[1] : kept[2];
+  return kept[1];
 };
-const apiBase = setting("API_BASE", "--api-base", DEFAULT_API_BASE);
-const scenery = setting("SCENERY", "--scenery", "");
+const apiBaseLiteral = setting("API_BASE", "--api-base", DEFAULT_API_BASE);
+const sceneryLiteral = setting("SCENERY", "--scenery", "");
 block = block
-  .replace(new RegExp(`^${PREFIX}API_BASE = .*$`, "m"), `${PREFIX}API_BASE = ${JSON.stringify(apiBase)}`)
-  .replace(new RegExp(`^${PREFIX}SCENERY = .*$`, "m"), `${PREFIX}SCENERY = ${JSON.stringify(scenery)}`);
+  .replace(new RegExp(`^${PREFIX}API_BASE = .*$`, "m"), () => `${PREFIX}API_BASE = ${apiBaseLiteral}`)
+  .replace(new RegExp(`^${PREFIX}SCENERY = .*$`, "m"), () => `${PREFIX}SCENERY = ${sceneryLiteral}`);
 
 const header = [
   BEGIN,
@@ -85,8 +88,6 @@ const header = [
 const wrapped = `${header}${block}${END}\n`;
 
 if (begin >= 0) {
-  const end = text.indexOf(END, begin);
-  if (end < 0) fail(`found the start marker but not "${END}" in ${target}`);
   text = text.slice(0, begin) + wrapped + text.slice(end + END.length).replace(/^\n/, "");
 } else {
   text = text.replace(/\s+$/, "\n") + "\n\n" + wrapped;
@@ -94,7 +95,8 @@ if (begin >= 0) {
 
 // Anything outside the block that the block would silently replace: its
 // functions and state (_stand...) and its namespaced constants (FS_...).
-const outside = text.slice(0, text.indexOf(BEGIN)) + text.slice(text.indexOf(END) + END.length);
+const blockStart = markerOffset(BEGIN);
+const outside = text.slice(0, blockStart) + text.slice(markerOffset(END, blockStart) + END.length);
 const clashes = [...outside.matchAll(/^(?:def\s+(\w+)|(\w+)\s*=)/gm)]
   .map((m) => m[1] || m[2])
   .filter((name) => /^(?:_stand\w*|FS_[A-Z0-9_]+)$/.test(name));
@@ -104,5 +106,5 @@ if (clashes.length) {
 
 fs.writeFileSync(target, eol === "\n" ? text : text.replace(/\n/g, eol));
 console.log(`${begin >= 0 ? "updated" : "added"} FlightStrips in ${target}`);
-console.log(`  ${PREFIX}API_BASE = ${JSON.stringify(apiBase)}`);
-console.log(`  ${PREFIX}SCENERY = ${JSON.stringify(scenery)}`);
+console.log(`  ${PREFIX}API_BASE = ${apiBaseLiteral}`);
+console.log(`  ${PREFIX}SCENERY = ${sceneryLiteral}`);

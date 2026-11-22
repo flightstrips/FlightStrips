@@ -973,6 +973,46 @@ for routes, want in ((SHORT, "S1 Face N"), (LONG, "Release Point S1 (NORTH)")):
     assert assign(env, g, h, "S1") == "ATC Assigned: " + want, env.gate.menu()
 case("the route ending at the point, in each naming style")
 
+env = Env(copying=True)
+env.gate = PlannedGate([("S1 Left", at("S1", 270)), ("S1 Right", at("S1", 90))])
+env.gate.pushback = 2
+g = load(env)
+h = Handler()
+g["onEnterAirport"](h)
+g["onAirportDepartureRequested"](h)
+assert atc(env)["pos"] == at("S1", 90), atc(env)
+assert assign(env, g, h, "S1", facing="W") == "ATC Assigned: S1 Right"
+assert atc(env)["pos"] == at("S1", 90), atc(env)
+case("the placeholder and geometry matching honor the profile's default route mask")
+
+env = Env(copying=True)
+env.gate = PlannedGate([("S1 Left", at("S1", 270)), ("S2 Right", at("S2", 90)),
+                        ("S2 Extra", at("S2", 270))])
+g = load(env)
+h = Handler()
+g["onEnterAirport"](h)
+assign(env, g, h, "S1")  # Poll once before the host configures this departure.
+
+
+def profile_departure_requested(_):
+    env.gate.pushbackLeftPos = at("S2", 270)
+    slots = env.gate.pushbackAddPos
+    slots[0].update(label="S1 Profile Extra", pos=at("S1", 0), wws=1)
+    env.gate.pushbackAddPos = slots
+
+
+g["_standProfileDepartureRequested"] = profile_departure_requested
+g["onAirportDepartureRequested"](h)
+assert atc(env)["label"] == "ATC Assigned: S1 Profile Extra", env.gate.menu()
+assert atc(env)["pos"] == at("S1", 0) and atc(env)["wws"] == 1, atc(env)
+case("embedded departure callbacks can replace routes without changing the slot count")
+
+env, g, h = planned([("Z main L Face E", at("S2", 90)), ("Z/L Face E", at("S1", 90))])
+env.payload = {"stand": None, "pushback": None, "point": "Z/L"}
+g["_standCheck"](h)
+assert atc(env)["label"] == "ATC Assigned: Z/L Face E" and atc(env)["pos"] == at("S1", 90), atc(env)
+case("name fallback matches consecutive point tokens separated by punctuation")
+
 # Named after S1, ends at S2: by position it is S2's route, and the pilot is
 # told S2 - the name would have said S1.
 MISLABEL = [("S1 Face N", at("S1", 0)), ("S1 Face S", at("S2", 180))]
@@ -1047,8 +1087,6 @@ for point, facing in (("S1", "W"), ("W", None)):
     extra["approach"] = [(55.626, 12.653, 270)]
     extra["wws"] = 1
     env.gate.pushbackAddPos = [extra] + env.gate.pushbackAddPos[1:]
-    # Force a fresh snapshot of the configured route on this stand.
-    h._standGateSnapshot = None
     assign(env, g, h, point, facing)
     entry = env.gate.pushbackAddPos[-1]
     assert entry["pos"] == at("S1", 270), entry
@@ -1071,6 +1109,44 @@ for src in (MARK_ONLY, NARROW_ONLY):
     assert env.gate.menu() == original, env.gate.menu()
     assert said() == ["ATC assigned S1 - no route to it from this stand"]
 case("geometry rejection clears the previous mark and never marks an exact-name match")
+
+for already_restored in (False, True):
+    env, g, h = planned([("S2 Left", at("S2", 180)), ("S2 Right", at("S2", 0)),
+                         ("S1 Extra", at("S1", 90))], src=NARROW_ONLY)
+    original = env.gate.menu()
+    assign(env, g, h, "S1")
+    assert env.gate.menu() == ["ATC Assigned"], env.gate.menu()
+    env.state = 5
+    if already_restored:
+        g["_standCheck"](h)
+    assign(env, g, h, "Z1")
+    if not already_restored:
+        assert env.gate.menu() == original, env.gate.menu()
+    assert env.gate.pushback == 3 and env.gate.pushbackAddPos[0]["pos"] == at("S1", 90)
+    assert said() == ["ATC assigned Z1 - no route to it from this stand - "
+                      "disregard the old mark, cancel and request pushback again"]
+    g["_standCheck"](h)
+    assert not said(), "report a rejected reassignment only once"
+case("commitment restores rejected extras cleanly and warns when the visible menu may be stale")
+
+env, g, h = planned([("S2 Left", at("S2", 180)), ("S2 Right", at("S2", 0)),
+                     ("S1 Extra", at("S1", 90))], src=NARROW_ONLY)
+assign(env, g, h, "S1")
+assert env.gate.pushback == 0
+env.state = 5
+
+
+def fail_fetch(*args, **kwargs):
+    raise RuntimeError("timed out")
+
+
+g["fetchJson"] = fail_fetch
+try:
+    g["_standCheck"](h)
+except RuntimeError:
+    pass
+assert env.gate.pushback == 3 and h._standMenuRestored
+case("a failed poll still restores the narrowed menu at commitment")
 
 env, g, h = planned([("Push", at("S1", 90)), ("Push", at("S1", 270))], src=MARK_ONLY)
 assign(env, g, h, "S1", facing="W")

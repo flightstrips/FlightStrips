@@ -40,11 +40,50 @@ const metres = (a, b) => {
   const dLon = (a.lon - b.lon) * 111320 * Math.cos((a.lat * Math.PI) / 180);
   return Math.hypot(dLat, dLon);
 };
-const nums = (s) => (s.match(/-?\d+\.\d+|-?\d+/g) || []).map(Number);
+const nums = (s) => (s.match(/[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/gi) || []).map(Number);
 const words = (s) => String(s).toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
 
 // The point a route's name claims, if any: any word that is a known point.
 const named = (label) => words(label).find((w) => Object.prototype.hasOwnProperty.call(points, w)) || null;
+
+function extraRoutes(value) {
+  // GSX stores a list of Python dictionaries. Keep strings whole so their
+  // punctuation cannot be mistaken for dictionary or tuple delimiters.
+  const tokens = value.match(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[()[\]{},:]|[^()[\]{},:'"\s]+/g) || [];
+  const routes = [];
+  let depth = 0;
+  let slotDepth = 0;
+  let slot = null;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token === "{" && slot === null) {
+      slot = { label: "", pos: null };
+      slotDepth = depth + 1;
+    }
+    if (slot !== null && depth === slotDepth) {
+      if (token === "}") {
+        routes.push(slot);
+        slot = null;
+      } else if (tokens[i + 1] === ":") {
+        const key = token.slice(1, -1);
+        const start = tokens[i + 2];
+        if (key === "label" && /^['"]/.test(start)) {
+          slot.label = start.slice(1, -1).replace(/\\(['"\\])/g, "$1");
+        } else if (key === "pos" && (start === "(" || start === "[")) {
+          const end = tokens.indexOf(start === "(" ? ")" : "]", i + 3);
+          if (end >= 0) {
+            const coords = tokens.slice(i + 3, end).filter((t) => t !== ",").map(Number);
+            if (coords.length >= 2 && coords.every(Number.isFinite)) slot.pos = coords;
+          }
+        }
+      }
+    }
+    if ("([{".includes(token)) depth++;
+    if (")]}".includes(token)) depth--;
+  }
+  return routes;
+}
 
 function stands(file) {
   const out = [];
@@ -66,11 +105,7 @@ function stands(file) {
     else if (key === "pushback") cur.mask = Number(val);
     else if (key === "pushbackleftpos") cur.left = nums(val);
     else if (key === "pushbackrightpos") cur.right = nums(val);
-    else if (key === "pushbackaddpos") {
-      for (const m of val.matchAll(/'label':\s*'([^']*)',\s*'pos':\s*\(([^)]*)\)/g)) {
-        cur.extras.push({ label: m[1], pos: nums(m[2]) });
-      }
-    }
+    else if (key === "pushbackaddpos") cur.extras.push(...extraRoutes(val));
   }
   return out
     .map((s) => {

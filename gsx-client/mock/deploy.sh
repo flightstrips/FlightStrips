@@ -27,7 +27,9 @@ BLOCK="\\~$BEGIN~,\\~$END~"
 
 read_setting() {
   local file="$1" name="$2" scope="$3"
-  sed -n "${scope}s/^$name[[:blank:]]*=[[:blank:]]*\\(\"[^\"]*\"\\|'[^']*'\\)[[:space:]]*\\(#.*\\)\\?$/\\1/p" "$file" |
+  local quoted='"([^"\\]|\\.)*"'
+  quoted+="|'([^'\\\\]|\\\\.)*'"
+  sed -En "${scope}s/^$name[[:blank:]]*=[[:blank:]]*($quoted)[[:space:]]*(#.*)?$/\\1/p" "$file" |
     sed -n '1p'
 }
 

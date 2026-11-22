@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import chartUrl from '@/assets/efb/taxi/ekch-taxi-chart.png';
 import {
-  EKCH_TAXI_NETWORK, RUNWAY_HOLD_BACK, TAXIWAY_HOLD_BACK, arcs, atArc, findRunway, itemLabel, routePoints, sliceArc, unit,
+  EKCH_TAXI_NETWORK, MAX_CLEARANCE_LENGTH, RUNWAY_HOLD_BACK, arcs, atArc, findRunway, holdBack, itemLabel, routePoints, sliceArc, unit,
   type Point, type TaxiRoute,
 } from './taxiRoute';
 import type { TaxiClearanceState } from './useTaxiClearance';
@@ -160,7 +160,14 @@ export function TaxiClearanceMap({ route, preliminary = false, departureRunway =
     offset += leg.pts.length;
     if (leg.past) pastUntil = offset - 1;
   }
-  if (route.stub && route.stub.pts.length >= 2 && !route.stub.offMap) pieces.push({ pts: route.stub.pts, dim: route.holdAt !== null, arrow: true, past: route.stub.past });
+  if (route.stub && route.stub.pts.length >= 2 && !route.stub.offMap) {
+    const holdOnStub = route.marks.some((mark) => mark.type === 'hold' && mark.g >= offset);
+    if (holdOnStub) {
+      if (holdAt > a[offset]) pieces.push({ pts: sliceArc(all, a, a[offset], holdAt), dim: false, past: route.stub.past });
+    } else {
+      pieces.push({ pts: route.stub.pts, dim: route.holdAt !== null, arrow: true, past: route.stub.past });
+    }
+  }
 
 
   // The aircraft sits where the active clearance starts: at the start of the route, or where the
@@ -213,7 +220,7 @@ export function TaxiClearanceMap({ route, preliminary = false, departureRunway =
     const s = a[mark.g];
     if (s === undefined) continue;
     if (mark.type === 'hold') {
-      const back = mark.runway ? RUNWAY_HOLD_BACK : TAXIWAY_HOLD_BACK, pos = atArc(all, a, s - back), u = unit(atArc(all, a, s - back - 12), pos), n: Point = [-u[1], u[0]], half = 36;
+      const back = holdBack(mark), pos = atArc(all, a, s - back), u = unit(atArc(all, a, s - back - 12), pos), n: Point = [-u[1], u[0]], half = 36;
       keepClear(pos, half);
       taken.push(textBox(pos[0] - n[0] * (half + 14 * z) - u[0] * 10 * z, pos[1] - n[1] * (half + 14 * z) - u[1] * 10 * z + 7 * z, `HOLD SHORT ${mark.label}`, n[0] < 0 ? 'start' : 'end'));
     } else {
@@ -293,7 +300,7 @@ export function TaxiClearanceMap({ route, preliminary = false, departureRunway =
         const s = a[mark.g];
         if (s === undefined) return null;
         if (mark.type === 'hold') {
-          const back = mark.runway ? RUNWAY_HOLD_BACK : TAXIWAY_HOLD_BACK, pos = atArc(all, a, s - back), u = unit(atArc(all, a, s - back - 12), pos), n: Point = [-u[1], u[0]], half = 36;
+          const back = holdBack(mark), pos = atArc(all, a, s - back), u = unit(atArc(all, a, s - back - 12), pos), n: Point = [-u[1], u[0]], half = 36;
           const ends = { x1: pos[0] - n[0] * half, y1: pos[1] - n[1] * half, x2: pos[0] + n[0] * half, y2: pos[1] + n[1] * half };
           return (
             <g key={i}>
@@ -385,6 +392,7 @@ const inputClass ='w-full rounded-md border border-[#58708a] bg-[#0a1d31] px-3 p
 
 export function TaxiClearanceControls({ state }: { state: TaxiClearanceState }) {
   const { route } = state;
+  const messages = state.preliminary ? route.messages.filter(({ level }) => level === 'warn' || level === 'err') : route.messages;
   // A preliminary route is not the pilot's clearance: do not spell it out.
   const items = state.preliminary ? [] : route.parsed.items;
   const startChip = route.mode === 'arrival' ? (state.landingRunway ? `RWY ${state.landingRunway}` : null) : route.releasePoint?.name ?? null;
@@ -451,7 +459,7 @@ export function TaxiClearanceControls({ state }: { state: TaxiClearanceState }) 
             Start with the taxiway you vacate onto.
           </p>
         )}
-        <input id="efb-taxi-clearance" value={state.clearance} onChange={(event) => state.setClearance(event.target.value)} placeholder="WRITE HERE" autoComplete="off" spellCheck={false} className={`${inputClass} mt-2`} />
+        <input id="efb-taxi-clearance" value={state.clearance} onChange={(event) => state.setClearance(event.target.value)} maxLength={MAX_CLEARANCE_LENGTH} placeholder="WRITE HERE" autoComplete="off" spellCheck={false} className={`${inputClass} mt-2`} />
         <div aria-label="Clearance parts" className="efb-scroll mt-2 flex min-h-6 flex-nowrap items-center gap-0.5 overflow-x-auto whitespace-nowrap">
           {startChip && <span className={`${chip} ${chipClass.rp}`}>{startChip}</span>}
           {items.map((item, i) => (
@@ -475,9 +483,8 @@ export function TaxiClearanceControls({ state }: { state: TaxiClearanceState }) 
       </div>
 
       <div className="grid gap-2" aria-live="polite">
-        {state.preliminary
-          ? <div className="border-l-[3px] border-[#22d3ee] bg-[#0b2a33] px-3 py-2 text-sm text-[#a5f3fc]">Preliminary route in cyan</div>
-          : route.messages.map((message, i) => <div key={i} className={`border-l-[3px] px-3 py-2 text-sm ${messageClass[message.level]}`}>{message.text}</div>)}
+        {state.preliminary && <div className="border-l-[3px] border-[#22d3ee] bg-[#0b2a33] px-3 py-2 text-sm text-[#a5f3fc]">Preliminary route in cyan</div>}
+        {messages.map((message, i) => <div key={i} className={`border-l-[3px] px-3 py-2 text-sm ${messageClass[message.level]}`}>{message.text}</div>)}
       </div>
     </div>
   );

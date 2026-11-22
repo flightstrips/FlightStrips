@@ -16,7 +16,7 @@ export interface TaxiNetwork {
   chart: { width: number; height: number };
   /** offMap: a taxiway beyond the map edge, drawn as a short stub past it (e.g. B1-B3 to 04R). */
   lines: Array<{ name: string; kind: 'taxiway' | 'runway'; ends?: string[]; offMap?: boolean }>;
-  nodes: Array<{ id: string; x: number; y: number; names: string[] }>;
+  nodes: Array<{ id: string; x: number; y: number; names: string[]; holdFor?: string[] }>;
   edges: Array<{ from: string; to: string; name: string; kind: 'taxiway' | 'runway'; pts: Point[] }>;
   releasePoints: Array<{ name: string; x: number; y: number }>;
   /** Taxiways that reach a runway beyond the map edge, at node; arrivals may vacate onto them there. */
@@ -58,7 +58,7 @@ const HOLDING_POINTS: Record<string, string> = {
  * The route then holds short of that runway (unless the clearance already does). Without an
  * assigned runway, a runway written first still means taxiing along it.
  */
-function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assignedRunway: string | null): { parsed: ParsedClearance; point: string | null; runway: string | null } {
+function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assignedRunway: string | null): { parsed: ParsedClearance; point: string | null; runway: string | null; conflict?: string } {
   const unchanged = { parsed, point: null, runway: null };
   const tokens = vocabulary(net).runwayTokens;
   const assigned = assignedRunway ? findRunway(assignedRunway, net) : null;
@@ -77,6 +77,9 @@ function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assig
   if (holdingPoint?.type === 'hold' && !runwayItem && tokens[HOLDING_POINTS[holdingPoint.name]] !== assigned?.name) return unchanged;
   const rest = parsed.items.slice(used);
   if (!rest.some((item) => item.type === 'twy' || item.type === 'rwy')) return unchanged;
+  if (assigned && assigned.end !== assigned.name && runwayItem?.end && runwayItem.name === assigned.name && runwayItem.end !== assigned.end) {
+    return { ...unchanged, conflict: `Departure runway ${runwayItem.end} in the clearance conflicts with assigned runway ${assigned.end}.` };
+  }
 
   const active = parsed.activeSegment;
   const runway = runwayItem?.name ?? (holdingPoint ? tokens[HOLDING_POINTS[holdingPoint.name]] : assigned!.name);
@@ -109,6 +112,7 @@ function addDepartureRunwayHold(parsed: ParsedClearance, net: TaxiNetwork, depar
 }
 
 const STUB_LENGTH = 160;
+export const MAX_CLEARANCE_LENGTH = 512;
 
 // ---- parsing ---------------------------------------------------------------------------------
 
@@ -126,6 +130,7 @@ export interface ClearanceItem {
 export interface ParsedClearance {
   items: ClearanceItem[];
   bad: string;
+  overLimit?: boolean;
   /** Index of the active (last) part; items in earlier parts are done (drawn grey). */
   activeSegment: number;
 }
@@ -150,6 +155,7 @@ function vocabulary(net: TaxiNetwork): Vocabulary {
 }
 
 export function parseClearance(raw: string, net: TaxiNetwork = EKCH_TAXI_NETWORK): ParsedClearance {
+  if (raw.length > MAX_CLEARANCE_LENGTH) return { items: [], bad: '', activeSegment: 0, overLimit: true };
   const src = raw.toUpperCase().replace(/\s+/g, '');
   const { taxiways, runwayTokens } = vocabulary(net);
   const tokens = Object.keys(runwayTokens).sort((a, b) => b.length - a.length);
@@ -201,7 +207,7 @@ export function parseClearance(raw: string, net: TaxiNetwork = EKCH_TAXI_NETWORK
     if (item.type === 'sep') segment++;
     else items.push({ ...item, segment });
   }
-  return { items, bad: src.slice(best.used), activeSegment: segment };
+  return { items, bad: src.slice(best.used), activeSegment: items.at(-1)?.segment ?? 0 };
 }
 
 export const itemLabel = (item: ClearanceItem) => item.end || item.name;
@@ -254,7 +260,7 @@ const polyLength = (p: Point[]) => arcs(p)[p.length - 1] ?? 0;
 
 // ---- graph -----------------------------------------------------------------------------------
 
-interface Node { id: string; x: number; y: number; names: Set<string> }
+interface Node { id: string; x: number; y: number; names: Set<string>; holdFor?: string[] }
 interface Edge { i: number; from: string; to: string; name: string; kind: string; pts: Point[]; len: number }
 interface Graph { nodes: Record<string, Node>; edges: Edge[]; adj: Record<string, number[]>; splits: Record<string, { name: string; point: Point }> }
 
@@ -263,7 +269,7 @@ interface Split { id: string; x: number; y: number; taxiway?: string }
 
 function buildGraph(net: TaxiNetwork, splits: Split[]): Graph {
   const nodes: Record<string, Node> = {};
-  for (const n of net.nodes) nodes[n.id] = { id: n.id, x: n.x, y: n.y, names: new Set(n.names) };
+  for (const n of net.nodes) nodes[n.id] = { id: n.id, x: n.x, y: n.y, names: new Set(n.names), holdFor: n.holdFor };
   let raw = net.edges.map((e) => ({ from: e.from, to: e.to, name: e.name, kind: e.kind as string, pts: e.pts }));
   const placed: Graph['splits'] = {};
   for (const sp of splits) {
@@ -332,23 +338,25 @@ function search(g: Graph, src: string, goal: (n: string) => boolean, ok: EdgeFil
   return null;
 }
 
-function walk(g: Graph, n: string, first: Edge, name: string, length: number): Point[] {
-  const out: Point[] = [];
+function walk(g: Graph, n: string, first: Edge, name: string, length: number): Pick<RouteLeg, 'pts' | 'nodes'> {
+  const pts: Point[] = [], nodes: RouteLeg['nodes'] = [];
   let node = n, e: Edge | null = first, left = length;
   while (e && left > 0) {
     const p = ptsFrom(e, node);
-    if (!out.length) out.push(p[0]);
+    if (!pts.length) pts.push(p[0]);
     for (let i = 1; i < p.length; i++) {
       const sl = dist(p[i - 1], p[i]);
-      if (sl >= left) {
+      if (sl > left) {
         const t = left / sl;
-        out.push([p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), p[i - 1][1] + t * (p[i][1] - p[i - 1][1])]);
-        return out;
+        pts.push([p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), p[i - 1][1] + t * (p[i][1] - p[i - 1][1])]);
+        return { pts, nodes };
       }
       left -= sl;
-      out.push(p[i]);
+      pts.push(p[i]);
+      if (left === 0 && i < p.length - 1) return { pts, nodes };
     }
     const next = other(e, node), dir = unit(p[p.length - 2], p[p.length - 1]);
+    nodes.push({ n: next, k: pts.length - 1 });
     let best: { c: number; f: Edge } | null = null;
     for (const ei of g.adj[next] ?? []) {
       const f = g.edges[ei];
@@ -359,7 +367,7 @@ function walk(g: Graph, n: string, first: Edge, name: string, length: number): P
     node = next;
     e = best && best.c > 0 ? best.f : null;
   }
-  return out;
+  return { pts, nodes };
 }
 
 function reach(g: Graph, n: string, first: Edge, name: string): number {
@@ -404,6 +412,8 @@ export interface RouteMark {
   label: string;
   runway: boolean;
   implicit?: boolean;
+  /** The node itself is a mapped hold-short point, rather than the runway centreline. */
+  atHoldPoint?: boolean;
   /** Index into the concatenated route points. */
   g: number;
 }
@@ -422,7 +432,7 @@ export interface TaxiRoute {
   standEntry: Point | null;
   parsed: ParsedClearance;
   legs: RouteLeg[];
-  stub: { name: string; pts: Point[]; choices: number; offMap?: boolean; past?: boolean } | null;
+  stub: (RouteLeg & { choices: number }) | null;
   marks: RouteMark[];
   /** Arc position (along the concatenated legs) of the first hold short; beyond it the route is dimmed. */
   holdAt: number | null;
@@ -470,7 +480,7 @@ export function computeArrivalRoute(runway: string, stand: string, clearance: st
 function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions): TaxiRoute {
   const net = options.net ?? EKCH_TAXI_NETWORK;
   const destination = spec.kind === 'departure' ? moveLeadingDestination(parseClearance(clearance, net), net, options.departureRunway ?? null) : null;
-  const runwayHold = spec.kind === 'departure' ? addDepartureRunwayHold(destination?.parsed ?? parseClearance(clearance, net), net, options.departureRunway ?? null) : null;
+  const runwayHold = destination && !destination.conflict ? addDepartureRunwayHold(destination.parsed, net, options.departureRunway ?? null) : null;
   const parsed = runwayHold?.parsed ?? destination?.parsed ?? parseClearance(clearance, net);
   const messages: TaxiRoute['messages'] = [];
   if (runwayHold?.added) messages.push({ level: 'info', text: `No hold short given: continuing to hold short of runway ${runwayHold.added}.` });
@@ -481,6 +491,14 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
     parsed, legs: [], stub: null, marks: [], holdAt: null, messages,
   };
   const say = (level: RouteMessageLevel, text: string) => messages.push({ level, text });
+  if (parsed.overLimit) {
+    say('err', `Limit the clearance to ${MAX_CLEARANCE_LENGTH} characters.`);
+    return res;
+  }
+  if (destination?.conflict) {
+    say('err', destination.conflict);
+    return res;
+  }
   const isRunway = (name: string) => net.lines.some((l) => l.name === name && l.kind === 'runway');
 
   // Route elements, with standard "via" taxiways inserted.
@@ -541,6 +559,7 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
   }
 
   const on = (n: string, name: string) => g.nodes[n]?.names.has(name) ?? false;
+  const onHold = (n: string, name: string) => on(n, name) || g.nodes[n]?.holdFor?.includes(name) === true;
   // A runway written on its own fixes the direction of travel: 30 -> heading 300 (map is north-up).
   const heading = (item: ClearanceItem): Point | null => {
     if (item.type !== 'rwy' || !item.end) return null;
@@ -582,9 +601,9 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
   function continueFromPriorHold(item: ClearanceItem, onwardSegment: number): number {
     if (onwardSegment === item.segment) return item.segment;
     const segmentHold = parsed.items.find((hold) => hold.type === 'hold' && hold.segment === item.segment
-      && (on(cur, hold.name) || !res.legs.some((leg) => leg.segment === item.segment && leg.nodes.some((node) => on(node.n, hold.name)))));
+      && (onHold(cur, hold.name) || !res.legs.some((leg) => leg.segment === item.segment && leg.nodes.some((node) => onHold(node.n, hold.name)))));
     if (!segmentHold) return item.segment;
-    const toSegmentHold = search(g, cur, (n) => on(n, segmentHold.name), okFor(item), true);
+    const toSegmentHold = search(g, cur, (n) => onHold(n, segmentHold.name), okFor(item), true);
     if (!toSegmentHold) return item.segment;
 
     // Movement up to the hold belongs to the earlier clearance. Movement from it can reuse the same taxiway.
@@ -608,17 +627,17 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
 
   const lastIndex = route.length - 1, lastItem = route[lastIndex], lastName = names[lastIndex];
   const lastHeading = heading(lastItem), okLast = okFor(lastItem);
-  const reached = (name: string) => res.legs.some((l) => !l.past && l.nodes.some((x) => on(x.n, name)));
+  const reached = (name: string) => res.legs.some((l) => !l.past && l.nodes.some((x) => onHold(x.n, name)));
   const pending = holds.filter((h) => !reached(h));
   const approachSegment = pending.length ? continueFromPriorHold(lastItem, parsed.activeSegment) : lastItem.segment;
   const atJunction = res.legs.at(-1)?.nodes.at(-1)?.n === cur;
-  const toHold = pending.length ? search(g, cur, (n) => on(n, pending[0]), okLast, atJunction) : null;
+  const toHold = pending.length ? search(g, cur, (n) => onHold(n, pending[0]), okLast, atJunction) : null;
   if (toHold) {
     if (toHold.steps.length) appendLeg(toHold.steps, approachSegment, { name: disp(lastIndex), runway: lastItem.type === 'rwy' });
   } else if (pending.length && (HOLD_SHORT_VIA[`${lastName}>${label[pending[0]]}`] ?? HOLD_SHORT_VIA[label[pending[0]]])) {
     const via = HOLD_SHORT_VIA[`${lastName}>${label[pending[0]]}`] ?? HOLD_SHORT_VIA[label[pending[0]]];
     const a = search(g, cur, (n) => on(n, via), okLast, true);
-    const b = a && search(g, a.node, (n) => on(n, pending[0]), (e) => e.name === via);
+    const b = a && search(g, a.node, (n) => onHold(n, pending[0]), (e) => e.name === via);
     if (a && b) {
       if (a.steps.length) appendLeg(a.steps, approachSegment, { name: disp(lastIndex), runway: lastItem.type === 'rwy' });
       appendLeg(b.steps, parsed.activeSegment, { name: via, auto: true });
@@ -648,34 +667,40 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
     } else {
       const pick = candidates[(options.flip ? 1 : 0) % candidates.length];
       stubEdge = pick.e;
-      res.stub = { name: disp(lastIndex), pts: walk(g, cur, pick.e, lastName, lastHeading ? STUB_LENGTH * 1.6 : STUB_LENGTH), choices: lastHeading ? 1 : candidates.length, past: isPast(lastIndex) };
+      res.stub = {
+        ...walk(g, cur, pick.e, lastName, lastHeading ? STUB_LENGTH * 1.6 : STUB_LENGTH),
+        name: disp(lastIndex), segment: lastItem.segment, runway: lastItem.type === 'rwy',
+        choices: lastHeading ? 1 : candidates.length, past: isPast(lastIndex),
+      };
     }
   }
-  smooth(res);
+  smooth(res, (id) => {
+    const node = g.nodes[id];
+    return [...node.names].some((name) => isRunway(name) || holds.includes(name)) || node.holdFor?.some((name) => holds.includes(name)) === true;
+  });
   return finish(undefined, toHold?.node);
 
   function finish(stoppedAt?: ClearanceItem, terminalHoldNode?: string): TaxiRoute {
     const offMap = new Set(net.lines.filter((l) => l.offMap).map((l) => l.name));
-    for (const piece of [...res.legs, ...(res.stub ? [res.stub] : [])]) {
+    const pieces = res.stub ? [...res.legs, res.stub] : res.legs;
+    for (const piece of pieces) {
       if (!offMap.has(piece.name)) continue;
       piece.offMap = true;
       say('info', `${piece.name} is beyond the edge of the map; the route is drawn to where it joins.`);
     }
     const pendingHolds = new Set(holds);
     const unusedCrossings = [...crosses];
-    const stubItem = res.stub ? route.at(-1) : undefined;
     let offset = 0;
-    res.legs.forEach((leg, li) => {
+    pieces.forEach((leg, li) => {
       const incomingRunway = leg.runway ? findRunway(leg.name, net)?.name : undefined;
-      const nextLeg = res.legs[li + 1];
-      const onwardSegment = nextLeg?.segment ?? stubItem?.segment ?? leg.segment;
-      const onwardEdge = nextLeg ? legSteps[li + 1][0]?.e : stubEdge;
+      const nextLeg = pieces[li + 1];
+      const onwardSegment = nextLeg?.segment ?? leg.segment;
+      const onwardEdge = nextLeg === res.stub ? stubEdge : legSteps[li + 1]?.[0]?.e;
       // Reversing along the incoming edge leaves the aircraft on the same side of the runway.
-      const turnsBack = onwardEdge !== undefined && onwardEdge === legSteps[li].at(-1)?.e;
-      const unfinishedItem = stubItem ?? stoppedAt;
+      const turnsBack = onwardEdge !== undefined && onwardEdge === legSteps[li]?.at(-1)?.e;
       const onwardRunway = nextLeg
         ? (nextLeg.runway ? findRunway(nextLeg.name, net)?.name : undefined)
-        : (unfinishedItem?.type === 'rwy' ? unfinishedItem.name : undefined);
+        : (stoppedAt?.type === 'rwy' ? stoppedAt.name : undefined);
       for (const x of leg.nodes) {
         const endOfLeg = x === leg.nodes.at(-1);
         const atEnd = endOfLeg && !nextLeg && !res.stub;
@@ -699,6 +724,12 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
           }
           if (explicitHold) pendingHolds.delete(name);
         }
+        if (activeHold) {
+          for (const name of g.nodes[x.n].holdFor ?? []) {
+            if (!pendingHolds.delete(name)) continue;
+            res.marks.push({ type: 'hold', name, label: label[name], runway: true, atHoldPoint: true, g: offset + x.k });
+          }
+        }
       }
       offset += leg.pts.length;
     });
@@ -708,10 +739,15 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
     const firstHold = res.marks.filter((m) => m.type === 'hold').sort((a, b) => a.g - b.g)[0];
     if (firstHold) {
       const all = routePoints(res), a = arcs(all);
-      res.holdAt = a[firstHold.g] - (firstHold.runway ? RUNWAY_HOLD_BACK : TAXIWAY_HOLD_BACK);
+      res.holdAt = a[firstHold.g] - holdBack(firstHold);
     }
     if (!messages.some((m) => m.level === 'err')) {
-      const text = res.standReached ? `Route OK. Taxi to stand ${res.stand!.name}.` : res.stub ? `Route OK. ${res.stub.name} is open-ended until the next taxiway.` : 'Route OK.';
+      let text = 'Route OK.';
+      if (res.standReached) {
+        text = firstHold ? `Hold short of ${firstHold.runway ? 'runway' : 'taxiway'} ${firstHold.label}.` : `Route OK. Taxi to stand ${res.stand!.name}.`;
+      } else if (res.stub) {
+        text = `Route OK. ${res.stub.name} is open-ended until the next taxiway.`;
+      }
       messages.unshift({ level: 'ok', text });
     }
     return res;
@@ -722,9 +758,14 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
 export const RUNWAY_HOLD_BACK = 62;
 export const TAXIWAY_HOLD_BACK = 34;
 
+export function holdBack(mark: RouteMark): number {
+  return mark.atHoldPoint ? 0 : mark.runway ? RUNWAY_HOLD_BACK : TAXIWAY_HOLD_BACK;
+}
+
 export function routePoints(route: TaxiRoute): Point[] {
   const all: Point[] = [];
   for (const leg of route.legs) all.push(...leg.pts);
+  if (route.stub) all.push(...route.stub.pts);
   return all;
 }
 
@@ -742,13 +783,17 @@ function cutEnd(p: Point[], d: number) {
   return sliceArc(p, a, 0, length - d);
 }
 
-function smooth(route: TaxiRoute) {
+function smooth(route: TaxiRoute, isMarked: (node: string) => boolean) {
   for (const rule of SMOOTH) {
     const [a, b, c] = rule.seq;
     for (let i = 0; i + 1 < route.legs.length; i++) {
       const la = route.legs[i], lb = route.legs[i + 1], lc = route.legs[i + 2] ?? route.stub;
       if (!lc || la.name !== a || lb.name !== b || lc.name !== c || la.pts.length < 2 || lc.pts.length < 2) continue;
       const head = cutEnd(la.pts, rule.trim), tail = cutStart(lc.pts, rule.trim);
+      // Keep protected junctions on their original geometry so the hold offsets stay correct.
+      if (la.nodes.some(({ n, k }) => isMarked(n) && dist(la.pts[k], head[Math.min(k, head.length - 1)]) > 0)
+        || lb.nodes.some(({ n }) => isMarked(n))
+        || lc.nodes.some(({ n, k }) => isMarked(n) && dist(lc.pts[k], tail.pts[tail.map(k)]) > 0)) continue;
       const p0 = head[head.length - 1], p3 = tail.pts[0];
       const t0 = unit(head[head.length - 2] ?? la.pts[0], p0), t3 = unit(p3, tail.pts[1] ?? lc.pts[lc.pts.length - 1]);
       const k = dist(p0, p3) * 0.55;
@@ -766,7 +811,7 @@ function smooth(route: TaxiRoute) {
       lb.pts = curve;
       for (const x of lb.nodes) x.k = curve.length - 1;
       lc.pts = tail.pts;
-      if ('nodes' in lc) for (const x of lc.nodes) x.k = tail.map(x.k);
+      for (const x of lc.nodes) x.k = tail.map(x.k);
     }
   }
 }

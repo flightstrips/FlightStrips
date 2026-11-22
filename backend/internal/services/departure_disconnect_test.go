@@ -347,9 +347,10 @@ func TestDepartureDisconnectLifecycle(t *testing.T) {
 		const callsign = "SASDISC4"
 		testdata.SeedTestStrip(t, queries, session, callsign)
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlight(callsign, 1)))
-		require.NoError(t, strips.MarkEuroscopeSeen(ctx, session, callsign))
+		seenByEuroScope(t, pool, session, clock.current(), callsign)
 		require.NoError(t, lifecycle.CancelDeparture(ctx, session, callsign))
 		clock.advance(time.Hour)
+		seenByEuroScope(t, pool, session, clock.current(), callsign)
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		assignment, err := assignments.GetAssignment(ctx, session, callsign)
 		require.NoError(t, err)

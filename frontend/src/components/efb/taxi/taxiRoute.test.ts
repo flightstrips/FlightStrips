@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeArrivalRoute, computeTaxiRoute, findReleasePoint, findStand, impliedDepartureRunway, parseClearance, type TaxiRoute } from './taxiRoute';
+import { computeArrivalRoute, computeTaxiRoute, EKCH_TAXI_NETWORK, findReleasePoint, findStand, impliedDepartureRunway, MAX_CLEARANCE_LENGTH, parseClearance, routePoints, type TaxiRoute } from './taxiRoute';
 
 const summary = (raw: string) => {
   const parsed = parseClearance(raw);
@@ -33,6 +33,13 @@ describe('parseClearance', () => {
     expect(parseClearance('.04L').items[0].name).toBe('04L/22R');
     expect(parseClearance('.22R').items[0].name).toBe('04L/22R');
   });
+
+  it('rejects an oversized clearance before tokenizing it', () => {
+    expect(parseClearance('A'.repeat(MAX_CLEARANCE_LENGTH)).items).toHaveLength(MAX_CLEARANCE_LENGTH);
+    const route = computeTaxiRoute('Z3', 'A'.repeat(20_000));
+    expect(route.legs).toEqual([]);
+    expect(levels(route, 'err')).toEqual([`Limit the clearance to ${MAX_CLEARANCE_LENGTH} characters.`]);
+  });
 });
 
 describe('computeTaxiRoute', () => {
@@ -40,6 +47,37 @@ describe('computeTaxiRoute', () => {
     const route = computeTaxiRoute('Z3', 'K');
     expect(route.start).not.toBeNull();
     expect(legNames(route)).toEqual(['K>']);
+  });
+
+  it('marks the mapped A5 holding point without joining the runway', () => {
+    const route = computeTaxiRoute('Z3', 'KZAx30A5.22R');
+    expect(legNames(route)).toEqual(['K', 'Z', 'A', 'A5']);
+    const hold = route.marks.find((mark) => mark.type === 'hold');
+    expect(hold).toMatchObject({ label: '22R', atHoldPoint: true });
+    expect(route.legs.at(-1)?.nodes.at(-1)?.n).toBe('E35a');
+    expect(levels(route, 'warn')).toEqual([]);
+    expect(levels(route, 'err')).toEqual([]);
+  });
+
+  it('checks runway crossings reached by an open-ended taxiway', () => {
+    const uncleared = computeTaxiRoute('Y3', 'YAF2');
+    expect(uncleared.stub?.name).toBe('F2');
+    expect(marks(uncleared)).toEqual(['hold:12/30!']);
+    expect(levels(uncleared, 'err')[0]).toContain('No crossing clearance for 12/30');
+    expect(uncleared.holdAt).not.toBeNull();
+
+    const cleared = computeTaxiRoute('Y3', 'YAF2x30');
+    expect(marks(cleared)).toEqual(['cross:30']);
+    expect(levels(cleared, 'err')).toEqual([]);
+  });
+
+  it('keeps a hold short of A anchored at the Y/A junction', () => {
+    const route = computeTaxiRoute('P2', 'PYA,A.30');
+    const junctions = EKCH_TAXI_NETWORK.nodes.filter(({ names }) => names.includes('Y') && names.includes('A'));
+    const hold = route.marks.find((mark) => mark.type === 'hold' && mark.name === 'A');
+    expect(hold).toBeDefined();
+    const [x, y] = routePoints(route)[hold!.g];
+    expect(Math.min(...junctions.map((node) => Math.hypot(x - node.x, y - node.y)))).toBeLessThan(5);
   });
 
   it('draws earlier taxiways in full and keeps the arrow on the newest one', () => {
@@ -117,6 +155,13 @@ describe('computeTaxiRoute', () => {
 describe('computeArrivalRoute', () => {
   const arrival = (runway: string, stand: string, clearance: string) => computeArrivalRoute(runway, stand, clearance);
 
+  it('gives the hold instruction even when the route geometry reaches the stand', () => {
+    const route = arrival('22L', 'F98', 'V1V,V');
+    expect(route.standReached).toBe(true);
+    expect(marks(route)).toContain('hold:V');
+    expect(levels(route, 'ok')).toEqual(['Hold short of taxiway V.']);
+  });
+
   it('starts where the first taxiway leaves the landing runway and ends at the stand', () => {
     const route = arrival('22L', 'F98', 'V1V');
     expect(route.mode).toBe('arrival');
@@ -155,6 +200,14 @@ describe('computeArrivalRoute', () => {
 });
 
 describe('onward clearances with "/"', () => {
+  it.each(['KZA.30/', 'KZA.30// '])('keeps the hold active while %s has no onward instruction', (clearance) => {
+    const route = computeTaxiRoute('Z3', clearance);
+    expect(route.parsed.activeSegment).toBe(0);
+    expect(route.legs.some((leg) => leg.past)).toBe(false);
+    expect(marks(route)).toEqual(['hold:30']);
+    expect(levels(route, 'err')).toEqual([]);
+  });
+
   it('splits the clearance into parts without breaking runway names', () => {
     const parsed = parseClearance('KZ.A/Ax12/30A4.22R');
     expect(parsed.activeSegment).toBe(1);
@@ -362,6 +415,13 @@ describe('impliedDepartureRunway', () => {
 
 describe('assigned departure runway written first', () => {
   const route = (clearance: string, departureRunway: string | null, rp = 'Z3') => computeTaxiRoute(rp, clearance, { departureRunway });
+
+  it('rejects a leading reciprocal runway end that conflicts with the assignment', () => {
+    const r = route('04LKZAx30', '22R');
+    expect(r.parsed.items[0]).toMatchObject({ type: 'rwy', end: '04L' });
+    expect(r.legs).toEqual([]);
+    expect(levels(r, 'err')).toEqual(['Departure runway 04L in the clearance conflicts with assigned runway 22R.']);
+  });
 
   it.each(['22RKZAx30A4', '.22RKZAx30A4', '22R K Z A x30 A4'])('treats %s as the destination', (clearance) => {
     const r = route(clearance, '22R');

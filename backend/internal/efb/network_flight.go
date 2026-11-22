@@ -88,7 +88,9 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 	if a.atis != nil {
 		result.ATIS = a.atis.GetATIS(atisAirport, departure)
 	}
-	a.addMETARFallback(r.Context(), &result, atisAirport)
+	if departure {
+		a.addMETARFallback(r.Context(), &result, atisAirport)
+	}
 	timing, err := a.networkTiming(r.Context(), flight.Callsign)
 	if err != nil {
 		slog.WarnContext(r.Context(), "EFB vIFF timing lookup failed", "callsign", flight.Callsign, "error", err)

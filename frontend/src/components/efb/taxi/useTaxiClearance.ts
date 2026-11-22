@@ -27,10 +27,11 @@ const normalise = (value: string | null | undefined) => (value ?? '').trim().toU
  */
 export function useTaxiClearance({ callsign, mode = 'departure', atcReleasePoint, stand, runway }: Options) {
   const arrival = mode === 'arrival';
+  const stripPoint = normalise(atcReleasePoint);
   const standDefault = arrival ? null : standReleasePoint(stand);
-  const assigned: { point: string; from: 'atc' | 'stand' } | null = arrival ? null : standDefault
-    ? { point: standDefault, from: 'stand' }
-    : normalise(atcReleasePoint) ? { point: normalise(atcReleasePoint), from: 'atc' } : null;
+  const assigned: { point: string; from: 'atc' | 'stand' } | null = arrival ? null : stripPoint
+    ? { point: stripPoint, from: 'atc' }
+    : standDefault ? { point: standDefault, from: 'stand' } : null;
   const assignedKey = assigned ? `${assigned.from}:${assigned.point}` : null;
   const flightRunway = normalise(runway), flightStand = normalise(stand);
   const flightKey = `${mode}:${callsign}`;

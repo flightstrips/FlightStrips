@@ -1095,7 +1095,8 @@ describe('EFB page interactions', () => {
   });
 
   it('keeps the Z on departure identifiers and accepts it on UTC times', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(previewResponse));
+    const fetchMock = vi.fn().mockImplementation(previewResponse);
+    vi.stubGlobal('fetch', fetchMock);
     render(<EFBPage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'PREVIEW DEPARTURE' }));
@@ -1111,6 +1112,7 @@ describe('EFB page interactions', () => {
     expect(screen.getByText('1935')).toBeInTheDocument();
     expect(screen.getByText('1940')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Departure CTOT' })).toHaveTextContent('1950');
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/weather/atis?airport=EKCH&departure=true'))).toBe(true));
   });
 
   it('previews the supplied simulated arrival without calling flight or controller APIs', async () => {

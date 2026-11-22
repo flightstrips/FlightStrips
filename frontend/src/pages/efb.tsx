@@ -688,7 +688,7 @@ export default function EFBPage() {
     const controller = new AbortController();
     const refreshAtis = async () => {
       try {
-        const atis = await fetchCachedAtis(previewAtisAirport, false, authorizedFetch, controller.signal);
+        const atis = await fetchCachedAtis(previewAtisAirport, previewPhase === 'DEPARTURE', authorizedFetch, controller.signal);
         if (controller.signal.aborted) return;
         setPreviewAtisError(null);
         setApiFlight((flight) => {
@@ -715,7 +715,7 @@ export default function EFBPage() {
     void refreshAtis();
     const timer = window.setInterval(() => void refreshAtis(), 60_000);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [previewAtisAirport, authorizedFetch]);
+  }, [previewAtisAirport, previewPhase, authorizedFetch]);
 
   useEffect(() => {
     if (openDialog !== 'D1STAND' || !apiFlight) {

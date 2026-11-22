@@ -9,5 +9,8 @@
  "runwayLinks": [
   { "taxiway": "B", "runway": "04R/22L", "connect": true },
   { "taxiway": "A", "runway": "04L/22R" }
+ ],
+ "holdingPoints": [
+  { "taxiway": "A5", "node": "E35a", "runway": "04L/22R" }
  ]
 }

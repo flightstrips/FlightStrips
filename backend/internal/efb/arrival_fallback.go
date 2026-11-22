@@ -155,7 +155,11 @@ func filedArrivalFeeder(config terminal.Configuration, route, destination string
 }
 
 func (a *WebAPI) addArrivalGuidance(ctx context.Context, result *snapshot) {
-	if result.Phase != "ARRIVAL" || !strings.EqualFold(result.Destination, string(a.terminal.Airport)) {
+	if result.Phase != "ARRIVAL" {
+		return
+	}
+	a.addMETARFallback(ctx, result, result.Destination)
+	if !strings.EqualFold(result.Destination, string(a.terminal.Airport)) {
 		return
 	}
 	now := time.Now()
@@ -172,7 +176,14 @@ func (a *WebAPI) addArrivalGuidance(ctx context.Context, result *snapshot) {
 		result.ArrivalGuidanceExpected = result.ArrivalGuidanceExpected || result.Runway != nil
 	}
 	if result.Runway == nil && a.metar != nil {
-		if direction, speed, ok := metarWind(a.metar.GetMETAR(ctx, result.Destination)); ok {
+		var raw string
+		if result.METAR != nil {
+			raw = *result.METAR
+		} else if result.ATIS != nil && !result.ATIS.Stale {
+			// A fresh ATIS skipped the weather fallback, but did not declare a runway.
+			raw = a.metar.GetMETAR(ctx, result.Destination)
+		}
+		if direction, speed, ok := metarWind(raw); ok {
 			result.Runway = headwindRunway(a.terminal, direction, speed)
 			result.ArrivalGuidanceExpected = result.ArrivalGuidanceExpected || result.Runway != nil
 		}

@@ -62,6 +62,14 @@ network.stands = stands.map(({ name, x, y, entry }) => ({
 // their runway. They have no drawn geometry: a zero-length edge from the parent's map-edge end to a
 // node that belongs to the runway, so clearances and hold shorts resolve at the map edge.
 const offMapConfig = JSON.parse(fs.readFileSync(path.join(here, "off-map-taxiways.json"), "utf8"));
+// Mark holding points where the drawn taxiway ends short of the runway centreline.
+for (const { taxiway, node, runway } of offMapConfig.holdingPoints ?? []) {
+  const end = network.nodes.find((n) => n.id === node && n.names.includes(taxiway));
+  if (!end || !network.lines.some((line) => line.name === runway && line.kind === "runway")) {
+    throw new Error(`unknown holding point ${taxiway} at ${node} for ${runway}`);
+  }
+  end.holdFor = [...(end.holdFor ?? []), runway];
+}
 const border = (n) => Math.min(n.x, n.y, graph.width - n.x, graph.height - n.y);
 const mapEdgeEnd = (taxiway) => {
   const end = graph.nodes.filter((n) => n.end && n.names.includes(taxiway)).sort((a, b) => border(a) - border(b))[0];

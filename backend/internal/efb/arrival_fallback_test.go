@@ -151,9 +151,13 @@ func TestNetworkArrivalFallbackWithoutStrip(t *testing.T) {
 	}
 }
 
-type metarLookupStub struct{ raw, airport string }
+type metarLookupStub struct {
+	raw, airport string
+	calls        int
+}
 
 func (s *metarLookupStub) GetMETAR(_ context.Context, airport string) string {
+	s.calls++
 	s.airport = airport
 	return s.raw
 }
@@ -218,6 +222,7 @@ func TestArrivalGuidanceUsesWindWhenATISHasNoRunway(t *testing.T) {
 		{name: "no ATIS online", metar: "EKCH 191150Z 22015KT 9999 Q1012", wantRunway: "22L", expected: true},
 		{name: "stale ATIS", atis: &metar.ATIS{Text: []string{"RWY IN USE 22L"}, Stale: true}, metar: "EKCH 191150Z 04010KT 9999 Q1012", wantRunway: "04L", expected: true},
 		{name: "ATIS wins over wind", atis: &metar.ATIS{Text: []string{"RWY IN USE 22R"}}, metar: "EKCH 191150Z 04010KT 9999 Q1012", wantRunway: "22R", expected: true},
+		{name: "fresh ATIS without a runway", atis: &metar.ATIS{Text: []string{"INFORMATION A"}}, metar: "EKCH 191150Z 04010KT 9999 Q1012", wantRunway: "04L", expected: true},
 		{name: "variable wind is not guessed", metar: "EKCH 191150Z VRB02KT 9999 Q1012", expected: true},
 		{name: "forecast wind is not substituted for missing observed wind", metar: "EKCH 191150Z /////KT 9999 Q1012 BECMG 04010KT", expected: true},
 		{name: "no METAR", expected: true},
@@ -253,14 +258,17 @@ func TestFlightIncludesMETARWhenATISIsOffline(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		atis      ATISLookup
+		metar     string
 		wantMETAR bool
+		wantCalls int
 	}{
-		{name: "no ATIS online", wantMETAR: true},
-		{name: "stale ATIS", atis: staleATISStub{}, wantMETAR: true},
-		{name: "fresh ATIS", atis: &atisLookupStub{}},
+		{name: "no ATIS online", metar: raw, wantMETAR: true, wantCalls: 1},
+		{name: "stale ATIS", atis: staleATISStub{}, metar: raw, wantMETAR: true, wantCalls: 1},
+		{name: "failed METAR is not retried", wantCalls: 1},
+		{name: "fresh ATIS", atis: &atisLookupStub{}, metar: raw},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			lookup := &metarLookupStub{raw: raw}
+			lookup := &metarLookupStub{raw: tc.metar}
 			api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Terminal: arrivalTestConfig(t), METAR: lookup, ATIS: tc.atis,
 				Network: networkTestFlightWithRoute(t, true, time.Now(), "SAS99X", "EDDF", "EKCH", "DCT TUDLO DCT EKCH"),
 				Viff:    &networkTimingStub{}, Flights: &finderStub{err: pdc.ErrWebStripNotFound},
@@ -273,11 +281,14 @@ func TestFlightIncludesMETARWhenATISIsOffline(t *testing.T) {
 			if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
 				t.Fatalf("%d %s", rec.Code, rec.Body.String())
 			}
+			if lookup.calls != tc.wantCalls {
+				t.Fatalf("METAR lookups=%d, want %d", lookup.calls, tc.wantCalls)
+			}
 			if tc.wantMETAR && (got.METAR == nil || *got.METAR != raw || lookup.airport != "EKCH") {
 				t.Fatalf("expected the destination METAR as ATIS fallback: %s", rec.Body.String())
 			}
 			if !tc.wantMETAR && got.METAR != nil {
-				t.Fatalf("a fresh ATIS must not be replaced by the METAR: %s", rec.Body.String())
+				t.Fatalf("unexpected METAR fallback: %s", rec.Body.String())
 			}
 		})
 	}

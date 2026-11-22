@@ -102,23 +102,32 @@ func TestPilotDepartureStandPrefileHold(t *testing.T) {
 	assert.Equal(t, PilotStandSelected, state.State)
 }
 
-func TestPilotDepartureStandPrefileRespectsScenery(t *testing.T) {
+func newPilotSceneryFixture(t *testing.T) pilotStandFixture {
+	t.Helper()
 	f := newPilotStandFixture(t)
 	ctx := context.Background()
 	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
 STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
 STAND:EKCH:E25:N055.37.42.710:E012.38.36.450:30
+STAND:EKCH:A2:N055.37.42.710:E012.38.43.450:30
 `))
 	require.NoError(t, err)
 	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
-  "rules": [{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"E25":100},"tier2":{"A1":100}}}],
+  "rules": [{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"E25":100},"tier2":{"A1":100,"A2":100}}}],
   "stand_groups": {}, "fallback_rules": {`+testFallbackJSON("A1")+`}
 }`), registry)
 	require.NoError(t, err)
 	f.allocations.stands, f.allocations.policy = registry, policy
+	f.lifecycle.stands = registry
 	sceneries := postgres.NewPilotSceneryRepository(f.pool)
 	require.NoError(t, sceneries.SetPilotScenery(ctx, 1001, "EKCH", "flytampa"))
 	f.allocations.SetPilotSceneries(sceneries)
+	return f
+}
+
+func TestPilotDepartureStandPrefileRespectsScenery(t *testing.T) {
+	f := newPilotSceneryFixture(t)
+	ctx := context.Background()
 
 	flight := offlineFlight(f.strip.Callsign, 1)
 	state, err := f.service.Open(ctx, f.session, f.strip, flight)
@@ -131,6 +140,27 @@ STAND:EKCH:E25:N055.37.42.710:E012.38.36.450:30
 	persisted, err := f.assignments.GetAssignment(ctx, f.session, f.strip.Callsign)
 	require.NoError(t, err)
 	assert.Equal(t, "A1", persisted.Stand)
+}
+
+func TestPilotDepartureStandOnlineFallbackRespectsScenery(t *testing.T) {
+	f := newPilotSceneryFixture(t)
+	ctx := context.Background()
+	testdata.SeedTestStrip(t, f.queries, f.session, "SAS456")
+	createProtectedStandOccupant(t, f.assignments, f.session, "SAS456", "A1")
+	flight := onlineFlight(f.strip.Callsign, 1)
+	state, err := f.service.Open(ctx, f.session, f.strip, flight)
+	require.NoError(t, err)
+	require.Equal(t, PilotStandMismatch, state.State)
+	assert.Equal(t, "A1", state.ObservedStand)
+	assert.Equal(t, "A2", state.Stand)
+
+	stand, ok := f.lifecycle.stands.Lookup(f.strip.Origin, "E25")
+	require.True(t, ok)
+	flight.Latitude, flight.Longitude = stand.Latitude, stand.Longitude
+	state, err = f.service.Open(ctx, f.session, f.strip, flight)
+	require.NoError(t, err)
+	assert.Equal(t, PilotStandConfirmed, state.State)
+	assert.Equal(t, "E25", state.Stand, "the observed position still takes precedence over scenery")
 }
 
 func TestPilotDepartureStandConfirmedUnsuitableSelection(t *testing.T) {

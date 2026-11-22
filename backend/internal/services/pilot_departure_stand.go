@@ -143,7 +143,7 @@ func (s *PilotDepartureStandService) run(ctx context.Context, session int32, str
 	}
 	// Resolve scenery before opening the transaction, since the lookup uses the pool.
 	var sceneryRequest StandAllocationRequest
-	if !flight.Online && (open || manual != "") {
+	if flight.Online || open || manual != "" {
 		cid, _ := resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
 		sceneryRequest = s.lifecycle.allocations.withPilotScenery(ctx, StandAllocationRequest{
 			Airport: flight.Origin, Callsign: strip.Callsign, VatsimCID: cid,

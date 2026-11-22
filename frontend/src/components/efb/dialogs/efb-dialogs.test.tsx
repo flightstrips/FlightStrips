@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import D1ArrivalBrief from './D1ArrivalBrief';
 import D1Brief from './D1Brief';
@@ -59,7 +59,7 @@ describe('EFB operational dialogs', () => {
 
     expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z3');
     expect(screen.getByText('ATC', { selector: 'span' })).toBeInTheDocument();
-    expect(screen.getByText('No common routes for runway 22R yet.')).toBeInTheDocument();
+    expect(screen.getByText('No runway assigned')).toBeInTheDocument();
     // The help table explains the syntax without offering "," (still accepted as hold short).
     const help = screen.getByRole('table');
     expect(within(help).getByText('Hold short of')).toBeInTheDocument();
@@ -73,6 +73,7 @@ describe('EFB operational dialogs', () => {
     // No runway on the flight: the hold short of 22R in the clearance gives the departure runway.
     expect(screen.getByLabelText('DEP RWY')).toHaveValue('');
     expect(screen.getByText('CLEARANCE', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('No common routes for runway 22R yet.')).toBeInTheDocument();
     expect(within(screen.getByRole('img', { name: 'Taxi route' })).getByText('RWY 22R')).toBeInTheDocument();
     const map = within(screen.getByRole('img', { name: 'Taxi route' }));
     expect(map.getByText('HOLD SHORT 22R')).toBeInTheDocument();
@@ -111,10 +112,35 @@ describe('EFB operational dialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'USE Z5' }));
     expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z5');
 
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: null }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
+    expect(screen.queryByText('ATC', { selector: 'span' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('KZAx30A4.22R');
+
     // A new flight starts over.
     rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS456', releasePoint: null }} />);
     expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
     expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('');
+  });
+
+  it('uses the pilot runway override for common taxi routes and offers button zoom', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false}
+      taxiClearance={{ callsign: 'SAS123', releasePoint: 'Z3', runway: '22R' }} />);
+
+    expect(screen.getByText('No common routes for runway 22R yet.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('DEP RWY'), { target: { value: '04R' } });
+    expect(screen.getByText('No common routes for runway 04R yet.')).toBeInTheDocument();
+
+    const map = screen.getByRole('img', { name: 'Taxi route' });
+    const width = () => Number(map.getAttribute('viewBox')?.split(' ')[2]);
+    const initialWidth = width();
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in on taxi map' }));
+    expect(width()).toBeLessThan(initialWidth);
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out on taxi map' }));
+    expect(width()).toBeCloseTo(initialWidth);
+
+    fireEvent.change(screen.getByLabelText('DEP RWY'), { target: { value: 'NIL' } });
+    expect(screen.getByText('No runway assigned')).toBeInTheDocument();
   });
 
   it('uses the stand default release point ahead of ATC for G stands without release points', () => {
@@ -133,6 +159,10 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByText('Default for stand G111')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'USE I' }));
     expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('I');
+
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: null, stand: 'C30' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
+    expect(screen.queryByText('STAND', { selector: 'span' })).not.toBeInTheDocument();
 
     // Other stands fall back to ATC's release point.
     rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS456', releasePoint: 'T3', stand: 'C30' }} />);
@@ -237,7 +267,7 @@ describe('EFB operational dialogs', () => {
     expect(fetchMock.mock.calls).toHaveLength(3);
   });
 
-  it('shows only assigned arrival and runway-matched approach charts', async () => {
+  it('shows airport, assigned arrival and runway-matched approach charts', async () => {
     const charts = [
       { id: 'taxi-chart', name: 'Ground movement chart', type_key: 'GND' },
       { id: 'star-chart', name: 'TUDLO 4C', type_key: 'STAR', meta: [{ type_key: 'ProcedureIdent', value: ['TUDLO4C'] }] },
@@ -265,8 +295,8 @@ describe('EFB operational dialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next chart' }));
     expect(await screen.findByTitle('ILS Z RWY 22L - 2')).toBeInTheDocument();
 
-    // Airport/taxi charts are not offered; the taxi clearance section (when available) comes last.
-    expect(screen.queryByRole('button', { name: /AIRPORT \/ TAXI/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'AIRPORT / TAXI 1' }));
+    expect(await screen.findByTitle('Ground movement chart')).toHaveAttribute('src', 'https://charts.example.test/taxi-chart.pdf');
   });
 
   it('opens on the taxi clearance on the ground and on the procedure when airborne', () => {
@@ -291,8 +321,7 @@ describe('EFB operational dialogs', () => {
   it('lists the taxi clearance after the chart sections', () => {
     render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22L" procedure="TUDLO" arrival taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F98', runway: '22L' }} />);
     const sections = Array.from(document.querySelectorAll('button[aria-pressed]'), (button) => button.getAttribute('aria-label'));
-    expect(sections).toEqual(['ASSIGNED STAR 0', 'APPROACH 0', 'TAXI CLEARANCE']);
-    expect(sections.at(-1)).toBe('TAXI CLEARANCE');
+    expect(sections).toEqual(['AIRPORT / TAXI 0', 'ASSIGNED STAR 0', 'APPROACH 0', 'TAXI CLEARANCE']);
   });
 
   it('uses the selected stand, runway, and SID briefing assets', () => {
@@ -356,6 +385,7 @@ describe('EFB operational dialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go to Taxi with EKCH_TWR: 04R' }));
     const paragraphs = screen.getByRole('dialog').querySelectorAll('.efb-briefing-page p');
     expect(paragraphs[0]).toHaveTextContent('All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!');
+    expect(paragraphs[1]).toHaveTextContent('holding point B1-B3');
   });
 
   it.each([false, true])('supports briefing keyboard navigation, page transitions, wraparound, and closing (arrival: %s)', (arrival) => {
@@ -745,9 +775,65 @@ describe('EFB options', () => {
 
   it('reverts the tick and says so when saving fails', async () => {
     render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={vi.fn().mockResolvedValue(null)} saveScenery={vi.fn().mockRejectedValue(new Error('down'))} />);
-    fireEvent.click(screen.getByRole('radio', { name: /Default/ }));
+    const defaultScenery = screen.getByRole('radio', { name: /Default/ });
+    await waitFor(() => expect(defaultScenery).toBeEnabled());
+    fireEvent.click(defaultScenery);
     expect(await screen.findByText('Could not save your scenery choice. Try again.')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Default/ })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('waits for the initial scenery choice and serializes saves with rollback', async () => {
+    let finishLoading!: (scenery: string) => void;
+    const load = new Promise<string>((resolve) => { finishLoading = resolve; });
+    let rejectFirstSave!: (error: Error) => void;
+    const firstSave = new Promise<void>((_, reject) => { rejectFirstSave = reject; });
+    const saveScenery = vi.fn().mockReturnValueOnce(firstSave).mockResolvedValueOnce(undefined);
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={() => load} saveScenery={saveScenery} />);
+    const defaultScenery = screen.getByRole('radio', { name: /Default/ });
+    const simNord = screen.getByRole('radio', { name: /SimNord Copenhagen/ });
+    const flyTampa = screen.getByRole('radio', { name: /FlyTampa Copenhagen/ });
+
+    expect(flyTampa).toBeDisabled();
+    fireEvent.click(flyTampa);
+    expect(saveScenery).not.toHaveBeenCalled();
+    await act(async () => finishLoading('default'));
+    expect(defaultScenery).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(simNord);
+    expect(simNord).toHaveAttribute('aria-checked', 'true');
+    expect(flyTampa).toBeDisabled();
+    fireEvent.click(flyTampa);
+    expect(saveScenery.mock.calls).toEqual([['simnord']]);
+    await act(async () => rejectFirstSave(new Error('down')));
+    expect(defaultScenery).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(flyTampa);
+    await waitFor(() => expect(flyTampa).toBeEnabled());
+    expect(flyTampa).toHaveAttribute('aria-checked', 'true');
+    expect(saveScenery.mock.calls).toEqual([['simnord'], ['flytampa']]);
+  });
+
+  it('waits for a pending scenery save before reloading on reopen', async () => {
+    let finishSave!: () => void;
+    const save = new Promise<void>((resolve) => { finishSave = resolve; });
+    const props = {
+      onClose: vi.fn(),
+      loadScenery: vi.fn().mockResolvedValueOnce('default').mockResolvedValueOnce('flytampa'),
+      saveScenery: vi.fn().mockReturnValue(save),
+    };
+    const { rerender } = render(<D1OptionsDialog {...props} isOpen />);
+    const flyTampa = () => screen.getByRole('radio', { name: /FlyTampa Copenhagen/ });
+    await waitFor(() => expect(flyTampa()).toBeEnabled());
+    fireEvent.click(flyTampa());
+    rerender(<D1OptionsDialog {...props} isOpen={false} />);
+    rerender(<D1OptionsDialog {...props} isOpen />);
+    expect(flyTampa()).toBeDisabled();
+    expect(props.loadScenery).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishSave());
+    expect(props.loadScenery).toHaveBeenCalledTimes(2);
+    expect(flyTampa()).toBeEnabled();
+    expect(flyTampa()).toHaveAttribute('aria-checked', 'true');
   });
 
   it('links each scenery to its product page and GSX profile', () => {

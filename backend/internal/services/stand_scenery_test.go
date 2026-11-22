@@ -80,6 +80,32 @@ func TestSceneryExcludedStandsInAllocation(t *testing.T) {
 		assert.Contains(t, err.Error(), "A1 is not available in Test Scenery")
 	})
 
+	for _, tc := range []struct {
+		name, directive string
+		exclude         bool
+	}{
+		{"scenery excludes the only compatible stand", "", true},
+		{"the only compatible stand is closed to arrivals", "ARRIVAL_CLOSED:Not available for arrivals", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service, session, _ := standAllocationFixture(t, pool, queries, tc.directive, "ATYP:B737")
+			testdata.SeedTestStrip(t, queries, session, "SAS205")
+			request := withStand(standAllocationRequest(session, "SAS205"), "A2")
+			if tc.exclude {
+				request = excludingA1(request)
+			}
+			_, err := service.AssignManually(ctx, request)
+			require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+
+			request.AllowUnsuitable = true
+			result, err := service.AssignManually(ctx, request)
+			require.NoError(t, err)
+			require.Equal(t, "A2", result.Assignment.Stand)
+			require.NotNil(t, result.Assignment.ConflictReason)
+			assert.Contains(t, *result.Assignment.ConflictReason, "pilot confirmed unsuitable stand")
+		})
+	}
+
 	t.Run("availability marks the excluded stand unselectable with the reason", func(t *testing.T) {
 		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
 		available, err := service.AvailableStands(ctx, excludingA1(standAllocationRequest(session, "SAS203")))

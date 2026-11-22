@@ -182,6 +182,58 @@ describe('onward clearances with "/"', () => {
     expect(levels(route, 'err')).toEqual([]);
   });
 
+  it('turns back from the runway hold on B and holds short of Z', () => {
+    const route = computeTaxiRoute('B', 'B.30/.Z');
+    expect(legNames(route)).toEqual(['B', 'B']);
+    expect(route.legs.map((leg) => leg.past)).toEqual([true, false]);
+    expect(marks(route)).toEqual(['hold:Z']);
+    expect(levels(route, 'err')).toEqual([]);
+    expect(levels(route, 'warn')).toEqual([]);
+    expect(levels(route, 'ok')).toEqual(['Route OK.']);
+  });
+
+  it.each(['KZAx30A4/AZK', 'KZAx30A4AZK'])('requires another crossing clearance for %s', (clearance) => {
+    const route = computeTaxiRoute('Z3', clearance);
+    expect(marks(route)).toEqual(['cross:30', 'hold:12/30!']);
+    expect(levels(route, 'ok')).toEqual([]);
+    expect(route.holdAt).not.toBeNull();
+  });
+
+  it('allows repeated crossings when each occurrence is cleared', () => {
+    const route = computeTaxiRoute('Z3', 'KZAx30A4/Ax12ZK');
+    expect(marks(route)).toEqual(['cross:30', 'cross:12']);
+    expect(levels(route, 'err')).toEqual([]);
+  });
+
+  it('does not carry an unused crossing to a later clearance', () => {
+    const route = computeTaxiRoute('Z3', 'KZx30.A/AA4.22R');
+    expect(marks(route)).toEqual(['hold:12/30!', 'hold:22R']);
+    expect(levels(route, 'warn')).toContain('Cross 30: the route does not cross it');
+  });
+
+  it.each(['KZA.30/Ax30A4.22R', 'KZA.30/x30A4.22R'])('uses the onward crossing clearance in %s', (clearance) => {
+    const route = computeTaxiRoute('Z3', clearance);
+    expect(marks(route)).toEqual(['cross:30', 'hold:22R']);
+    expect(levels(route, 'err')).toEqual([]);
+    expect(levels(route, 'warn')).toEqual([]);
+    expect(route.legs.filter((leg) => !leg.past).map((leg) => leg.name)).toEqual(['A', 'A4']);
+  });
+
+  it.each([
+    ['KZ/.A', ['hold:A']],
+    ['KZA/.A', ['hold:A']],
+    ['KZA/.30', ['hold:30']],
+    ['KZAx30/.A4', ['cross:30', 'hold:A4']],
+    ['KZAx30/.22R', ['cross:30', 'hold:22R']],
+    ['KZA.30/x30.22R', ['cross:30', 'hold:22R']],
+  ])('draws the hold in the onward clearance %s', (clearance, expected) => {
+    const route = computeTaxiRoute('Z3', clearance);
+    expect(marks(route)).toEqual(expected);
+    expect(route.holdAt).not.toBeNull();
+    expect(levels(route, 'err')).toEqual([]);
+    expect(levels(route, 'warn')).toEqual([]);
+  });
+
   it('keeps an open-ended arrow on the active part', () => {
     const route = computeTaxiRoute('Z3', 'K.Z/Z');
     expect(legNames(route)).toEqual(['K', 'Z>']);
@@ -249,6 +301,14 @@ describe('holding point written first', () => {
     expect(marks(computeTaxiRoute('Z3', 'A4KZAx30.22R'))).toEqual(['cross:30', 'hold:22R']);
   });
 
+  it('does not add a duplicate departure runway hold in the onward clearance', () => {
+    const route = computeTaxiRoute('Z3', 'A4KZA.22R/A');
+    expect(route.parsed.items.filter((item) => item.type === 'hold')).toEqual([
+      expect.objectContaining({ end: '22R', segment: 0 }),
+    ]);
+    expect(route.parsed.items.at(-1)).toMatchObject({ name: 'A4', segment: 1 });
+  });
+
   it('leaves clearances alone when the holding point is not first, or is the only item', () => {
     expect(legNames(computeTaxiRoute('Z3', 'KZAx30A4'))).toEqual(['K', 'Z', 'A', 'A4>']);
     expect(computeTaxiRoute('Z3', 'A4').parsed.items.map((i) => i.name)).toEqual(['A4']);
@@ -307,7 +367,7 @@ describe('assigned departure runway written first', () => {
     const r = route(clearance, '22R');
     expect(legNames(r)).toEqual(['K', 'Z', 'A', 'A4']);
     expect(marks(r)).toEqual(['cross:30', 'hold:22R']);
-    expect(levels(r, 'info')).toContain('Runway 22R written first: it is where the route ends.');
+    expect(levels(r, 'info')).toContain('Runway 22R written first is treated as the departure runway.');
     expect(levels(r, 'err')).toEqual([]);
   });
 
@@ -335,6 +395,17 @@ describe('assigned departure runway written first', () => {
 
 describe('departure runway joined from A (22R) and B (04R)', () => {
   const route = (rp: string, clearance: string, departureRunway: string | null) => computeTaxiRoute(rp, clearance, { departureRunway });
+
+  it('keeps the onward route open after an explicit hold for the assigned runway', () => {
+    const r = route('Z3', '22RKZAx30A4.22R/A', '22R');
+    expect(r.parsed.items.filter((item) => item.type === 'hold')).toEqual([
+      expect.objectContaining({ end: '22R', segment: 0 }),
+    ]);
+    expect(r.stub).toMatchObject({ name: 'A', past: false });
+    expect(levels(r, 'err')).toEqual([]);
+    expect(levels(r, 'ok')).toEqual(['Route OK. A is open-ended until the next taxiway.']);
+    expect(levels(r, 'info')).toEqual(['Runway 22R written first is treated as the departure runway.']);
+  });
 
   it('continues A via A1 to hold short of 22R', () => {
     const r = route('Z3', 'KZAx30', '22R');

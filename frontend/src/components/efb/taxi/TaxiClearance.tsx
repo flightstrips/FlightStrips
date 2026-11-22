@@ -27,6 +27,13 @@ const AIRCRAFT_SCALE = 0.45;
 
 interface ViewBox { x: number; y: number; w: number; h: number }
 const FULL_VIEW: ViewBox = { x: 0, y: 0, w: EKCH_TAXI_NETWORK.width, h: EKCH_TAXI_NETWORK.height };
+const ZOOM_STEP = 1.2;
+
+function zoomView(view: ViewBox, factor: number, [x, y]: Point = [view.x + view.w / 2, view.y + view.h / 2]): ViewBox {
+  const w = Math.min(FULL_VIEW.w * 1.5, Math.max(200, view.w * factor));
+  const scale = w / view.w;
+  return { x: x - (x - view.x) * scale, y: y - (y - view.y) * scale, w, h: view.h * scale };
+}
 
 /** Frame these points with padding, never tighter than a minimum area (so a single point is readable). */
 function fitView(points: Point[], minSize = 1400): ViewBox {
@@ -109,15 +116,14 @@ export function TaxiClearanceMap({ route, preliminary = false, departureRunway =
       const ctm = svg.getScreenCTM();
       if (!ctm) return;
       const m = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
-      setView((current) => {
-        const v = current.vb, factor = event.deltaY > 0 ? 1.2 : 1 / 1.2;
-        const w = Math.min(net.width * 1.5, Math.max(200, v.w * factor)), k = w / v.w;
-        return { ...current, vb: { x: m.x - (m.x - v.x) * k, y: m.y - (m.y - v.y) * k, w, h: v.h * k } };
-      });
+      const factor = event.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+      setView((current) => ({ ...current, vb: zoomView(current.vb, factor, [m.x, m.y]) }));
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, [net.width]);
+  }, []);
+
+  const zoom = (factor: number) => setView((current) => ({ ...current, vb: zoomView(current.vb, factor) }));
 
   const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     drag.current = { x: event.clientX, y: event.clientY, view: vb };
@@ -238,7 +244,7 @@ export function TaxiClearanceMap({ route, preliminary = false, departureRunway =
     return { name: leg.name, past: leg.past, box: chosen!, anchor: anchor! };
   });
 
-  return (
+  const map = (
     <svg
       ref={svgRef}
       role="img"
@@ -344,6 +350,17 @@ export function TaxiClearanceMap({ route, preliminary = false, departureRunway =
         </g>
       )}
     </svg>
+  );
+
+  const zoomButtonClass = 'grid size-11 place-items-center rounded border border-[#58708a] bg-[#0a1d31] text-2xl font-bold text-white hover:bg-[#1A475F] focus-visible:outline-2 focus-visible:outline-[#8ed7ec]';
+  return (
+    <div className="relative h-full w-full">
+      {map}
+      <div role="group" aria-label="Taxi map zoom" className="absolute top-2 right-2 flex gap-1">
+        <button type="button" aria-label="Zoom in on taxi map" onClick={() => zoom(1 / ZOOM_STEP)} className={zoomButtonClass}>+</button>
+        <button type="button" aria-label="Zoom out on taxi map" onClick={() => zoom(ZOOM_STEP)} className={zoomButtonClass}>−</button>
+      </div>
+    </div>
   );
 }
 
@@ -466,8 +483,9 @@ export function TaxiClearanceControls({ state }: { state: TaxiClearanceState }) 
   );
 }
 
-export function TaxiCommonRoutes({ state, runway }: { state: TaxiClearanceState; runway: string }) {
-  const rwy = runway !== 'NIL' ? runway.trim().toUpperCase() : '';
+export function TaxiCommonRoutes({ state }: { state: TaxiClearanceState }) {
+  const runway = state.departureRunway?.trim();
+  const rwy = runway && runway !== 'NIL' ? runway : '';
   const routes = rwy ? commonRoutesFor(rwy, state.releasePoint) : [];
   const byHoldingPoint = new Map<string, CommonRoute[]>();
   for (const route of routes) byHoldingPoint.set(route.holdingPoint, [...(byHoldingPoint.get(route.holdingPoint) ?? []), route]);

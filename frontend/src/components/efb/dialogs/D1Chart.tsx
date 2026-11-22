@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Navigation, PlaneLanding, Route, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Map as MapIcon, Navigation, PlaneLanding, Route, type LucideIcon } from 'lucide-react';
 import { getChartFoxAccessToken, isChartFoxConfigured, startChartFoxAuthorization } from '@/lib/chartfox-auth';
 import { TaxiClearanceControls, TaxiClearanceHelp, TaxiClearanceMap, TaxiCommonRoutes } from '../taxi/TaxiClearance';
 import { useTaxiClearance } from '../taxi/useTaxiClearance';
@@ -34,7 +34,7 @@ interface ChartFamily {
   pages: ChartOverview[];
 }
 
-type ChartSection = 'procedure' | 'approach' | 'clearance';
+type ChartSection = 'taxi' | 'procedure' | 'approach' | 'clearance';
 
 interface D1ChartProps {
   isOpen: boolean;
@@ -108,6 +108,13 @@ function chartFamilies(charts: ChartOverview[], allCharts = charts) {
   }));
 }
 
+function isTaxiChart(chart: ChartOverview) {
+  const type = chart.type_key.toUpperCase();
+  const name = chart.name.toUpperCase();
+  return ['APD', 'AERODROME', 'AIRPORT', 'GND', 'GROUND', 'TAXI', 'PARKING'].includes(type)
+    || /\b(AERODROME|AIRPORT|GROUND|TAXI|APRON|PARKING|STAND)\b/.test(name);
+}
+
 function isApproachChart(chart: ChartOverview) {
   return ['APP', 'IAP', 'APPROACH', 'ILS', 'LOC', 'RNP', 'VOR', 'NDB'].includes(chart.type_key.toUpperCase());
 }
@@ -137,6 +144,7 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
   const validProcedure = procedure !== 'NIL' ? procedure.trim().toUpperCase() : '';
   const hasAccessToken = Boolean(getChartFoxAccessToken());
 
+  const taxiFamilies = useMemo(() => chartFamilies(chartRecords.filter(isTaxiChart), chartRecords), [chartRecords]);
   const procedureFamilies = useMemo(() => {
     const chartsForType = chartRecords.filter((chart) => chart.type_key.toUpperCase() === chartType);
     const procedureCharts = chartsForType.filter((chart) => chartMatchesProcedure(chart, validProcedure, chartType));
@@ -148,8 +156,8 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
     return chartFamilies(chartRecords.filter((chart) => isApproachChart(chart) && chartMatchesRunway(chart, runway)), chartRecords);
   }, [arrival, chartRecords, runway]);
   const activeFamilies = useMemo(() => (
-    selectedSection === 'approach' ? approachFamilies : procedureFamilies
-  ), [approachFamilies, procedureFamilies, selectedSection]);
+    selectedSection === 'taxi' ? taxiFamilies : selectedSection === 'approach' ? approachFamilies : procedureFamilies
+  ), [approachFamilies, procedureFamilies, selectedSection, taxiFamilies]);
   const selectedFamily = activeFamilies.find((family) => family.id === selectedFamilyId) ?? activeFamilies[0] ?? null;
   const currentIndex = selectedFamily ? Math.min(selectedIndex, selectedFamily.pages.length - 1) : 0;
   const selectedChartOverview = selectedFamily?.pages[currentIndex];
@@ -224,6 +232,7 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
   const loading = loadingOverview || (loadingChart && !cachedSelectedChart);
   const showClearance = selectedSection === 'clearance' && Boolean(taxiClearance);
   const sections: Array<{ id: ChartSection; label: string; description: string; count?: number; Icon: LucideIcon }> = [
+    { id: 'taxi', label: 'AIRPORT / TAXI', description: 'Ground movement and apron charts', count: taxiFamilies.length, Icon: MapIcon },
     { id: 'procedure', label: `${expected ? 'EXPECTED' : 'ASSIGNED'} ${chartType}`, description: validProcedure || 'Published procedure', count: procedureFamilies.length, Icon: Navigation },
     ...(arrival ? [{ id: 'approach' as const, label: 'APPROACH', description: runway !== 'NIL' ? `Procedures for runway ${runway}` : 'Runway-specific procedures', count: approachFamilies.length, Icon: PlaneLanding }] : []),
     ...(taxiClearance ? [{ id: 'clearance' as const, label: 'TAXI CLEARANCE', description: taxi.mode === 'arrival' ? (taxi.route.stand ? `To stand ${taxi.route.stand.name}` : 'Draw your taxi route to the stand') : taxi.route.releasePoint ? `From ${taxi.route.releasePoint.name}` : 'Draw your cleared taxi route', Icon: Route }] : []),
@@ -263,7 +272,7 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
               {!showClearance && <p className="mt-1 mb-0 text-sm text-[#c7d9e5]">{chartContext || 'Relevant charts for this flight'}</p>}
               {expected && <p className="mt-2 mb-0 text-sm font-bold text-[#ffcc80]">Expected from route / ATIS, not an ATC clearance. Confirm the procedure and version with ATC.</p>}
             </div>
-            {showClearance && <div className="border-b border-[#58708a]"><TaxiClearanceControls state={taxi} />{taxi.mode === 'departure' && <TaxiCommonRoutes state={taxi} runway={runway} />}</div>}
+            {showClearance && <div className="border-b border-[#58708a]"><TaxiClearanceControls state={taxi} />{taxi.mode === 'departure' && <TaxiCommonRoutes state={taxi} />}</div>}
             <div className="p-5">
               <p className="m-0 text-[11px] font-bold tracking-[0.16em] text-[#8ed7ec]">CHART SECTIONS</p>
               <div className="mt-2 grid gap-2">{sections.map((section) => {

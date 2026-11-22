@@ -141,6 +141,14 @@ func (s *PilotDepartureStandService) run(ctx context.Context, session int32, str
 	if strip == nil || flight.CID == "" || !strings.EqualFold(strip.Callsign, flight.Callsign) {
 		return nil, errors.New("pilot stand assignment requires an identified flight")
 	}
+	// Resolve scenery before opening the transaction, since the lookup uses the pool.
+	var sceneryRequest StandAllocationRequest
+	if !flight.Online && (open || manual != "") {
+		cid, _ := resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
+		sceneryRequest = s.lifecycle.allocations.withPilotScenery(ctx, StandAllocationRequest{
+			Airport: flight.Origin, Callsign: strip.Callsign, VatsimCID: cid,
+		})
+	}
 	var state *PilotDepartureStand
 	var result *StandAllocationResult
 	err := retrySerializableOperation(ctx, func() error {
@@ -185,7 +193,11 @@ func (s *PilotDepartureStandService) run(ctx context.Context, session int32, str
 			}
 			state = &PilotDepartureStand{CID: flight.CID, Origin: flight.Origin, Destination: flight.Destination}
 		}
-		result, err = s.advance(ctx, tx, session, lockedStrip, flight, state, manual, version, allowUnsuitable)
+		request := s.lifecycle.buildRequest(session, lockedStrip, flight, StageReserved, nil)
+		request.SceneryExcludedStands, request.SceneryName = sceneryRequest.SceneryExcludedStands, sceneryRequest.SceneryName
+		request.ProtectReservations = true
+		request.AllowUnsuitable = allowUnsuitable
+		result, err = s.advance(ctx, tx, lockedStrip, flight, state, manual, version, request)
 		if err != nil {
 			return err
 		}
@@ -210,8 +222,9 @@ func (s *PilotDepartureStandService) run(ctx context.Context, session int32, str
 	return state, nil
 }
 
-func (s *PilotDepartureStandService) advance(ctx context.Context, tx pgx.Tx, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo, state *PilotDepartureStand, manual string, version *int32, allowUnsuitable bool) (*StandAllocationResult, error) {
+func (s *PilotDepartureStandService) advance(ctx context.Context, tx pgx.Tx, strip *models.Strip, flight vatsim.DepartureFlightInfo, state *PilotDepartureStand, manual string, version *int32, request StandAllocationRequest) (*StandAllocationResult, error) {
 	lifecycle := s.lifecycle
+	session := request.SessionID
 	now := lifecycle.now().UTC()
 	store := lifecycle.assignments.WithTx(tx)
 	existing, err := store.GetAssignment(ctx, session, strip.Callsign)
@@ -234,9 +247,6 @@ func (s *PilotDepartureStandService) advance(ctx context.Context, tx pgx.Tx, ses
 		state.State = PilotStandExpired
 		return nil, nil
 	}
-	request := lifecycle.buildRequest(session, strip, flight, StageReserved, nil)
-	request.ProtectReservations = true
-	request.AllowUnsuitable = allowUnsuitable
 	allocate := func(command StandAllocationCommand) (*StandAllocationResult, error) {
 		if err := validateStandAllocationRequest(command, &request); err != nil {
 			return nil, err
@@ -271,7 +281,7 @@ func (s *PilotDepartureStandService) advance(ctx context.Context, tx pgx.Tx, ses
 			}
 			return nil, nil
 		}
-		if manual != "" && state.Stand == manual && state.ExpiresAt != nil && state.ExpiresAt.After(now) {
+		if manual != "" && state.Stand == manual && state.ExpiresAt != nil && state.ExpiresAt.After(now) && !request.sceneryExcludes(manual) {
 			return nil, nil
 		}
 		expires := now.Add(pilotStandHold)

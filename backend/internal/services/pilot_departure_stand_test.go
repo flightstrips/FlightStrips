@@ -5,9 +5,11 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository"
+	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/vatsim"
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -98,6 +100,37 @@ func TestPilotDepartureStandPrefileHold(t *testing.T) {
 	state, err = restarted.Select(ctx, f.session, f.strip, flight, "A1", 0, false)
 	require.NoError(t, err)
 	assert.Equal(t, PilotStandSelected, state.State)
+}
+
+func TestPilotDepartureStandPrefileRespectsScenery(t *testing.T) {
+	f := newPilotStandFixture(t)
+	ctx := context.Background()
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:E25:N055.37.42.710:E012.38.36.450:30
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"E25":100},"tier2":{"A1":100}}}],
+  "stand_groups": {}, "fallback_rules": {`+testFallbackJSON("A1")+`}
+}`), registry)
+	require.NoError(t, err)
+	f.allocations.stands, f.allocations.policy = registry, policy
+	sceneries := postgres.NewPilotSceneryRepository(f.pool)
+	require.NoError(t, sceneries.SetPilotScenery(ctx, 1001, "EKCH", "flytampa"))
+	f.allocations.SetPilotSceneries(sceneries)
+
+	flight := offlineFlight(f.strip.Callsign, 1)
+	state, err := f.service.Open(ctx, f.session, f.strip, flight)
+	require.NoError(t, err)
+	require.Equal(t, "A1", state.Stand)
+
+	_, err = f.service.Select(ctx, f.session, f.strip, flight, "E25", state.Version, true)
+	require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+	require.ErrorContains(t, err, "E25 is not available in FlyTampa Copenhagen")
+	persisted, err := f.assignments.GetAssignment(ctx, f.session, f.strip.Callsign)
+	require.NoError(t, err)
+	assert.Equal(t, "A1", persisted.Stand)
 }
 
 func TestPilotDepartureStandConfirmedUnsuitableSelection(t *testing.T) {

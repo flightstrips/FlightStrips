@@ -24,6 +24,18 @@ import (
 
 var standAllocationSessionSequence atomic.Int64
 
+func TestEstimatedSoftSharingKeepsPromotionConflictsVisible(t *testing.T) {
+	reason := arrivalPromotionConflictReason
+	estimate := &models.StandAssignment{Direction: string(sat.AssignmentDirectionArrival), Stage: StageEstimated}
+	marked := &models.StandAssignment{Direction: estimate.Direction, Stage: StageEstimated, ConflictReason: &reason}
+	assigned := &models.StandAssignment{Direction: estimate.Direction, Stage: StageAssigned}
+
+	assert.False(t, estimatedSoftSharingAllowed(marked, estimate))
+	assert.False(t, estimatedSoftSharingAllowed(estimate, marked))
+	assert.False(t, estimatedSoftSharingAllowed(assigned, marked))
+	assert.True(t, estimatedSoftSharingAllowed(assigned, estimate))
+}
+
 func TestStandAllocationServiceTransactions(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()

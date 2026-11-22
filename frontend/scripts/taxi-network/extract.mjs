@@ -17,7 +17,8 @@ const pathTags = [...svg.matchAll(/<path\b[^>]*>/g)].map((m) => m[0]);
 const attr = (t, n) => (t.match(new RegExp(`\\b${n}="([^"]*)"`)) || [])[1];
 const lines = [];
 for (const t of pathTags) {
-  if (!attr(t, "stroke")) continue;
+  const stroke = attr(t, "stroke")?.trim().toLowerCase();
+  if (!stroke || stroke === "none") continue;
   const id = attr(t, "id") || null;
   lines.push({ idx: lines.length + 1, id, pts: flatten(attr(t, "d")) });
 }

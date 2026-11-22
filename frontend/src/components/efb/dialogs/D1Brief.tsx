@@ -287,11 +287,11 @@ const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[
   const taxiNext = runwayForBriefing === '22R'
     ? {
         image: image('TAXINEXT22R'),
-        description: ['TWR will clear you to cross runway 30 and assign holding point B1-B3 as required for traffic sequencing. Medium and smaller aircraft are expected to be able to depart from B3. Heavy aircraft may depart from B1, or on request.', 'When cleared for take-off, do not linger. During busy periods, sharp separation is required, so begin the take-off roll without delay.'],
+        description: ['TWR will clear you to cross runway 30 and assign holding point A1-A4 as required for traffic sequencing. Plan take-off performance for the assigned holding point.', 'When cleared for take-off, do not linger. During busy periods, sharp separation is required, so begin the take-off roll without delay.'],
       }
     : {
         image: image('TAXINEXT04R'),
-        description: ['All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!', 'TWR will clear you to cross runway 30 and assign holding point A1-A4 as required for traffic sequencing. Plan take-off performance for every holding point.', 'Be ready for departure when reaching the holding point. Advise ATC in advance if you are not ready so that an alternative holding point can be assigned. When cleared for take-off, do not linger.'],
+        description: ['All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!', 'TWR will clear you to cross runway 30 and assign holding point B1-B3 as required for traffic sequencing. Plan take-off performance for every holding point.', 'Be ready for departure when reaching the holding point. Advise ATC in advance if you are not ready so that an alternative holding point can be assigned. When cleared for take-off, do not linger.'],
       };
 
   return [

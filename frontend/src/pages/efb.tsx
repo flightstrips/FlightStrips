@@ -857,16 +857,18 @@ export default function EFBPage() {
 
   const submitDeparturePreview = (event: FormEvent) => {
     event.preventDefault();
-    const value = (field: keyof DeparturePreviewInput) => departurePreviewInput[field].trim().toUpperCase().replace(/Z$/, '');
+    const value = (field: keyof DeparturePreviewInput) => departurePreviewInput[field].trim().toUpperCase();
     const callsign = value('callsign'), origin = value('origin'), destination = value('destination');
     if (!callsign || !/^[A-Z]{4}$/.test(origin) || !/^[A-Z]{4}$/.test(destination)) {
       setDeparturePreviewError('Enter a callsign and valid four-letter origin and destination ICAO codes.');
       return;
     }
-    if (['tobt', 'tsat', 'ctot'].some((field) => value(field as keyof DeparturePreviewInput) && !/^([01]\d|2[0-3])[0-5]\d$/.test(value(field as keyof DeparturePreviewInput)))) {
+    const times = (['tobt', 'tsat', 'ctot'] as const).map((field) => value(field).replace(/Z$/, ''));
+    if (times.some((time) => time && !/^([01]\d|2[0-3])[0-5]\d$/.test(time))) {
       setDeparturePreviewError('TOBT, TSAT, and CTOT must be valid HHMM UTC times.');
       return;
     }
+    const [tobt, tsat, ctot] = times;
     const keepAtis = arrivalPreviewRef.current && previewPhase === 'DEPARTURE' && apiFlightRef.current?.origin === origin;
     const preview: ApiFlight = {
       callsign,
@@ -879,10 +881,10 @@ export default function EFBPage() {
       runway: value('runway') || null,
       sid: value('sid') || null,
       release_point: value('releasePoint') || null,
-      tobt: value('tobt') || null,
-      eobt: value('tobt') || null,
-      tsat: value('tsat') || null,
-      ctot: value('ctot') || null,
+      tobt: tobt || null,
+      eobt: tobt || null,
+      tsat: tsat || null,
+      ctot: ctot || null,
       pdc_state: '',
       pdc_requires_pilot_action: false,
       pdc_available: false,

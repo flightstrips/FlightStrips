@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
@@ -10,10 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 type ownerWriteRecorder struct {
 	arguments [][]any
+}
+
+func TestUpdateFallbackArrivalETAProtectsFreshAMANProjection(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, "ETA-FALLBACK", nil)
+	testdata.SeedTestStrip(t, queries, session, "SAS123")
+	repo := NewStripRepository(pool)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	aman := models.ArrivalETA{Time: now.Add(10 * time.Minute), Source: compatibility.ArrivalETASource, CalculatedAt: now.Add(-compatibility.FreshFor)}
+	fallback := models.ArrivalETA{Time: now.Add(15 * time.Minute), Source: "FILED", CalculatedAt: now}
+
+	count, err := repo.UpdateArrivalETA(ctx, session, "SAS123", aman)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+	count, err = repo.UpdateFallbackArrivalETA(ctx, session, "SAS123", fallback, now)
+	require.NoError(t, err)
+	require.Zero(t, count)
+	strip, err := repo.GetByCallsign(ctx, session, "SAS123")
+	require.NoError(t, err)
+	require.Equal(t, &aman, strip.ArrivalETA)
+
+	count, err = repo.UpdateFallbackArrivalETA(ctx, session, "SAS123", fallback, now.Add(time.Second))
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+	strip, err = repo.GetByCallsign(ctx, session, "SAS123")
+	require.NoError(t, err)
+	require.Equal(t, &fallback, strip.ArrivalETA)
 }
 
 func TestSharedScratchPadPersistsAcrossStripUpdateAndClear(t *testing.T) {

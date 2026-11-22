@@ -76,6 +76,7 @@ type StripRepository interface {
 
 	// Arrival ETA
 	UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
+	UpdateFallbackArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA, now time.Time) (int64, error)
 	ClearArrivalETA(ctx context.Context, session int32, callsign string) (int64, error)
 
 	// Release point

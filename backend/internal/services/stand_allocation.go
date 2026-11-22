@@ -1640,9 +1640,6 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	}
 	if command != observedStandAllocation && command != pilotObservedStandAllocation && command != IncompatibleManualOverride {
 		removeSceneryExcluded(request, matches)
-		if len(matches) == 0 && len(evaluation.Matches) > 0 {
-			return "", nil, nil, nil, "", ErrNoAvailableStand
-		}
 	}
 	if request.Direction == sat.AssignmentDirectionArrival &&
 		command != observedStandAllocation && command != pilotObservedStandAllocation {
@@ -1651,9 +1648,9 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 				delete(matches, name)
 			}
 		}
-		if len(matches) == 0 && len(evaluation.Matches) > 0 {
-			return "", nil, nil, nil, "", ErrNoAvailableStand
-		}
+	}
+	if isAutomaticStandAllocation(command) && len(matches) == 0 && len(evaluation.Matches) > 0 {
+		return "", nil, nil, nil, "", ErrNoAvailableStand
 	}
 	if command == observedStandAllocation || command == pilotObservedStandAllocation {
 		target := standName(request.Stand)
@@ -2051,17 +2048,15 @@ func estimatedReservationCanYield(request StandAllocationRequest, assignment *mo
 // that boundary. Estimates already marked with a promotion conflict stay
 // visible to reconciliation.
 func estimatedSoftSharingAllowed(left, right *models.StandAssignment) bool {
-	return estimatedSharingSide(left, right) || estimatedSharingSide(right, left)
+	if left == nil || right == nil || valueString(left.ConflictReason) == arrivalPromotionConflictReason ||
+		valueString(right.ConflictReason) == arrivalPromotionConflictReason {
+		return false
+	}
+	return isEstimatedArrival(left) || isEstimatedArrival(right)
 }
 
-func estimatedSharingSide(estimate, holder *models.StandAssignment) bool {
-	if estimate == nil || holder == nil {
-		return false
-	}
-	if estimate.Direction != string(sat.AssignmentDirectionArrival) || estimate.Stage != StageEstimated {
-		return false
-	}
-	return estimate.ConflictReason == nil || *estimate.ConflictReason != arrivalPromotionConflictReason
+func isEstimatedArrival(assignment *models.StandAssignment) bool {
+	return assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == StageEstimated
 }
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its

@@ -56,9 +56,9 @@ export function useTaxiClearance({ callsign, mode = 'departure', atcReleasePoint
       setEdited({ runway: false, stand: false });
       setTypedClearance('');
     } else {
-      if (assigned && source !== 'pilot') {
-        setReleasePointValue(assigned.point);
-        setSource(assigned.from);
+      if (source !== 'pilot') {
+        setReleasePointValue(assigned?.point ?? '');
+        setSource(assigned?.from ?? null);
       }
       if (!edited.runway) setLandingRunwayValue(flightRunway);
       if (!edited.stand) setArrivalStandValue(flightStand);

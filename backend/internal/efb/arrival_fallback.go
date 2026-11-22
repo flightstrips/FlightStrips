@@ -27,11 +27,16 @@ func (a *WebAPI) addMETARFallback(ctx context.Context, result *snapshot, airport
 
 // metarWindPattern matches the surface wind group, e.g. 24012KT, 24012G25KT, 24006MPS, VRB02KT.
 var metarWindPattern = regexp.MustCompile(`\b(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?(KT|MPS)\b`)
+var metarObservationEndPattern = regexp.MustCompile(`\b(?:BECMG|TEMPO|NOSIG|RMK)\b`)
 
 // metarWind returns the mean wind (true direction, speed in knots). Calm and
 // variable winds report ok=false: they don't favour any runway.
 func metarWind(raw string) (direction int, speedKt int, ok bool) {
-	match := metarWindPattern.FindStringSubmatch(strings.ToUpper(raw))
+	observation := strings.ToUpper(raw)
+	if end := metarObservationEndPattern.FindStringIndex(observation); end != nil {
+		observation = observation[:end[0]]
+	}
+	match := metarWindPattern.FindStringSubmatch(observation)
 	if match == nil || match[1] == "VRB" {
 		return 0, 0, false
 	}

@@ -79,7 +79,7 @@ func TestUpdateArrivalETARetainsLastEstimateWhenFeedCannotRecalculate(t *testing
 	changed, err := reconciler.updateArrivalETA(context.Background(), 7, strip, Flight{
 		State:      FlightStatePrefile,
 		FlightPlan: FlightPlan{Destination: "EKCH"},
-	})
+	}, true)
 	require.NoError(t, err)
 	assert.False(t, changed)
 	assert.Same(t, previous, strip.ArrivalETA)

@@ -169,6 +169,9 @@ func TestMETARWind(t *testing.T) {
 		{"EKCH 191150Z 12006MPS 9999 08/04 Q1012", 120, 12, true},
 		{"EKCH 191150Z VRB02KT CAVOK 08/04 Q1012", 0, 0, false},
 		{"EKCH 191150Z 00000KT CAVOK 08/04 Q1012", 0, 0, false},
+		{"EKCH 191150Z /////KT 9999 Q1012 BECMG 04010KT", 0, 0, false},
+		{"EKCH 191150Z /////KT 9999 Q1012 TEMPO 04010KT", 0, 0, false},
+		{"EKCH 191150Z 24012KT 9999 Q1012 BECMG 04010KT", 240, 12, true},
 		{"", 0, 0, false},
 	} {
 		t.Run(tc.raw, func(t *testing.T) {
@@ -216,6 +219,7 @@ func TestArrivalGuidanceUsesWindWhenATISHasNoRunway(t *testing.T) {
 		{name: "stale ATIS", atis: &metar.ATIS{Text: []string{"RWY IN USE 22L"}, Stale: true}, metar: "EKCH 191150Z 04010KT 9999 Q1012", wantRunway: "04L", expected: true},
 		{name: "ATIS wins over wind", atis: &metar.ATIS{Text: []string{"RWY IN USE 22R"}}, metar: "EKCH 191150Z 04010KT 9999 Q1012", wantRunway: "22R", expected: true},
 		{name: "variable wind is not guessed", metar: "EKCH 191150Z VRB02KT 9999 Q1012", expected: true},
+		{name: "forecast wind is not substituted for missing observed wind", metar: "EKCH 191150Z /////KT 9999 Q1012 BECMG 04010KT", expected: true},
 		{name: "no METAR", expected: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

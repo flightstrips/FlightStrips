@@ -65,6 +65,7 @@ type MockStripRepository struct {
 	SetCdmDataFn                    func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
 	AcknowledgeCdmMilestoneFn       func(ctx context.Context, session int32, callsign string, milestone string, value string) (int64, error)
 	UpdateArrivalETAFn              func(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
+	UpdateFallbackArrivalETAFn      func(ctx context.Context, session int32, callsign string, eta models.ArrivalETA, now time.Time) (int64, error)
 	ClearArrivalETAFn               func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateReleasePointFn            func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
 	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
@@ -494,6 +495,13 @@ func (m *MockStripRepository) UpdateArrivalETA(ctx context.Context, session int3
 		panic("unexpected call to MockStripRepository.UpdateArrivalETA")
 	}
 	return m.UpdateArrivalETAFn(ctx, session, callsign, eta)
+}
+
+func (m *MockStripRepository) UpdateFallbackArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA, now time.Time) (int64, error) {
+	if m.UpdateFallbackArrivalETAFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateFallbackArrivalETA")
+	}
+	return m.UpdateFallbackArrivalETAFn(ctx, session, callsign, eta, now)
 }
 
 func (m *MockStripRepository) ClearArrivalETA(ctx context.Context, session int32, callsign string) (int64, error) {

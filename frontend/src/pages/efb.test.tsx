@@ -1094,6 +1094,25 @@ describe('EFB page interactions', () => {
     expect(screen.queryByText('NO FLIGHTPLAN')).not.toBeInTheDocument();
   });
 
+  it('keeps the Z on departure identifiers and accepts it on UTC times', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(previewResponse));
+    render(<EFBPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'PREVIEW DEPARTURE' }));
+    const form = screen.getByRole('form', { name: 'Simulated departure' });
+    fireEvent.change(within(form).getByLabelText('Callsign'), { target: { value: ' sas12z ' } });
+    fireEvent.change(within(form).getByLabelText('Destination ICAO'), { target: { value: 'edhz' } });
+    fireEvent.change(within(form).getByLabelText('TOBT (HHMM UTC)'), { target: { value: '1935Z' } });
+    fireEvent.change(within(form).getByLabelText('TSAT (HHMM UTC)'), { target: { value: '1940z' } });
+    fireEvent.change(within(form).getByLabelText('CTOT (HHMM UTC)'), { target: { value: '1950Z' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'SHOW DEPARTURE' }));
+
+    expect(await screen.findByRole('status', { name: 'Simulated departure preview' })).toHaveTextContent('SAS12Z · EKCH–EDHZ');
+    expect(screen.getByText('1935')).toBeInTheDocument();
+    expect(screen.getByText('1940')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Departure CTOT' })).toHaveTextContent('1950');
+  });
+
   it('previews the supplied simulated arrival without calling flight or controller APIs', async () => {
     const fetchMock = vi.fn().mockImplementation(previewResponse);
     vi.stubGlobal('fetch', fetchMock);

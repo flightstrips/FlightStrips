@@ -105,14 +105,14 @@ func (a *WebAPI) handleNetworkFlight(w http.ResponseWriter, r *http.Request, use
 			result.Runway = departureRunwayFromATIS(strings.Join(result.ATIS.Text, " "))
 		}
 	}
-	a.addNetworkStripData(r.Context(), &result)
+	sidFromStrip := a.addNetworkStripData(r.Context(), &result)
 	if !departure {
 		a.addArrivalGuidance(r.Context(), &result)
 	}
 	if departure && !a.callsignLookup {
 		a.addPilotDepartureStand(r.Context(), &result, flight)
 	}
-	if departure {
+	if departure && !sidFromStrip {
 		result.SID = withPublishedSIDVersion(result.Origin, result.Runway, result.SID)
 	}
 	applyDepartureRules(&result)
@@ -155,23 +155,24 @@ func (a *WebAPI) networkTiming(ctx context.Context, callsign string) (*cdm.IFPSD
 	return timing, nil
 }
 
-func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
+// addNetworkStripData reports whether the matched strip supplied the departure SID.
+func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) bool {
 	if a.flights == nil {
-		return
+		return false
 	}
 	match, err := a.flights.FindWebStripByCallsign(ctx, result.Callsign)
 	if errors.Is(err, pdc.ErrWebStripNotFound) {
-		return
+		return false
 	}
 	if err != nil {
 		slog.WarnContext(ctx, "EFB optional stand lookup failed", "callsign", result.Callsign, "error", err)
 		result.DataErrors = append(result.DataErrors, "FlightStrips stand information is unavailable.")
-		return
+		return false
 	}
 	if match.Strip == nil || !strings.EqualFold(match.Strip.Origin, result.Origin) || !strings.EqualFold(match.Strip.Destination, result.Destination) {
 		slog.WarnContext(ctx, "EFB optional stand belongs to a different flight plan", "callsign", result.Callsign)
 		result.DataErrors = append(result.DataErrors, "FlightStrips stand information does not match the current VATSIM flight.")
-		return
+		return false
 	}
 	if result.Phase == "DEPARTURE" {
 		if strings.EqualFold(result.Origin, "EKCH") && a.cdm != nil {
@@ -198,7 +199,8 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 			result.PDCClearanceText = match.Strip.PdcData.Web.ClearanceText
 		}
 		applyPDCDeliveryDelay(result, match.Strip.PdcData, time.Now())
-		if sid := nonEmptyString(match.Strip.Sid); sid != nil {
+		sid := nonEmptyString(match.Strip.Sid)
+		if sid != nil {
 			result.SID = sid
 		}
 		if runway := nonEmptyString(match.Strip.Runway); runway != nil {
@@ -220,13 +222,14 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 			state := "SENSED"
 			result.StandState = &state
 		}
-		return
+		return sid != nil
 	}
 	result.STAR = nonEmptyString(match.Strip.Star)
 	result.Runway = nonEmptyString(match.Strip.Runway)
 	result.ArrivalETA = arrivalETA(match.Strip.ArrivalETA)
 	a.addNetworkStandAssignment(ctx, result, match)
 	applyArrivalStandRestriction(result, match.Strip, result.Destination, time.Now())
+	return false
 }
 
 func (a *WebAPI) addNetworkStandAssignment(ctx context.Context, result *snapshot, match pdc.WebStripMatch) {

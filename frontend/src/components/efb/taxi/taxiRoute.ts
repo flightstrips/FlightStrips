@@ -83,8 +83,9 @@ function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assig
   const end = runwayItem?.end ?? (holdingPoint ? HOLDING_POINTS[holdingPoint.name] : assigned!.end);
   const items: ClearanceItem[] = [...rest];
   if (holdingPoint) items.push({ type: 'twy', name: holdingPoint.name, text: holdingPoint.name, segment: active });
-  const holds = items.filter((item) => item.type === 'hold' && item.segment === active);
-  if (runway && (runwayItem ? !holds.some((item) => item.name === runway) : !holds.length)) {
+  const holds = items.filter((item) => item.type === 'hold');
+  if (runway && !holds.some((item) => item.name === runway)
+    && (runwayItem || !holds.some((item) => item.segment === active))) {
     items.push({ type: 'hold', name: runway, end, text: `.${end}`, segment: active });
   }
   return { parsed: { ...parsed, items }, point: holdingPoint?.name ?? null, runway: runwayItem ? end : null };
@@ -97,8 +98,10 @@ function addDepartureRunwayHold(parsed: ParsedClearance, net: TaxiNetwork, depar
   const runway = findRunway(departureRunway, net);
   const joins = runway ? DEPARTURE_RUNWAY_JOINS[runway.end] : undefined;
   if (!runway || !joins) return { parsed, added: null };
+  if (parsed.items.some((item) => item.type === 'hold' && (item.name === runway.name || item.segment === parsed.activeSegment))) {
+    return { parsed, added: null };
+  }
   const active = parsed.items.filter((item) => item.segment === parsed.activeSegment);
-  if (active.some((item) => item.type === 'hold')) return { parsed, added: null };
   const last = [...active].reverse().find((item) => item.type === 'twy' || item.type === 'rwy');
   if (!last || last.type !== 'twy' || !joins.includes(last.name)) return { parsed, added: null };
   const hold: ClearanceItem = { type: 'hold', name: runway.name, end: runway.end, text: `.${runway.end}`, segment: parsed.activeSegment };
@@ -381,6 +384,7 @@ function reach(g: Graph, n: string, first: Edge, name: string): number {
 
 export interface RouteLeg {
   name: string;
+  segment: number;
   pts: Point[];
   /** Junctions reached along this leg, with their index in pts. */
   nodes: Array<{ n: string; k: number }>;
@@ -471,7 +475,7 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
   const messages: TaxiRoute['messages'] = [];
   if (runwayHold?.added) messages.push({ level: 'info', text: `No hold short given: continuing to hold short of runway ${runwayHold.added}.` });
   if (destination?.point) messages.push({ level: 'info', text: `Holding point ${destination.point} written first: taxiing to it at the end of the route.` });
-  else if (destination?.runway) messages.push({ level: 'info', text: `Runway ${destination.runway} written first: it is where the route ends.` });
+  else if (destination?.runway) messages.push({ level: 'info', text: `Runway ${destination.runway} written first is treated as the departure runway.` });
   const res: TaxiRoute = {
     mode: spec.kind, releasePoint: null, start: null, startLabel: null, stand: null, standReached: false, standEntry: null,
     parsed, legs: [], stub: null, marks: [], holdAt: null, messages,
@@ -490,15 +494,21 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
   }
   const names = route.map((item) => item.name);
   // Hold shorts in earlier parts (before the last "/") were released by the onward clearance.
-  const holds = parsed.items.filter((i) => i.type === 'hold' && i.segment === parsed.activeSegment).map((i) => i.name);
+  const activeHolds = parsed.items.filter((i) => i.type === 'hold' && i.segment === parsed.activeSegment);
+  const holds = activeHolds.map((i) => i.name);
+  const label = Object.fromEntries(activeHolds.map((item) => [item.name, itemLabel(item)]));
   const isPast = (i: number) => route[i].segment < parsed.activeSegment;
-  const crosses = parsed.items.filter((i) => i.type === 'cross').map((i) => i.name);
-  const label: Record<string, string> = {};
-  for (const item of parsed.items) if (item.type !== 'twy') label[item.name] = itemLabel(item);
+  const crosses = parsed.items.filter((i) => i.type === 'cross');
   const disp = (i: number) => itemLabel(route[i]);
+  const legSteps: Step[][] = [];
+  let stubEdge: Edge | undefined;
+  const appendLeg = (steps: Step[], segment: number, extra: Omit<RouteLeg, 'pts' | 'nodes' | 'segment' | 'past'>) => {
+    legSteps.push(steps);
+    res.legs.push(legFrom(steps, { ...extra, segment, past: segment < parsed.activeSegment }));
+  };
 
   if (parsed.bad) say('err', `Can't read "${parsed.bad}"`);
-  for (const c of crosses) if (holds.includes(c)) say('warn', `Both hold short and cross ${label[c]}?`);
+  for (const c of crosses) if (c.segment === parsed.activeSegment && holds.includes(c.name)) say('warn', `Both hold short and cross ${itemLabel(c)}?`);
   for (const item of route) if (item.type === 'rwy' && !item.end) say('err', `Say which direction to taxi on ${item.name}: ${item.name.split('/').join(' or ')}`);
 
   // Where the route starts (and, for arrivals, the stand it ends at).
@@ -548,7 +558,7 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
     if (startName !== names[0]) {
       const c = search(g, cur, (n) => on(n, names[0]), (e) => e.kind !== 'runway' && e.name === startName);
       if (!c) { say('err', `${res.releasePoint!.name} is on ${startName}, which does not join ${disp(0)}`); return finish(); }
-      res.legs.push(legFrom(c.steps, { name: startName, connector: true, past: isPast(0) }));
+      appendLeg(c.steps, route[0].segment, { name: startName, connector: true });
       cur = c.node;
     }
   } else {
@@ -569,42 +579,49 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
     res.start = [exits[0].x, exits[0].y];
     res.startLabel = `${end} · ${disp(0)}`;
   }
-  for (let i = 0; i < route.length - 1; i++) {
-    // At a "/" the earlier clearance first runs to its own hold short (e.g. ".Z" in "Bx30.Z/BVT");
-    // the onward clearance continues from there, even when it carries on along the same taxiway.
-    if (route[i + 1].segment > route[i].segment) {
-      const legsSoFar = res.legs;
-      const segmentHold = parsed.items.find((it) => it.type === 'hold' && it.segment === route[i].segment
-        && !legsSoFar.some((l) => l.nodes.some((x) => on(x.n, it.name))) && !on(cur, it.name));
-      const toSegmentHold = segmentHold && search(g, cur, (n) => on(n, segmentHold.name), okFor(route[i]));
-      if (toSegmentHold) {
-        res.legs.push(legFrom(toSegmentHold.steps, { name: disp(i), runway: route[i].type === 'rwy', past: isPast(i) }));
-        cur = toSegmentHold.node;
-      }
+  function continueFromPriorHold(item: ClearanceItem, onwardSegment: number): number {
+    if (onwardSegment === item.segment) return item.segment;
+    const segmentHold = parsed.items.find((hold) => hold.type === 'hold' && hold.segment === item.segment
+      && (on(cur, hold.name) || !res.legs.some((leg) => leg.segment === item.segment && leg.nodes.some((node) => on(node.n, hold.name)))));
+    if (!segmentHold) return item.segment;
+    const toSegmentHold = search(g, cur, (n) => on(n, segmentHold.name), okFor(item), true);
+    if (!toSegmentHold) return item.segment;
+
+    // Movement up to the hold belongs to the earlier clearance. Movement from it can reuse the same taxiway.
+    if (toSegmentHold.steps.length) {
+      appendLeg(toSegmentHold.steps, item.segment, { name: itemLabel(item), runway: item.type === 'rwy' });
     }
+    cur = toSegmentHold.node;
+    return onwardSegment;
+  }
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const segment = continueFromPriorHold(route[i], route[i + 1].segment);
     const r = search(g, cur, (n) => on(n, names[i + 1]), okFor(route[i]), true);
     if (!r) {
       say('err', route[i].type === 'rwy' ? `Heading ${disp(i)} on the runway does not reach ${disp(i + 1)}` : `${disp(i)} does not connect to ${disp(i + 1)}`);
-      return finish();
+      return finish(route[i]);
     }
-    if (r.steps.length) res.legs.push(legFrom(r.steps, { name: disp(i), runway: route[i].type === 'rwy', past: isPast(i) }));
+    if (r.steps.length) appendLeg(r.steps, segment, { name: disp(i), runway: route[i].type === 'rwy' });
     cur = r.node;
   }
 
   const lastIndex = route.length - 1, lastItem = route[lastIndex], lastName = names[lastIndex];
   const lastHeading = heading(lastItem), okLast = okFor(lastItem);
-  const reached = (name: string) => res.legs.some((l) => l.nodes.some((x) => on(x.n, name)));
+  const reached = (name: string) => res.legs.some((l) => !l.past && l.nodes.some((x) => on(x.n, name)));
   const pending = holds.filter((h) => !reached(h));
-  const toHold = pending.length ? search(g, cur, (n) => on(n, pending[0]), okLast) : null;
+  const approachSegment = pending.length ? continueFromPriorHold(lastItem, parsed.activeSegment) : lastItem.segment;
+  const atJunction = res.legs.at(-1)?.nodes.at(-1)?.n === cur;
+  const toHold = pending.length ? search(g, cur, (n) => on(n, pending[0]), okLast, atJunction) : null;
   if (toHold) {
-    res.legs.push(legFrom(toHold.steps, { name: disp(lastIndex), runway: lastItem.type === 'rwy', past: isPast(lastIndex) }));
+    if (toHold.steps.length) appendLeg(toHold.steps, approachSegment, { name: disp(lastIndex), runway: lastItem.type === 'rwy' });
   } else if (pending.length && (HOLD_SHORT_VIA[`${lastName}>${label[pending[0]]}`] ?? HOLD_SHORT_VIA[label[pending[0]]])) {
     const via = HOLD_SHORT_VIA[`${lastName}>${label[pending[0]]}`] ?? HOLD_SHORT_VIA[label[pending[0]]];
     const a = search(g, cur, (n) => on(n, via), okLast, true);
     const b = a && search(g, a.node, (n) => on(n, pending[0]), (e) => e.name === via);
     if (a && b) {
-      res.legs.push(legFrom(a.steps, { name: disp(lastIndex), past: isPast(lastIndex) }));
-      res.legs.push(legFrom(b.steps, { name: via, auto: true }));
+      if (a.steps.length) appendLeg(a.steps, approachSegment, { name: disp(lastIndex), runway: lastItem.type === 'rwy' });
+      appendLeg(b.steps, parsed.activeSegment, { name: via, auto: true });
       say('info', `Joined ${label[pending[0]]} via ${via} (standard routing)`);
     } else {
       say('warn', `Hold short ${label[pending[0]]}: ${disp(lastIndex)} does not lead to ${via}`);
@@ -615,7 +632,7 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
   if (!toHold && !res.legs.some((l) => l.auto) && res.stand && !pending.length) {
     const toStand = search(g, cur, (n) => n.startsWith('STAND'), okLast, true);
     if (toStand) {
-      res.legs.push(legFrom(toStand.steps, { name: disp(lastIndex), past: isPast(lastIndex) }));
+      if (toStand.steps.length) appendLeg(toStand.steps, lastItem.segment, { name: disp(lastIndex), runway: lastItem.type === 'rwy' });
       res.standReached = true;
       res.standEntry = g.splits[toStand.node]?.point ?? null;
     } else {
@@ -630,44 +647,63 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
       say('err', lastHeading ? `Can't taxi heading ${disp(lastIndex)} from here` : `Route does not reach ${disp(lastIndex)}`);
     } else {
       const pick = candidates[(options.flip ? 1 : 0) % candidates.length];
+      stubEdge = pick.e;
       res.stub = { name: disp(lastIndex), pts: walk(g, cur, pick.e, lastName, lastHeading ? STUB_LENGTH * 1.6 : STUB_LENGTH), choices: lastHeading ? 1 : candidates.length, past: isPast(lastIndex) };
     }
   }
   smooth(res);
-  return finish();
+  return finish(undefined, toHold?.node);
 
-  function finish(): TaxiRoute {
+  function finish(stoppedAt?: ClearanceItem, terminalHoldNode?: string): TaxiRoute {
     const offMap = new Set(net.lines.filter((l) => l.offMap).map((l) => l.name));
     for (const piece of [...res.legs, ...(res.stub ? [res.stub] : [])]) {
       if (!offMap.has(piece.name)) continue;
       piece.offMap = true;
       say('info', `${piece.name} is beyond the edge of the map; the route is drawn to where it joins.`);
     }
+    const pendingHolds = new Set(holds);
+    const unusedCrossings = [...crosses];
+    const stubItem = res.stub ? route.at(-1) : undefined;
     let offset = 0;
-    const seq: Array<{ n: string; li: number; g: number }> = [];
     res.legs.forEach((leg, li) => {
-      for (const x of leg.nodes) seq.push({ n: x.n, li, g: offset + x.k });
-      offset += leg.pts.length;
-    });
-    const endNode = res.legs[res.legs.length - 1]?.nodes.at(-1)?.n;
-    const routeEnds = !res.stub;
-    const done = new Set<string>();
-    for (const x of seq) {
-      for (const nm of g.nodes[x.n].names) {
-        if (done.has(nm) || (names.includes(nm) && !holds.includes(nm))) continue;
-        const atEnd = routeEnds && x.n === endNode && x.li === res.legs.length - 1;
-        if (isRunway(nm)) {
-          const cleared = crosses.includes(nm) && !atEnd;
-          res.marks.push({ type: cleared ? 'cross' : 'hold', name: nm, label: label[nm] ?? nm, runway: true, implicit: !cleared && !holds.includes(nm), g: x.g });
-          done.add(nm);
-        } else if (holds.includes(nm)) {
-          res.marks.push({ type: 'hold', name: nm, label: label[nm] ?? nm, runway: false, g: x.g });
-          done.add(nm);
+      const incomingRunway = leg.runway ? findRunway(leg.name, net)?.name : undefined;
+      const nextLeg = res.legs[li + 1];
+      const onwardSegment = nextLeg?.segment ?? stubItem?.segment ?? leg.segment;
+      const onwardEdge = nextLeg ? legSteps[li + 1][0]?.e : stubEdge;
+      // Reversing along the incoming edge leaves the aircraft on the same side of the runway.
+      const turnsBack = onwardEdge !== undefined && onwardEdge === legSteps[li].at(-1)?.e;
+      const unfinishedItem = stubItem ?? stoppedAt;
+      const onwardRunway = nextLeg
+        ? (nextLeg.runway ? findRunway(nextLeg.name, net)?.name : undefined)
+        : (unfinishedItem?.type === 'rwy' ? unfinishedItem.name : undefined);
+      for (const x of leg.nodes) {
+        const endOfLeg = x === leg.nodes.at(-1);
+        const atEnd = endOfLeg && !nextLeg && !res.stub;
+        // At a segment boundary, permission to proceed through the junction belongs to the onward leg.
+        const segment = endOfLeg ? onwardSegment : leg.segment;
+        // A new hold can end movement on a taxiway from the earlier clearance.
+        const activeHold = segment === parsed.activeSegment || (atEnd && x.n === terminalHoldNode);
+        for (const name of g.nodes[x.n].names) {
+          const explicitHold = activeHold && pendingHolds.has(name);
+          if (isRunway(name)) {
+            if (!explicitHold && (name === incomingRunway || (endOfLeg && (turnsBack || name === onwardRunway)))) continue;
+            const crossingIndex = atEnd ? -1 : unusedCrossings.findIndex((item) => item.segment === segment && item.name === name);
+            if (crossingIndex >= 0) {
+              const [crossing] = unusedCrossings.splice(crossingIndex, 1);
+              res.marks.push({ type: 'cross', name, label: itemLabel(crossing), runway: true, g: offset + x.k });
+              continue;
+            }
+            res.marks.push({ type: 'hold', name, label: explicitHold ? label[name] : name, runway: true, implicit: !explicitHold, g: offset + x.k });
+          } else if (explicitHold) {
+            res.marks.push({ type: 'hold', name, label: label[name], runway: false, g: offset + x.k });
+          }
+          if (explicitHold) pendingHolds.delete(name);
         }
       }
-    }
-    for (const h of holds) if (!done.has(h) && warned !== h) say('warn', `Hold short ${label[h]}: not on the route yet`);
-    for (const c of crosses) if (!done.has(c)) say('warn', `Cross ${label[c]}: the route does not cross it${res.stub ? ' yet' : ''}`);
+      offset += leg.pts.length;
+    });
+    for (const h of pendingHolds) if (warned !== h) say('warn', `Hold short ${label[h]}: not on the route yet`);
+    for (const c of unusedCrossings) say('warn', `Cross ${itemLabel(c)}: the route does not cross it${res.stub ? ' yet' : ''}`);
     for (const m of res.marks) if (m.type === 'hold' && m.implicit) say('err', `No crossing clearance for ${m.name}. Hold short. (Add x${m.name.split('/').pop()} to cross.)`);
     const firstHold = res.marks.filter((m) => m.type === 'hold').sort((a, b) => a.g - b.g)[0];
     if (firstHold) {

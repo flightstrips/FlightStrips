@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import flytampaCover from '../../../assets/efb/scenery-flytampa.jpg';
 import simnordCover from '../../../assets/efb/scenery-simnord.webp';
 
@@ -46,27 +46,53 @@ const linkBoxClassName = 'flex w-[17%] shrink-0 items-center justify-center roun
 export default function D1OptionsDialog({ isOpen, onClose, loadScenery, saveScenery }: D1OptionsDialogProps) {
   const [scenery, setScenery] = useState<SceneryId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(loadScenery));
+  const [saving, setSaving] = useState(false);
+  const pendingSave = useRef<Promise<unknown> | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !loadScenery) return;
+    if (!isOpen) return;
+    setLoading(Boolean(loadScenery));
+    if (!loadScenery) return;
     let current = true;
     setError(null);
-    loadScenery()
-      .then((value) => { if (current) setScenery(isSceneryId(value) ? value : null); })
-      .catch(() => { if (current) setError('Could not load your scenery choice.'); });
+    const load = async () => {
+      // A reopened dialog must load the value after any outstanding save.
+      if (pendingSave.current) await pendingSave.current.catch(() => undefined);
+      if (!current) return;
+      try {
+        const value = await loadScenery();
+        if (current) setScenery(isSceneryId(value) ? value : null);
+      } catch {
+        if (current) setError('Could not load your scenery choice.');
+      } finally {
+        if (current) setLoading(false);
+      }
+    };
+    void load();
     return () => { current = false; };
   }, [isOpen, loadScenery]);
 
   if (!isOpen) return null;
 
-  const selectScenery = (value: SceneryId) => {
+  const selectScenery = async (value: SceneryId) => {
+    if (loading || pendingSave.current) return;
     const previous = scenery;
     setScenery(value);
     setError(null);
-    saveScenery?.(value).catch(() => {
+    if (!saveScenery) return;
+    setSaving(true);
+    try {
+      const save = saveScenery(value);
+      pendingSave.current = save;
+      await save;
+    } catch {
       setScenery(previous);
       setError('Could not save your scenery choice. Try again.');
-    });
+    } finally {
+      pendingSave.current = null;
+      setSaving(false);
+    }
   };
 
   return (
@@ -94,7 +120,7 @@ export default function D1OptionsDialog({ isOpen, onClose, loadScenery, saveScen
             <h2 id="efb-scenery-heading" className="mb-[3%] border-b border-[#38536E] pb-[1%] text-[clamp(12px,1.6vw,28px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
               AIRPORT SCENERY
             </h2>
-            <div role="radiogroup" aria-labelledby="efb-scenery-heading" className="grid min-h-0 flex-1 grid-rows-3 gap-[5%]">
+            <div role="radiogroup" aria-labelledby="efb-scenery-heading" aria-busy={loading || saving} className="grid min-h-0 flex-1 grid-rows-3 gap-[5%]">
               {SCENERY_OPTIONS.map((option) => {
                 const selected = scenery === option.id;
                 return (
@@ -103,8 +129,9 @@ export default function D1OptionsDialog({ isOpen, onClose, loadScenery, saveScen
                       type="button"
                       role="radio"
                       aria-checked={selected}
-                      onClick={() => selectScenery(option.id)}
-                      className={`flex min-w-0 flex-1 cursor-pointer items-center gap-[3%] rounded-md border-2 px-[3%] text-left text-[clamp(12px,1.6vw,28px)] font-bold text-white ${selected ? 'border-[#41826E] bg-[#0B2A24]' : 'border-[#1A475F] bg-[#011328]'}`}
+                      disabled={loading || saving}
+                      onClick={() => void selectScenery(option.id)}
+                      className={`flex min-w-0 flex-1 cursor-pointer items-center gap-[3%] rounded-md border-2 px-[3%] text-left text-[clamp(12px,1.6vw,28px)] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-[#41826E] bg-[#0B2A24]' : 'border-[#1A475F] bg-[#011328]'}`}
                     >
                       <span aria-hidden="true" className={`flex aspect-square h-[38%] shrink-0 items-center justify-center rounded-sm border-2 text-[clamp(12px,1.5vw,26px)] leading-none ${selected ? 'border-[#41826E] bg-[#41826E] text-white' : 'border-[#B8D9F0] text-transparent'}`}>
                         ✓

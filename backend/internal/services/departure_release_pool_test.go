@@ -63,9 +63,19 @@ func TestDepartureReleaseRecheckDoesNotStarveThePool(t *testing.T) {
 			go func() {
 				writerDone <- lifecycle.recordOnlineSighting(ctx, session, callsign, onlineFlightSeenAt(callsign, 1, clock.current()))
 			}()
-			// Let the writer take whatever connection it can and queue behind
-			// the release's strip lock before the heartbeat recheck runs.
-			time.Sleep(300 * time.Millisecond)
+			// Do not run the heartbeat recheck until both connections are in use.
+			// With the old order this needs the writer to hold the second one
+			// while it queues on the strip lock; with the new order the reader
+			// and the release transaction already hold both. The hook runs on
+			// the release goroutine, so report with Errorf rather than require.
+			deadline := time.Now().Add(5 * time.Second)
+			for small.Stat().AcquiredConns() < 2 {
+				if time.Now().After(deadline) {
+					t.Errorf("the pool never reached two acquired connections (have %d)", small.Stat().AcquiredConns())
+					return
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
 		},
 	}
 

@@ -375,7 +375,8 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 			}
 			merged.PlannedTiming = &timing
 		}
-		if incoming.Surveillance != nil && (previous.Surveillance == nil || previous.Surveillance.ObservedAt == nil ||
+		if incoming.Surveillance != nil && (previous.SurveillanceSource != aman.SurveillanceSourceEuroScope ||
+			previous.Surveillance == nil || previous.Surveillance.ObservedAt == nil ||
 			incoming.Surveillance.ObservedAt != nil && !incoming.Surveillance.ObservedAt.Before(*previous.Surveillance.ObservedAt)) {
 			merged.Surveillance, merged.SurveillanceSource = incoming.Surveillance, aman.SurveillanceSourceEuroScope
 		}

@@ -606,6 +606,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		restarted.SetWrongStandMessenger(&wrongStandTestMessenger{available: true})
 
 		clock.advance(time.Hour)
+		seenByEuroScope(t, pool, session, clock.current(), "SAS611", "SAS612")
 		require.NoError(t, restarted.ReleaseExpired(ctx))
 		require.NoError(t, restarted.ObserveDeparturePosition(
 			ctx, session, loadStrip(t, strips, session, "SAS612"), 55.6285306, 12.6434583,
@@ -773,6 +774,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS701"), onlineFlight("SAS701", 1)))
 
 		clock.set(time.Date(2026, 7, 12, 10, 39, 0, 0, time.UTC))
+		seenByFeed(t, pool, session, clock.current(), "SAS701")
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		if assignment, err := assignments.GetAssignment(ctx, session, "SAS701"); assert.NoError(t, err) {
 			assert.Nil(t, assignment.ExpiresAt, "the active block should not retain a TSAT expiry")
@@ -782,6 +784,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		}
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
+		seenByFeed(t, pool, session, clock.current(), "SAS701")
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS701")
 		require.NoError(t, err, "the occupied stand remains assigned after TSAT+5")
@@ -804,6 +807,7 @@ func TestDepartureLifecycle(t *testing.T) {
 
 		clock.advance(26 * time.Minute)
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SASSTART1"), onlineFlight("SASSTART1", 2)))
+		seenByFeed(t, pool, session, clock.current(), "SASSTART1")
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		retained, err := assignments.GetAssignment(ctx, session, "SASSTART1")
 		require.NoError(t, err)
@@ -832,6 +836,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, time.Date(2026, 7, 12, 10, 35, 0, 0, time.UTC), block.ProjectedReleaseAt.UTC())
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
+		seenByFeed(t, pool, session, clock.current(), "SAS801")
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		_, err = assignments.GetAssignment(ctx, session, "SAS801")
 		require.NoError(t, err, "the occupied stand remains assigned after TOBT+5")
@@ -857,6 +862,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Nil(t, assignment.ExpiresAt, "stale TOBT must not create an already-expired deadline")
 
 		clock.advance(30 * time.Minute)
+		seenByEuroScope(t, pool, session, clock.current(), "SAS802")
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		_, err = assignments.GetAssignment(ctx, session, "SAS802")
 		require.NoError(t, err, "an online assignment without a valid CDM deadline must remain assigned")

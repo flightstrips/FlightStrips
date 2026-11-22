@@ -51,6 +51,38 @@ func TestEuroScopeStripObserverMapsFiledTimingAndRetainsItAcrossPositionReports(
 	require.True(t, flight.Prediction.Publishable)
 }
 
+func TestEuroScopeStripObserverMapsClearedAltitudeIndependentlyOfHolding(t *testing.T) {
+	at := time.Date(2026, 11, 18, 14, 0, 0, 0, time.UTC)
+	level := func(value int32) *int32 { return &value }
+	sink := &euroScopeObservationSink{}
+	observer, err := NewEuroScopeStripObserver(EuroScopeStripObserverDependencies{Sink: sink, Now: func() time.Time { return at }})
+	require.NoError(t, err)
+
+	// The CFL is kept without any holding clearance, and approach codes pass through.
+	for _, cleared := range []int32{7000, 1, 2} {
+		strip := &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", ClearedAltitude: level(cleared)}
+		require.NoError(t, observer.ObserveEuroScopeStrip(t.Context(), strip))
+		observation := sink.observations[len(sink.observations)-1]
+		require.Equal(t, int(cleared), *observation.ClearedAltitude)
+		require.Nil(t, observation.HoldingClearance.ClearedAltitude, "holding logic only sees a CFL with a hold")
+	}
+	strip := &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", ClearedAltitude: level(0)}
+	require.NoError(t, observer.ObserveEuroScopeStrip(t.Context(), strip))
+	require.Nil(t, sink.observations[len(sink.observations)-1].ClearedAltitude, "EuroScope 0 means no CFL")
+}
+
+func TestEuroScopeClearedAltitudeSurvivesNetworkUpdatesAndClearsFromEuroScope(t *testing.T) {
+	at := time.Date(2026, 11, 18, 14, 0, 0, 0, time.UTC)
+	cleared := 7000
+	euroScope := aman.FlightObservation{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", ClearedAltitude: &cleared, Provider: aman.ObservationProviderEuroScope, ReconciledAt: at}
+
+	network := mergeSurveillanceObservation(euroScope, aman.FlightObservation{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Provider: aman.ObservationProviderVATSIM, ReconciledAt: at.Add(time.Second)})
+	require.Equal(t, 7000, *network.ClearedAltitude, "VATSIM has no CFL and must not erase EuroScope's")
+
+	removed := mergeSurveillanceObservation(network, aman.FlightObservation{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Provider: aman.ObservationProviderEuroScope, ReconciledAt: at.Add(2 * time.Second)})
+	require.Nil(t, removed.ClearedAltitude, "a EuroScope update without a CFL removes it")
+}
+
 func TestEuroScopePlannedTimingRejectsMissingAndInvalidFields(t *testing.T) {
 	at := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
 	for _, eet := range []string{"", "0000", "0160", "-130"} {

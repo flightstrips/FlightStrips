@@ -32,7 +32,8 @@ describe("TMT holding graph", () => {
       fireEvent.click(aircraft);
       fireEvent.keyDown(aircraft, {key: "Enter"});
       fireEvent.keyDown(aircraft, {key: " "});
-      expect(onOpenFlightActions.mock.calls.slice(-3)).toEqual([[callsign], [callsign], [callsign]]);
+      // Click and keyboard both pass the aircraft element as the menu anchor.
+      expect(onOpenFlightActions.mock.calls.slice(-3)).toEqual([[callsign, aircraft], [callsign, aircraft], [callsign, aircraft]]);
     }
     expect(onOpenFlightActions).toHaveBeenCalledTimes(9);
     fireEvent.keyDown(screen.getByRole("button", {name: /^TIMED,/}), {key: "ArrowDown"});

@@ -333,16 +333,17 @@ func TestAMANStateEventProjectsCanonicalGapAndAuditedException(t *testing.T) {
 
 func TestAMANStateEventProjectsAircraftTargetFacts(t *testing.T) {
 	state := goldenAMANState()
-	aircraftType, wakeCategory := "B38M", "M"
+	aircraftType, wakeCategory, clearedAltitude := "B38M", "M", 7000
 	state.Flights[0].LatestObservation = &aman.FlightObservation{
 		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
-		AircraftType: &aircraftType, WakeCategory: &wakeCategory, ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
+		AircraftType: &aircraftType, WakeCategory: &wakeCategory, ClearedAltitude: &clearedAltitude, ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
 	}
 
 	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
 	require.NoError(t, err)
 	require.Equal(t, &aircraftType, event.Data.Flights[0].AircraftType)
 	require.Equal(t, &wakeCategory, event.Data.Flights[0].WakeCategory)
+	require.Equal(t, &clearedAltitude, event.Data.Flights[0].ClearedAltitude)
 }
 
 func TestAMANStateEventProjectsFiniteAndIndefiniteRunwayClosures(t *testing.T) {

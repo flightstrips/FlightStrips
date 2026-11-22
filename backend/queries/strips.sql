@@ -1,4 +1,4 @@
--- name: InsertStrip :exec
+-- name: InsertStrip :one
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
                      squawk, sid, star, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
@@ -58,11 +58,26 @@ VALUES (
     sqlc.narg(board_state),
     sqlc.arg(is_manual),
     sqlc.arg(flight_plan_eet)
-);
+)
+RETURNING id, version;
 
--- name: UpdateStrip :execrows
+-- name: UpdateStrip :one
+WITH clearance_authority AS (
+    SELECT s.id AS strip_id,
+           sqlc.narg(sync_version)::integer IS NOT NULL AND s.version <> sqlc.narg(sync_version)::integer AS newer_version,
+           s.dedicated_cfl_version > sqlc.narg(sync_version)::integer AS newer_dedicated_cfl,
+           ROW(s.cleared_altitude, s.hold, s.hold_type, s.hold_eat)
+               IS DISTINCT FROM ROW(sqlc.narg(sync_cleared_altitude)::integer, sqlc.narg(sync_hold)::text,
+                                    sqlc.narg(sync_hold_type)::text, sqlc.narg(sync_hold_eat)::text) AS different_clearance,
+           sqlc.narg(sync_sender)::text IS NOT NULL AND (sqlc.narg(sync_sender)::text = '' OR
+               lower(btrim(s.tracking_controller)) <> lower(sqlc.narg(sync_sender)::text)) AS non_tracking
+    FROM strips AS s
+    WHERE s.callsign = sqlc.arg(callsign) AND s.session = sqlc.arg(session)
+      AND (sqlc.narg(sync_strip_id)::integer IS NULL OR s.id = sqlc.narg(sync_strip_id)::integer)
+    FOR UPDATE
+)
 UPDATE strips
-SET version = version + 1,
+SET version = strips.version + 1,
     origin = sqlc.arg(origin),
     destination = sqlc.arg(destination),
     alternative = sqlc.arg(alternative),
@@ -72,7 +87,10 @@ SET version = version + 1,
     squawk = sqlc.arg(squawk),
     sid = sqlc.arg(sid),
     star = sqlc.arg(star),
-    cleared_altitude = sqlc.arg(cleared_altitude),
+    cleared_altitude = CASE WHEN sqlc.arg(sync_restart)::boolean THEN sqlc.narg(cleared_altitude)::integer
+                           WHEN newer_dedicated_cfl OR (newer_version AND different_clearance) OR
+                                 (non_tracking AND btrim(strips.tracking_controller) <> '' AND (newer_version OR btrim(strips.hold) <> ''))
+                            THEN strips.cleared_altitude ELSE sqlc.narg(cleared_altitude)::integer END,
     heading = sqlc.arg(heading),
     aircraft_type = sqlc.arg(aircraft_type),
     runway = sqlc.arg(runway),
@@ -117,12 +135,14 @@ SET version = version + 1,
     vatsim_revision = sqlc.arg(vatsim_revision),
     vatsim_seen_at = sqlc.arg(vatsim_seen_at),
     euroscope_seen_at = sqlc.arg(euroscope_seen_at),
-    hold = sqlc.arg(hold),
-    hold_type = sqlc.arg(hold_type),
-    hold_eat = sqlc.arg(hold_eat),
+    hold = CASE WHEN (newer_version AND different_clearance) OR non_tracking THEN strips.hold ELSE sqlc.arg(hold)::text END,
+    hold_type = CASE WHEN (newer_version AND different_clearance) OR non_tracking THEN strips.hold_type ELSE sqlc.arg(hold_type)::text END,
+    hold_eat = CASE WHEN (newer_version AND different_clearance) OR non_tracking THEN strips.hold_eat ELSE sqlc.arg(hold_eat)::text END,
     next_display_label = sqlc.narg(next_display_label),
     next_display_frequency = sqlc.narg(next_display_frequency)
-WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
+FROM clearance_authority
+WHERE strips.id = clearance_authority.strip_id
+RETURNING strips.id, strips.version, strips.cleared_altitude, strips.hold, strips.hold_type, strips.hold_eat;
 
 -- name: MarkStripEuroscopeSeen :exec
 UPDATE strips
@@ -216,6 +236,7 @@ WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc
 -- name: UpdateStripClearedAltitudeByID :execrows
 UPDATE strips
 SET cleared_altitude = $1,
+    dedicated_cfl_version = version + 1,
     version          = version + 1
 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 

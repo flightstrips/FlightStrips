@@ -1,92 +1,69 @@
 # FlightStrips
 
-FlightStrips is a VATSIM air traffic control management system that provides controllers with a digital flight strip interface, inspired by real-world systems. It features a web-based interface, Euroscope plugin integration, and Hoppies ACARS connectivity for realistic ATC operations.
+**Shared electronic flight strips for VATSIM air traffic control.**
 
-## Architecture
+FlightStrips gives controllers a shared browser-based strip board that stays in sync with EuroScope. Each strip shows the flight plan and the details controllers need as an aircraft moves through the airport, including its stand, runway, clearance status, and the controller currently working it. Updates are shared across connected positions in real time.
 
-FlightStrips is a full-stack application with three main components:
+Developed by VATSIM Scandinavia for Copenhagen Airport (EKCH), FlightStrips draws on the real-world NITOS electronic strip system. Each position has a layout suited to its work. Clearance Delivery can clear a departure, Apron can take the strip for pushback and taxi, and Tower can follow it through takeoff.
 
-### Backend (`backend/`)
-- **Language**: Go
-- **Database**: PostgreSQL
-- **Communication**: WebSocket (JSON-based events)
-- **Purpose**: Manages strip data, controller sessions, and synchronization between frontend and Euroscope
+[Open the web app](https://flightstrips.dk/app) · [Controller documentation](https://docs.flightstrips.dk/getting-started/intro/) · [Plugin releases](https://github.com/flightstrips/FlightStrips/releases)
 
-### Frontend (`frontend/`)
-- **Stack**: React + TypeScript + Vite
-- **Purpose**: Web-based interface for controllers to manage flight strips and operations
+## What controllers can do
 
-### Euroscope Plugin (`euroscope-plugin/`)
-- **Language**: C++
-- **Purpose**: Integration with Euroscope for two-way synchronization of flight plan data and strip information
+- **Organize arrivals and departures.** Move strips between bays, record clearances, and view stand and runway assignments.
+- **Coordinate handoffs.** See who owns each strip, transfer it to the next controller, and track pending coordination. Supported flight plan edits and tracking actions sync back to EuroScope. [Ownership and handoffs](https://docs.flightstrips.dk/concepts/ownership/)
+- **Handle pre-departure clearances.** Issue and track digital clearances through the web or Hoppie's ACARS. Requests that need controller review are flagged on the board. [Pre-departure clearance guide](https://docs.flightstrips.dk/concepts/pre-departure-clearance/)
+- **Manage departure flow.** Use Airport Collaborative Decision Making (A-CDM) to track target off-block and start-up times, calculated take-off times (CTOTs), and applicable ECFMP restrictions.
+- **Sequence arrivals.** Use the arrival manager (AMAN) to review the landing sequence and see time-to-gain or time-to-lose guidance in EuroScope at supported positions.
+- **Call other controllers.** Use the optional VACS integration from the EuroScope panel or the strip board, including when the board is open on a separate laptop or tablet. [VACS setup](https://docs.flightstrips.dk/reference/vacs/)
 
-## Documentation
+The project also includes a [pilot-facing electronic flight bag](https://flightstrips.dk/efb) with flight information, ATIS, charts, and access to digital pre-departure clearances where available.
 
-### Getting Started with the Docs
+## Get started as a controller
 
-- **[Backend Architecture](backend/Architecture.md)** — Database design, WebSocket communication, session management, and multi-server considerations
-- **[Events Specification](events.md)** — Complete specification of all WebSocket events for frontend and Euroscope communication
-- **[Text Pilot Support](.github/specs/text-pilot-support.md)** — Behavior, protocol, source manual and EuroScope acceptance checks
-- **Multi-airport Architecture Proposal** — [HTML with diagrams and epics](.github/specs/multi-airport-support/architecture-proposal.html) · [Markdown source](.github/specs/multi-airport-support/architecture-proposal.md) · [Implementation epic plan](.github/specs/multi-airport-support/epic-plan.md)
-- **[Backend Setup](backend/Readme.md)** — Instructions for running the backend API
-- **[Frontend Setup](frontend/README.md)** — React/TypeScript development setup
-- **[Euroscope Plugin](euroscope-plugin/README.md)** — Plugin development and integration notes
+1. Load the FlightStrips plugin and connect EuroScope on the position and primary frequency you intend to work. The [EuroScope setup guide](https://docs.flightstrips.dk/getting-started/es-plugin/) covers sector-file packages and manual installation.
+2. Open the FlightStrips panel with `.fs open`, sign in with your VATSIM account, and wait for the panel to show **Connected**.
+3. Select **Open App**, sign in with the same VATSIM account, and check your position, layout, and runway setup. [First-session checklist](https://docs.flightstrips.dk/getting-started/first-session/)
 
-### Quick Reference
+## How it works
 
-| Component | Purpose | Docs |
-|-----------|---------|------|
-| Backend API | WebSocket server, data management, event routing | [backend/Architecture.md](backend/Architecture.md) |
-| Frontend UI | ATC controller interface | [frontend/README.md](frontend/README.md) |
-| Euroscope Plugin | Real-time data sync with Euroscope | [euroscope-plugin/README.md](euroscope-plugin/README.md) |
-| Events Protocol | Communication specification | [events.md](events.md) |
+| Component | What it does |
+| --- | --- |
+| **EuroScope plugin** (`euroscope-plugin/`, C++) | Sends your controller position and live flight data to the backend and applies supported changes in EuroScope. [Plugin notes](euroscope-plugin/README.md) |
+| **Backend** (`backend/`, Go and PostgreSQL) | Manages controller sessions, stores shared strip state, and broadcasts changes to connected clients over WebSockets. [Backend architecture](backend/Architecture.md) |
+| **Web app** (`frontend/`, React, TypeScript, and Vite) | Displays the strip board for your controller position and sends your actions to the backend. [Frontend notes](frontend/README.md) |
 
-## Production Deployment
+The backend matches the web app to your EuroScope connection through your VATSIM account. Separate sessions keep live traffic, Sweatbox training, and playback independent. Version checks protect against overwrites when controllers edit the same strip concurrently.
 
-Production is deployed by Portainer to Docker Swarm from the separate
-[flightstrips/infrastructure](https://github.com/flightstrips/infrastructure) repository.
-Its [`stacks/flightstrips.yml`](https://github.com/flightstrips/infrastructure/blob/main/stacks/flightstrips.yml)
-is the source of truth for production image tags, environment variables, resource paths, and mounts.
-See that repository's [deployment instructions](https://github.com/flightstrips/infrastructure#releasing-a-new-version).
+## Local development
 
-The `docker-compose.prod.yml` file in this repository is a legacy configuration;
-it is **not used for production**. Production deployment changes must be reflected
-in the infrastructure repository, including any required configuration changes alongside image version bumps.
+Use Docker with Compose for local backend services. For native builds, check the Go version in [`backend/go.mod`](backend/go.mod), the Node.js requirement in [`frontend/package.json`](frontend/package.json), and the Windows x86 plugin build instructions in the [local development guide](https://docs.flightstrips.dk/dev/local-dev/).
 
-## Local Development
+From the repository root, start PostgreSQL and the backend API. Compose also runs the database migrations.
 
-### Prerequisites
-- Docker and Docker Compose
-- Go 1.21+ (for backend development)
-- Node.js 18+ (for frontend development)
-- CMake (for Euroscope plugin)
-
-### Running the Backend
-
-Start only the database:
 ```sh
-docker compose --profile database up --build -d
-```
-
-Or start the complete stack:
-```sh
+cd backend
 docker compose --profile all up --build -d
 ```
 
-### Running the Frontend
+Use `docker compose --profile database up --build -d` from `backend/` to run PostgreSQL and the migrations while running the Go API locally. See the [backend setup notes](backend/Readme.md).
 
-See [frontend/README.md](frontend/README.md) for development server setup.
+Start the frontend development server in a separate terminal from the repository root.
 
-## Key Features
+```sh
+cd frontend
+npm ci
+npm run dev
+```
 
-- **WebSocket-based Communication** — Real-time synchronization between frontend, backend, and Euroscope
-- **Multi-Session Support** — Multiple sessions can run for the same airport on one backend server
-- **Euroscope Integration** — Two-way sync with Euroscope for flight plan management
-- **Optimistic Concurrency** — Safe concurrent updates to strip data
-- **Hoppies ACARS Integration** — Pilot data connectivity
-- **CDM Support** — Collaborative Decision Making features including ECFMP and CTOT
-- **Grafana Observability** — Cloud dashboards in `observability/grafana/dashboards/`, with a CPU and work-amplification runbook in [observability/README.md](observability/README.md)
+### Developer references
+
+- [WebSocket events and EuroScope protocol](events.md)
+- [Text pilot support specification](.github/specs/text-pilot-support.md)
+- Multi-airport architecture proposal ([HTML with diagrams](.github/specs/multi-airport-support/architecture-proposal.html) · [Markdown source](.github/specs/multi-airport-support/architecture-proposal.md) · [Implementation epic plan](.github/specs/multi-airport-support/epic-plan.md))
+- [Grafana dashboards and observability runbook](observability/README.md)
+- [GitHub Issues](https://github.com/flightstrips/FlightStrips/issues) · [Commit message conventions](docs/commit-messages.md)
 
 ## License
 
-FlightStrips is licensed under the GPL-3.0 License. See [LICENSE](LICENSE) for details.
+FlightStrips is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).

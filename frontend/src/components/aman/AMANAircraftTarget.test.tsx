@@ -158,6 +158,15 @@ describe("compact MAESTRO aircraft target", () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
+  it("shows the selected blue box while an unselected target is hovered", () => {
+    render(<AMANAircraftTarget flight={flight()} guidance={guidance} />);
+    const target = screen.getByRole("button");
+
+    expect(target).toHaveAttribute("aria-pressed", "false");
+    expect(target).toHaveClass("[&:hover]:border-white", "[&:hover]:bg-[#5174B8]");
+    expect(target.className).not.toContain("hover:bg-[#a3d5e8]");
+  });
+
   it("keeps future optional fields caller-owned and ordered around the default core", () => {
     const leadingFields: AMANAircraftTargetField[] = [{id: "feeder-fix-eta", label: "Feeder-fix ETA", value: "10:12"}];
     const trailingFields: AMANAircraftTargetField[] = [{id: "runway", label: "Runway", value: "22L"}];

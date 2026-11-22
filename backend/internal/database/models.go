@@ -379,6 +379,7 @@ type Strip struct {
 	NextControllerSector     *string
 	BoardState               []byte
 	FlightPlanEet            string
+	DedicatedCflVersion      int32
 }
 
 type TacticalStrip struct {

@@ -27,4 +27,46 @@ describe("holding sequence moves", () => {
     expect(screen.getByLabelText("A sequence position 1")).toHaveTextContent("G01");
     expect(screen.getByLabelText("B sequence position 2")).toHaveTextContent("L02");
   });
+
+  it("draws the blue box around the whole row on hover and when selected", () => {
+    render(createElement(AMANHoldingSequenceList, {flights, onCommand: vi.fn()}));
+    const row = screen.getByLabelText("B sequence position 2");
+
+    expect(row).toHaveClass("[&:hover]:border-white", "[&:hover]:bg-[#5174b8]");
+    expect(row).not.toHaveClass("bg-[#5174b8]");
+
+    fireEvent.pointerDown(row, {pointerId: 1});
+    expect(row).toHaveClass("border-white", "bg-[#5174b8]");
+    expect(row).toHaveAttribute("data-selected", "true");
+    expect(screen.getByLabelText("A sequence position 1")).not.toHaveClass("bg-[#5174b8]");
+
+    // Releasing ends the selection, so the row does not stay blue.
+    const original = document.elementFromPoint;
+    document.elementFromPoint = vi.fn(() => row);
+    try {
+      fireEvent.pointerUp(row, {pointerId: 1});
+    } finally {
+      document.elementFromPoint = original;
+    }
+    expect(row).not.toHaveAttribute("data-selected");
+    expect(row).not.toHaveClass("bg-[#5174b8]");
+  });
+
+  it("shows the EuroScope CFL between the callsign and the gain/lose", () => {
+    const cleared = [
+      {...flights[0], cleared_altitude: 9000},
+      {...flights[1], cleared_altitude: 4000},
+      {...flights[2], cleared_altitude: 1},
+      flights[3],
+    ] as AMANFlight[];
+    render(createElement(AMANHoldingSequenceList, {flights: cleared, onCommand: vi.fn(), transitionAltitude: 5000}));
+
+    const cfl = (label: string) => screen.getByLabelText(label).querySelector("[data-field='cfl']");
+    expect(cfl("A sequence position 1")).toHaveTextContent("FL90");
+    expect(cfl("B sequence position 2")).toHaveTextContent("4000");
+    expect(cfl("C sequence position 3")).toHaveTextContent("ILS");
+    expect(cfl("D sequence position 4")).toHaveTextContent(/^$/);
+    // Column order: callsign, CFL, gain/lose, EAT.
+    expect(screen.getByLabelText("A sequence position 1")).toHaveTextContent(/A.*FL90.*G01/);
+  });
 });

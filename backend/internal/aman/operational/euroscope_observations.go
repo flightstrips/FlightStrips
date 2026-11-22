@@ -147,10 +147,12 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 		Callsign: callsign,
 		Origin:   origin, Destination: destination,
 		AircraftType: aircraftType, WakeCategory: wakeCategory, FiledRoute: filedRoute, RequestedLevel: requestedLevel(strip.RequestedAltitude),
-		AssignedSTAR:       optionalStripString(strip.Star),
-		FlightPlan:         aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &now},
-		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, GroundspeedSource: speedSource, TrackTrueDegrees: track, ObservedAt: &current.at},
-		SurveillanceSource: aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
+		ClearedAltitude:              clearedAltitude(strip.ClearedAltitude),
+		ClearedAltitudeStripRevision: stripRevision(strip),
+		AssignedSTAR:                 optionalStripString(strip.Star),
+		FlightPlan:                   aman.FlightPlanFact{Revision: vatsimRevision(strip.VatsimRevision), ObservedAt: &now},
+		Surveillance:                 &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: longitude, AltitudeFeet: &altitudeFeet, GroundspeedKnots: groundspeed, GroundspeedSource: speedSource, TrackTrueDegrees: track, ObservedAt: &current.at},
+		SurveillanceSource:           aman.SurveillanceSourceEuroScope, Provider: aman.ObservationProviderEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
 	}
 	if airborneSurveillance(observation.Surveillance) && now.Sub(current.at) <= aman.ArrivalSurveillanceFreshness {
 		observation.TakeoffDetected = &now
@@ -200,6 +202,16 @@ func euroScopeAircraft(value *string) (*string, *string) {
 
 func requestedLevel(value *int32) *int {
 	if value == nil || *value < 0 {
+		return nil
+	}
+	level := int(*value)
+	return &level
+}
+
+// clearedAltitude maps the EuroScope CFL. Zero means no cleared level; the
+// approach codes 1 (ILS) and 2 (visual) pass through for the client to label.
+func clearedAltitude(value *int32) *int {
+	if value == nil || *value <= 0 {
 		return nil
 	}
 	level := int(*value)

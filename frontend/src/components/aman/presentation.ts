@@ -1,4 +1,5 @@
 import type {AMANCapacityReservation, AMANFlight, AMANRunwayClosure, AMANRunwayGap, AMANState} from "@/api/aman";
+import {formatAltitude} from "@/lib/utils";
 
 export const AMAN_TIMELINE_MINUTES = 10;
 export const AMAN_MARKER_GAP_PERCENT = 8;
@@ -183,6 +184,18 @@ export function layoutTimelineMarkers(
       tracks.set(candidate.flight.callsign, track);
     });
   return candidates.map((candidate) => ({...candidate, track: tracks.get(candidate.flight.callsign) ?? 0}));
+}
+
+/**
+ * Formats the EuroScope CFL like the strips do (FL above the transition
+ * altitude, feet at or below), with EuroScope's approach codes 1 and 2
+ * shown as ILS and VIS. A missing CFL is blank.
+ */
+export function formatAMANClearedAltitude(value: number | undefined, transitionAltitude: number): string {
+  if (value === undefined || value <= 0) return "";
+  if (value === 1) return "ILS";
+  if (value === 2) return "VIS";
+  return formatAltitude(value, transitionAltitude);
 }
 
 export function formatAMANTime(value: string | null): string {

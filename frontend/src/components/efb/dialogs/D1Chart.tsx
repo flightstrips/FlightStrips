@@ -44,6 +44,8 @@ interface D1ChartProps {
   procedure: string;
   arrival: boolean;
   expected?: boolean;
+  /** On the ground (or unknown), Charts opens on the taxi clearance; airborne it opens on the procedure. */
+  airborne?: boolean;
   /** Set for departures from an airport with a taxi network; enables the taxi clearance section. */
   taxiClearance?: { callsign: string; mode?: 'departure' | 'arrival'; releasePoint: string | null; stand?: string | null; runway?: string | null };
 }
@@ -110,14 +112,21 @@ function isApproachChart(chart: ChartOverview) {
   return ['APP', 'IAP', 'APPROACH', 'ILS', 'LOC', 'RNP', 'VOR', 'NDB'].includes(chart.type_key.toUpperCase());
 }
 
-export default function D1Chart({ isOpen, onClose, airport, runway, procedure, arrival, expected = false, taxiClearance }: D1ChartProps) {
+export default function D1Chart({ isOpen, onClose, airport, runway, procedure, arrival, expected = false, taxiClearance, airborne = false }: D1ChartProps) {
   const taxi = useTaxiClearance({
     callsign: taxiClearance?.callsign ?? '', mode: taxiClearance?.mode ?? 'departure',
     atcReleasePoint: taxiClearance?.releasePoint ?? null, stand: taxiClearance?.stand ?? null, runway: taxiClearance?.runway ?? null,
   });
   const [chartRecords, setChartRecords] = useState<ChartOverview[]>([]);
   const [loadedChart, setLoadedChart] = useState<ChartData | null>(null);
-  const [selectedSection, setSelectedSection] = useState<ChartSection>('procedure');
+  const defaultSection: ChartSection = taxiClearance && !airborne ? 'clearance' : 'procedure';
+  const [selectedSection, setSelectedSection] = useState<ChartSection>(defaultSection);
+  // Each time Charts opens it starts on the default section for the current phase of flight.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) setSelectedSection(defaultSection);
+  }
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loadingOverview, setLoadingOverview] = useState(false);

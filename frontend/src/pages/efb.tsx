@@ -939,6 +939,9 @@ useEffect(() => {
 
   const arrivalGroundspeed = arrivalPreview ? Number(arrivalPreviewInput.groundspeed) : apiFlight?.groundspeed;
   const timingInhibited = isArrival && typeof arrivalGroundspeed === 'number' && arrivalGroundspeed > 60;
+  // Airborne above 60 kt ground speed (a departure preview is always on the ground).
+  const currentGroundspeed = arrivalPreview ? (previewPhase === 'ARRIVAL' ? Number(arrivalPreviewInput.groundspeed) : 0) : apiFlight?.groundspeed;
+  const airborne = typeof currentGroundspeed === 'number' && currentGroundspeed > 60;
 
   const updatePreviewOnGround = (onGround: boolean) => {
     setPreviewOnGround(onGround);
@@ -1486,6 +1489,7 @@ useEffect(() => {
         expected={apiFlight?.arrival_guidance_expected}
       />
       <D1ChartDialog
+        airborne={airborne}
         isOpen={openDialog === 'D1CHART'}
         onClose={handleCloseDialog}
         airport={isArrival ? flightData.arrivalAirport : apiFlight?.origin || 'NIL'}

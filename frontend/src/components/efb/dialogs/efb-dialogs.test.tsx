@@ -269,6 +269,25 @@ describe('EFB operational dialogs', () => {
     expect(screen.queryByRole('button', { name: /AIRPORT \/ TAXI/ })).not.toBeInTheDocument();
   });
 
+  it('opens on the taxi clearance on the ground and on the procedure when airborne', () => {
+    const props = { onClose: vi.fn(), airport: 'EKCH', runway: '22L', procedure: 'TUDLO', arrival: true, taxiClearance: { callsign: 'SAS676', mode: 'arrival' as const, releasePoint: null, stand: 'F98', runway: '22L' } };
+    const pressed = () => screen.getAllByRole('button', { pressed: true }).map((button) => button.getAttribute('aria-label'));
+    const { rerender } = render(<D1Chart isOpen {...props} airborne={false} />);
+    expect(pressed()).toEqual(['TAXI CLEARANCE']);
+    expect(screen.getByRole('img', { name: 'Taxi route' })).toBeInTheDocument();
+
+    // Reopened while airborne: back to the procedure charts.
+    rerender(<D1Chart isOpen={false} {...props} airborne />);
+    rerender(<D1Chart isOpen {...props} airborne />);
+    expect(pressed()).toEqual(['ASSIGNED STAR 0']);
+    expect(screen.queryByRole('img', { name: 'Taxi route' })).not.toBeInTheDocument();
+
+    // Without a taxi clearance (other airports) the procedure stays the default.
+    rerender(<D1Chart isOpen={false} {...props} taxiClearance={undefined} />);
+    rerender(<D1Chart isOpen {...props} taxiClearance={undefined} />);
+    expect(pressed()).toEqual(['ASSIGNED STAR 0']);
+  });
+
   it('lists the taxi clearance after the chart sections', () => {
     render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22L" procedure="TUDLO" arrival taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F98', runway: '22L' }} />);
     const sections = Array.from(document.querySelectorAll('button[aria-pressed]'), (button) => button.getAttribute('aria-label'));

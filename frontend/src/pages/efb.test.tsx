@@ -822,6 +822,9 @@ describe('EFB page interactions', () => {
     fireEvent.click(screen.getByAltText('Charts'));
     const chartDialog = screen.getByRole('dialog', { name: 'EKCH' });
     expect(chartDialog).toBeInTheDocument();
+    // On the ground Charts opens on the taxi clearance; the SID charts are one click away.
+    expect(within(chartDialog).getByRole('button', { name: 'TAXI CLEARANCE' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(chartDialog).getByRole('button', { name: /^ASSIGNED SID/ }));
     expect(within(chartDialog).getByText('EKCH, runway 22R')).toBeInTheDocument();
     expect(within(chartDialog).getByText('NEXEN2A')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'CLICK TO CLOSE' }));

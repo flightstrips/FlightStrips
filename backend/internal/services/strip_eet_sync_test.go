@@ -216,6 +216,12 @@ func TestFlightPlanEETDoesNotCarryIntoRestartedFlightLifecycle(t *testing.T) {
 	service := NewStripService(repo, WithAirportWorkflows(testWorkflows), WithSessionReader(postgres.NewSessionRepository(pool)), WithStripEventPublisher(&productionWorkflowPublisher{}), WithControllerReader(postgres.NewControllerRepository(pool)), WithSectorOwnerRepository(postgres.NewSectorOwnerRepository(pool)), WithCoordinationStore(postgres.NewCoordinationRepository(pool)), WithEuroscopeCommander(&testutil.MockEuroscopeHub{}))
 	event := es.Strip{Callsign: "TURNAROUND", Origin: "EKCH", Destination: "ESSA", HasFp: true, GroundState: es.GroundStateTaxi, Position: &es.Position{Lat: 55.6, Lon: 12.65, Altitude: 0}}
 	ctx = shared.WithStripSyncController(ctx, "EKCH_FMP")
+	cached, err := repo.GetByCallsign(ctx, session, event.Callsign)
+	require.NoError(t, err)
+	remark := "intervening unrelated update"
+	_, err = pool.Exec(ctx, "UPDATE strips SET remarks = $1, version = version + 1 WHERE id = $2", remark, cached.ID)
+	require.NoError(t, err)
+	ctx = shared.WithSyncState(ctx, &shared.SyncState{ExistingStrips: map[string]*models.Strip{event.Callsign: cached}})
 	require.NoError(t, service.SyncStrip(ctx, session, "MASTER", event, "EKCH"))
 	restarted, err := repo.GetByCallsign(ctx, session, event.Callsign)
 	require.NoError(t, err)

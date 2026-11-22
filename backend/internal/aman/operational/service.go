@@ -228,7 +228,7 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 		if s.destinationFacts[key] == nil {
 			s.destinationFacts[key] = map[aman.ObservationProvider]aman.FlightObservation{}
 		}
-		if previous, found := s.destinationFacts[key][owner]; found && observationFactTime(observation).Before(observationFactTime(previous)) {
+		if previous, found := s.destinationFacts[key][owner]; found && observationPrecedes(observation, previous) {
 			return nil
 		}
 		s.destinationFacts[key][owner] = observation
@@ -297,6 +297,23 @@ func observationOwner(observation aman.FlightObservation) aman.ObservationProvid
 	return ""
 }
 
+func observationPrecedes(incoming, previous aman.FlightObservation) bool {
+	if !observationFactTime(incoming).Before(observationFactTime(previous)) {
+		return false
+	}
+	if observationOwner(incoming) == aman.ObservationProviderEuroScope && observationOwner(previous) == aman.ObservationProviderEuroScope &&
+		incoming.ClearedAltitudeStripRevision.Known() && previous.ClearedAltitudeStripRevision.Known() {
+		if previous.ClearedAltitudeStripRevision.IsOlderThan(incoming.ClearedAltitudeStripRevision) {
+			return false
+		}
+		if incoming.ClearedAltitudeStripRevision == previous.ClearedAltitudeStripRevision && incoming.HoldingClearance != nil &&
+			previous.HoldingClearance.PredatesStripSnapshot(incoming.HoldingClearance.StripRevision, incoming.HoldingClearance.ObservedAt) {
+			return false
+		}
+	}
+	return true
+}
+
 func combineSourceObservations(sources map[aman.ObservationProvider]aman.FlightObservation) aman.FlightObservation {
 	combined, found := sources[aman.ObservationProviderVATSIM]
 	if legacy, ok := sources[""]; ok && !found {
@@ -358,7 +375,8 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 			}
 			merged.PlannedTiming = &timing
 		}
-		if incoming.Surveillance != nil {
+		if incoming.Surveillance != nil && (previous.Surveillance == nil || previous.Surveillance.ObservedAt == nil ||
+			incoming.Surveillance.ObservedAt != nil && !incoming.Surveillance.ObservedAt.Before(*previous.Surveillance.ObservedAt)) {
 			merged.Surveillance, merged.SurveillanceSource = incoming.Surveillance, aman.SurveillanceSourceEuroScope
 		}
 		if incoming.TakeoffDetected != nil {
@@ -1185,8 +1203,12 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			// Persisted EuroScope facts remain authoritative after source caches reset.
 			observation = mergeSurveillanceObservation(*previous, observation)
 		} else if incomingOwner == aman.ObservationProviderEuroScope {
-			if previousOwner == aman.ObservationProviderEuroScope && observationFactTime(observation).Before(observationFactTime(*previous)) {
+			if previousOwner == aman.ObservationProviderEuroScope && observationPrecedes(observation, *previous) {
 				return flight, nil
+			}
+			if previousOwner == aman.ObservationProviderEuroScope && observation.HoldingClearance != nil &&
+				observationFactTime(observation).Before(observationFactTime(*previous)) {
+				observation = mergeSurveillanceObservation(*previous, observation)
 			}
 			retainNewerClearedAltitude(*previous, &observation)
 		} else if observation.ReconciledAt.Before(previous.ReconciledAt) ||

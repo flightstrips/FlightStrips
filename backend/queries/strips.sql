@@ -86,7 +86,7 @@ SET version = strips.version + 1,
     squawk = sqlc.arg(squawk),
     sid = sqlc.arg(sid),
     star = sqlc.arg(star),
-    cleared_altitude = CASE WHEN sqlc.arg(sync_restart)::boolean AND NOT newer_version THEN sqlc.narg(cleared_altitude)::integer
+    cleared_altitude = CASE WHEN sqlc.arg(sync_restart)::boolean THEN sqlc.narg(cleared_altitude)::integer
                            WHEN (newer_version AND different_clearance) OR
                                  (non_tracking AND btrim(strips.tracking_controller) <> '' AND (newer_version OR btrim(strips.hold) <> ''))
                             THEN strips.cleared_altitude ELSE sqlc.narg(cleared_altitude)::integer END,

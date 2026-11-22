@@ -1426,7 +1426,7 @@ SET version = strips.version + 1,
     squawk = $7,
     sid = $8,
     star = $9,
-    cleared_altitude = CASE WHEN $10::boolean AND NOT newer_version THEN $11::integer
+    cleared_altitude = CASE WHEN $10::boolean THEN $11::integer
                            WHEN (newer_version AND different_clearance) OR
                                  (non_tracking AND btrim(strips.tracking_controller) <> '' AND (newer_version OR btrim(strips.hold) <> ''))
                             THEN strips.cleared_altitude ELSE $11::integer END,

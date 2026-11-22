@@ -3,6 +3,7 @@ package operational
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -293,6 +294,44 @@ func TestSourceMergeKeepsNewerHoldingCancellation(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, updated.HoldingClearance.Hold)
 	require.Equal(t, current.HoldingClearance.StripRevision, updated.HoldingClearance.StripRevision)
+}
+
+func TestDelayedStripSnapshotAppliesHoldingAfterNewerPositionReceipt(t *testing.T) {
+	for _, revision := range []int32{19, 20} {
+		t.Run(fmt.Sprintf("strip revision %d", revision), func(t *testing.T) {
+			service, state, now := holdingClearanceRefreshFixture(t)
+			service.observed = make(map[string]map[aman.Callsign]aman.FlightObservation)
+			previous := *state.Flights[0].LatestObservation
+			previous.Provider = aman.ObservationProviderEuroScope
+			previous.ClearedAltitudeStripRevision = aman.StripRevision{ID: 42, Version: 19}
+			positionAt := now.Add(time.Second)
+			previous.ReconciledAt = positionAt
+			previous.FlightPlan.ObservedAt = &positionAt
+			previous.HoldingClearance = nil
+			state.Flights[0].LatestObservation = &previous
+			state.Flights[0].HoldingClearance = nil
+			incoming := previous
+			incoming.ClearedAltitudeStripRevision.Version = revision
+			incoming.ReconciledAt = now
+			incoming.FlightPlan.ObservedAt = &now
+			incoming.Surveillance = nil
+			incoming.HoldingClearance = normalizedStripHoldingClearance(&models.Strip{
+				ID: 42, Version: revision, Hold: "TESPI", HoldType: "enroute",
+			}, now)
+			require.NoError(t, service.Observe(t.Context(), previous))
+			require.NoError(t, service.Observe(t.Context(), incoming))
+			captured := service.observed[state.Airport][previous.Callsign]
+			require.Equal(t, incoming.HoldingClearance, captured.HoldingClearance)
+			require.Equal(t, previous.Surveillance, captured.Surveillance)
+			updated, err := service.reconcileFlight(t.Context(), state, state.Flights[0], incoming, positionAt)
+			require.NoError(t, err)
+			require.Equal(t, incoming.HoldingClearance, updated.HoldingClearance)
+			require.Equal(t, previous.Surveillance, updated.LatestObservation.Surveillance)
+			legacy := incoming
+			legacy.ClearedAltitudeStripRevision = aman.StripRevision{}
+			require.True(t, observationPrecedes(legacy, previous))
+		})
+	}
 }
 
 func TestDelayedFullSyncHoldingUsesNewerPositionCFL(t *testing.T) {

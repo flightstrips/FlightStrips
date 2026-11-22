@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
@@ -129,7 +130,12 @@ func (s *ArrivalLifecycleService) reassignDisplacedArrival(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	request := s.buildRequest(displaced.SessionID, strip, vatsim.ArrivalFlightInfo{}, displaced.Stage, displaced.ETA, displaced.ExpiresAt)
+	eta := arrivalETATime(strip)
+	if strip.ArrivalETA != nil && strip.ArrivalETA.Source == compatibility.ArrivalETASource &&
+		!compatibility.IsFresh(strip.ArrivalETA, s.now()) {
+		eta = nil
+	}
+	request := s.buildRequest(displaced.SessionID, strip, vatsim.ArrivalFlightInfo{}, displaced.Stage, eta, displaced.ExpiresAt)
 	if _, err = s.allocations.Allocate(ctx, request); err == nil {
 		return nil
 	}

@@ -296,6 +296,50 @@ type arrivalPriorityRefresh struct {
 	priorities []int
 }
 
+func TestDisplacedArrivalUsesCurrentStripETA(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	for _, source := range []string{"FILED", compatibility.ArrivalETASource, "expired AMAN", "missing"} {
+		t.Run(source, func(t *testing.T) {
+			ctx := t.Context()
+			lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+			seedTestArrivalStrip(t, queries, session, "SAS910")
+			seedTestArrivalStrip(t, queries, session, "SAS911")
+			oldETA, currentETA := clock.current().Add(time.Hour), clock.current().Add(90*time.Minute)
+			var wantETA *time.Time
+			var wantSource *string
+			if source != "missing" {
+				eta := models.ArrivalETA{Time: currentETA, Source: source, CalculatedAt: clock.current()}
+				wantETA, wantSource = &currentETA, &source
+				if source == "expired AMAN" {
+					eta.Source = compatibility.ArrivalETASource
+					eta.CalculatedAt = clock.current().Add(-compatibility.FreshFor - time.Minute)
+					wantETA, wantSource = nil, nil
+				}
+				_, err := strips.UpdateArrivalETA(ctx, session, "SAS910", eta)
+				require.NoError(t, err)
+			}
+			require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+				SessionID: session, Callsign: "SAS911", Stand: "A1", Direction: "ARRIVAL",
+				Stage: StageConfirmed, Manual: true, Source: "MANUAL", ETA: &currentETA,
+			}))
+			require.NoError(t, lifecycle.reassignDisplacedArrival(ctx, models.StandAssignment{
+				SessionID: session, Callsign: "SAS910", Stand: "A1", Direction: "ARRIVAL",
+				Stage: StageAssigned, Source: "AUTOMATIC", ETA: &oldETA, ETASource: strp("FILED"),
+			}))
+			relocated, err := assignments.GetAssignment(ctx, session, "SAS910")
+			require.NoError(t, err)
+			require.Equal(t, "A2", relocated.Stand, "the old 11:00 ETA would incorrectly select A1")
+			if wantETA == nil {
+				require.Nil(t, relocated.ETA)
+			} else {
+				require.NotNil(t, relocated.ETA)
+				require.True(t, wantETA.Equal(*relocated.ETA))
+			}
+			require.Equal(t, wantSource, relocated.ETASource)
+		})
+	}
+}
+
 func TestDisplacedArrivalRetainsAdvisoryWhenETAChangesAfterTakeover(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := t.Context()
@@ -598,6 +642,53 @@ func TestPinnedArrivalPromotionWaitsForOccupiedStand(t *testing.T) {
 			assert.Equal(t, strp("A2"), loadStrip(t, strips, session, "SAS910").Stand)
 			require.Len(t, published, 1)
 			assert.True(t, published[0].NotifyEuroscope)
+		})
+	}
+}
+
+func TestPinnedArrivalPromotionHonorsDepartureReleaseProjection(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	for _, tc := range []struct {
+		name          string
+		releaseOffset time.Duration
+		blocked       bool
+	}{
+		{name: "missed projection", releaseOffset: -5 * time.Minute, blocked: true},
+		{name: "projection due now", blocked: true},
+		{name: "future release before arrival", releaseOffset: 5 * time.Minute},
+		{name: "future release after arrival", releaseOffset: 15 * time.Minute, blocked: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
+			lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+			seedTestArrivalStrip(t, queries, session, "SAS910")
+			testdata.SeedTestStrip(t, queries, session, "SAS911")
+			eta := clock.current().Add(10 * time.Minute)
+			setArrivalETA(t, strips, session, "SAS910", eta)
+			require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+				SessionID: session, Callsign: "SAS910", Stand: "A2", Direction: "ARRIVAL",
+				Stage: StageEstimated, Source: "MANUAL", Manual: true, ETA: &eta,
+			}))
+			release := clock.current().Add(tc.releaseOffset)
+			require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+				SessionID: session, Callsign: "SAS911", Stand: "A2", Direction: "DEPARTURE",
+				Stage: StageDepartureBlock, Source: "OBSERVED", ProjectedReleaseAt: &release,
+			}))
+			_, err := strips.UpdateAircraftPosition(ctx, session, "SAS910", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+			require.NoError(t, err)
+			require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS910"), arrivalFlight("SAS910", 1)))
+			assignment, err := assignments.GetAssignment(ctx, session, "SAS910")
+			require.NoError(t, err)
+			require.Equal(t, "A2", assignment.Stand, "the controller's pinned choice must survive")
+			if tc.blocked {
+				require.Equal(t, StageEstimated, assignment.Stage)
+				require.True(t, HasPinnedArrivalPromotionConflict(assignment))
+				require.Nil(t, loadStrip(t, strips, session, "SAS910").Stand)
+			} else {
+				require.Equal(t, StageAssigned, assignment.Stage)
+				require.False(t, HasPinnedArrivalPromotionConflict(assignment))
+				require.Equal(t, strp("A2"), loadStrip(t, strips, session, "SAS910").Stand)
+			}
 		})
 	}
 }

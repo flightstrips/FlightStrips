@@ -716,7 +716,7 @@ func (s *StandAllocationService) assignmentsOccupancyConflict(airport string, le
 	if !leftActive || !rightActive {
 		return false
 	}
-	return occupancyWindowsOverlap(leftStart, leftEnd, rightStart, rightEnd, now)
+	return occupancyWindowsOverlap(leftStart, leftEnd, rightStart, rightEnd)
 }
 
 func assignmentProtectedFromReconciliation(assignment *models.StandAssignment) bool {
@@ -845,7 +845,7 @@ func assignmentBlocksRequest(assignment *models.StandAssignment, request StandAl
 	if !assignmentActive || !requestActive {
 		return false
 	}
-	return occupancyWindowsOverlap(assignmentStart, assignmentEnd, requestStart, requestEnd, now)
+	return occupancyWindowsOverlap(assignmentStart, assignmentEnd, requestStart, requestEnd)
 }
 
 func assignmentTimingUnknown(assignment *models.StandAssignment) bool {
@@ -868,13 +868,8 @@ func requestTimingUnknown(request StandAllocationRequest) bool {
 	return request.Direction == sat.AssignmentDirectionDeparture && request.DepartureTOBT == nil && request.DepartureTSAT == nil
 }
 
-func occupancyWindowsOverlap(leftStart time.Time, leftEnd *time.Time, rightStart time.Time, rightEnd *time.Time, now time.Time) bool {
-	if leftEnd == nil && leftStart.Equal(now) && rightStart.After(now) {
-		return false
-	}
-	if rightEnd == nil && rightStart.Equal(now) && leftStart.After(now) {
-		return false
-	}
+func occupancyWindowsOverlap(leftStart time.Time, leftEnd *time.Time, rightStart time.Time, rightEnd *time.Time) bool {
+	// An unknown release cannot establish safe sharing with a future arrival.
 	if leftEnd != nil && !leftEnd.After(rightStart) {
 		return false
 	}
@@ -2184,7 +2179,7 @@ func futureArrivalBlocksRequest(arrivalETA time.Time, request StandAllocationReq
 	now := arrivalETA.Add(-24 * time.Hour)
 	arrivalEnd := arrivalETA.Add(arrivalStandRetention)
 	requestStart, requestEnd, active := requestOccupancyWindow(request, now, departureReleaseBuffer)
-	return active && occupancyWindowsOverlap(requestStart, requestEnd, arrivalETA, &arrivalEnd, now)
+	return active && occupancyWindowsOverlap(requestStart, requestEnd, arrivalETA, &arrivalEnd)
 }
 
 func standAssignmentExpired(assignment *models.StandAssignment, now time.Time) bool {

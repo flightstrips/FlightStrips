@@ -1476,9 +1476,16 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 		}
 	}
 
+	var publicationErr error
 	if snapshotReady {
-		if err := hub.publishCurrentStandSnapshot(ctx, sessionID, session.Airport); err != nil {
-			slog.ErrorContext(ctx, "Failed to publish current stand snapshot", slog.Int("session", int(sessionID)), slog.Any("error", err))
+		publicationErr = hub.publishCurrentStandSnapshot(ctx, sessionID, session.Airport)
+		if publicationErr != nil && ctx.Err() == nil {
+			// Retry a fresh, serialized read. The earlier assembled snapshot may
+			// already have been superseded by a concurrent publication.
+			publicationErr = hub.publishCurrentStandSnapshot(ctx, sessionID, session.Airport)
+		}
+		if publicationErr != nil {
+			slog.ErrorContext(ctx, "Failed to publish current stand snapshot", slog.Int("session", int(sessionID)), slog.Any("error", publicationErr))
 		}
 	}
 
@@ -1505,7 +1512,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	if !result.Removed && result.NotifyEuroscope {
 		hub.sendAllocatedStandToEuroscope(ctx, euroscopeHub, result.Assignment, result.Assignment.Stand)
 	}
-	return nil
+	return publicationErr
 }
 
 func (hub *Hub) sendAllocatedStandToEuroscope(ctx context.Context, euroscopeHub shared.EuroscopeHub, assignment internalModels.StandAssignment, stand string) {

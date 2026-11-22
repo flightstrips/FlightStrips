@@ -614,19 +614,23 @@ func (r *Reconciler) reloadArrivalStripValues(ctx context.Context, sessionID int
 	// Run the guarded VATSIM fallback against the committed AMAN value: it
 	// writes a filed or live estimate, or clears the expired projection when
 	// none exists, and keeps a projection AMAN refreshed meanwhile.
+	now := r.now()
 	for _, flight := range flights {
 		strip := strips[flight.Callsign]
 		if strip == nil || strip.ArrivalETA == nil || strip.ArrivalETA.Source != compatibility.ArrivalETASource ||
-			compatibility.IsFresh(strip.ArrivalETA, r.now()) {
+			compatibility.IsFresh(strip.ArrivalETA, now) {
 			continue
 		}
-		if _, err := r.updateArrivalETA(ctx, sessionID, strip, flight, false); err != nil {
+		changed, err := r.updateArrivalETAAt(ctx, sessionID, strip, flight, false, now)
+		if err != nil {
 			return fmt.Errorf("select fallback arrival ETA for %s: %w", flight.Callsign, err)
+		}
+		if changed {
+			r.notify(sessionID, strip)
 		}
 	}
 	// Apply freshness to the view used by this pass, including projections
 	// published after the fallback pass.
-	now := r.now()
 	for key, strip := range strips {
 		if eta := effectiveArrivalETA(strip.ArrivalETA, now); eta != strip.ArrivalETA {
 			snapshot := *strip
@@ -718,7 +722,10 @@ func timeOrEmpty(value *time.Time) string {
 }
 
 func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight, writeLegacyETA bool) (bool, error) {
-	now := r.now()
+	return r.updateArrivalETAAt(ctx, session, strip, flight, writeLegacyETA, r.now())
+}
+
+func (r *Reconciler) updateArrivalETAAt(ctx context.Context, session int32, strip *models.Strip, flight Flight, writeLegacyETA bool, now time.Time) (bool, error) {
 	freshAMAN := compatibility.IsFresh(strip.ArrivalETA, now)
 	if !writeLegacyETA && freshAMAN {
 		return false, nil

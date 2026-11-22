@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ func TestArrivalETARevisionTracksEveryMutationAndDeletion(t *testing.T) {
 	revision = read()
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
 	_, err = tx.Exec(ctx, "UPDATE strips SET arrival_eta=$1::jsonb WHERE session=$2", `{"source":"FILED","time":"2026-07-12T12:00:00Z"}`, session)
 	require.NoError(t, err)
 	require.NoError(t, tx.Rollback(ctx))

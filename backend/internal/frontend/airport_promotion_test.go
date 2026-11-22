@@ -362,6 +362,11 @@ func TestStandPublicationUsesCurrentBlockersAndHiddenReplacement(t *testing.T) {
 			}
 			require.NotNil(t, lastSnapshot)
 			require.Len(t, lastSnapshot.Assignments, 2)
+			callsigns := make([]string, 0, len(lastSnapshot.Assignments))
+			for _, assignment := range lastSnapshot.Assignments {
+				callsigns = append(callsigns, assignment.Callsign)
+			}
+			require.ElementsMatch(t, []string{inbound, blocker}, callsigns)
 			for _, assignment := range lastSnapshot.Assignments {
 				if assignment.Callsign == blocker {
 					require.Equal(t, moved, assignment.Stand, "the last snapshot must contain the latest committed stand")

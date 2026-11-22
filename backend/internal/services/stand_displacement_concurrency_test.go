@@ -32,10 +32,19 @@ func TestObservedDepartureRetriesDisplacementWhileETAWriterWaitsForRevision(t *t
 
 	writer, err := pool.Begin(ctx)
 	require.NoError(t, err)
-	defer writer.Rollback(context.Background())
+	workerStarted := false
+	writerDone := make(chan struct{})
+	var writerErr error
+	defer func() {
+		cancel()
+		if workerStarted {
+			<-writerDone
+		} else {
+			_ = writer.Rollback(context.Background())
+		}
+	}()
 	var writerPID int32
 	require.NoError(t, writer.QueryRow(ctx, "SELECT pg_backend_pid()").Scan(&writerPID))
-	writerResult := make(chan error, 1)
 	freshETA := models.ArrivalETA{
 		Time:         time.Now().UTC().Add(time.Hour).Truncate(time.Microsecond),
 		CalculatedAt: time.Now().UTC().Truncate(time.Microsecond), Source: "aman",
@@ -55,12 +64,14 @@ func TestObservedDepartureRetriesDisplacementWhileETAWriterWaitsForRevision(t *t
 				if err := writer.QueryRow(ctx, "SELECT id FROM strips WHERE session=$1 AND callsign='SAS910' FOR UPDATE", session).Scan(&stripID); err != nil {
 					return err
 				}
+				workerStarted = true
 				go func() {
-					_, err := strips.WithTx(writer).UpdateArrivalETA(ctx, session, "SAS910", freshETA)
-					if err == nil {
-						err = writer.Commit(ctx)
+					defer close(writerDone)
+					defer writer.Rollback(context.Background())
+					_, writerErr = strips.WithTx(writer).UpdateArrivalETA(ctx, session, "SAS910", freshETA)
+					if writerErr == nil {
+						writerErr = writer.Commit(ctx)
 					}
-					writerResult <- err
 				}()
 				ticker := time.NewTicker(time.Millisecond)
 				defer ticker.Stop()
@@ -108,8 +119,8 @@ func TestObservedDepartureRetriesDisplacementWhileETAWriterWaitsForRevision(t *t
 	require.Equal(t, "SAS910", result.RemovedAssignments[0].Callsign)
 	require.Len(t, publications, 1, "the rolled-back attempt must not publish")
 	select {
-	case err := <-writerResult:
-		require.NoError(t, err, "the ETA writer must commit without being a deadlock victim")
+	case <-writerDone:
+		require.NoError(t, writerErr, "the ETA writer must commit without being a deadlock victim")
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}

@@ -177,6 +177,8 @@ type snapshot struct {
 	DepartureFrequency            *string            `json:"departure_frequency"`
 	Stand                         *string            `json:"stand"`
 	StandVersion                  *int32             `json:"stand_version"`
+	// ReleasePoint is the pushback release point ATC assigned on the strip (departures only).
+	ReleasePoint                  *string            `json:"release_point"`
 	StandState                    *string            `json:"stand_state"`
 	StandExpiresAt                *time.Time         `json:"stand_expires_at,omitempty"`
 	StandRequestUnavailableReason string             `json:"stand_request_unavailable_reason,omitempty"`
@@ -222,6 +224,15 @@ func (a *WebAPI) handleFlight(w http.ResponseWriter, r *http.Request) {
 	a.handleNetworkFlight(w, r, user)
 }
 
+// releasePoint normalises the strip release point for the EFB; blank means none assigned.
+func releasePoint(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	v := strings.ToUpper(strings.TrimSpace(*value))
+	return nonEmptyString(&v)
+}
+
 func viffClock(values ...string) *string {
 	for _, value := range values {
 		if value = strings.TrimSuffix(strings.TrimSpace(value), "Z"); value != "" {
@@ -245,6 +256,9 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	pdcReady := a.pdcReady && a.serviceEnabled(s.Origin, "pdc")
 	publishedHeading, publishedHoldingFix, publishedHoldingDetail := publishedArrivalData(ctx, a.navigation, a.terminal, s.Destination, s.Runway, s.Star)
 	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ArrivalETA: arrivalETA(s.ArrivalETA), TerminalFix: terminalFix(a.terminal, s.Destination, s.Runway, s.Star), PublishedHeading: publishedHeading, PublishedHoldingFix: publishedHoldingFix, PublishedHoldingDetail: publishedHoldingDetail, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: pdcReady && departure && !s.Cleared, PDCCanSubmit: pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: pdcReady && state == "CLEARED", Capabilities: capabilities{PDC: pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
+	if departure {
+		result.ReleasePoint = releasePoint(s.ReleasePoint)
+	}
 	if !departure {
 		result.Stand = nil
 	} else if result.Stand != nil {

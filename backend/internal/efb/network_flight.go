@@ -214,6 +214,7 @@ func (a *WebAPI) addNetworkStripData(ctx context.Context, result *snapshot) {
 				result.DepartureFrequency = nonEmptyString(frequency)
 			}
 		}
+		result.ReleasePoint = releasePoint(match.Strip.ReleasePoint)
 		result.Stand = nonEmptyString(match.Strip.Stand)
 		if result.Stand != nil {
 			state := "SENSED"

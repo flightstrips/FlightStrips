@@ -365,6 +365,35 @@ func TestNetworkDepartureExposesPDCFromMatchingStrip(t *testing.T) {
 	}
 }
 
+func TestNetworkDepartureExposesAssignedReleasePoint(t *testing.T) {
+	source := networkTestSource(t, true, time.Now())
+	for _, tc := range []struct {
+		name  string
+		strip *models.Strip
+		want  *string
+	}{
+		{name: "assigned", strip: &models.Strip{Origin: "EKCH", Destination: "EKYT", ReleasePoint: stringRef(" z3 ")}, want: stringRef("Z3")},
+		{name: "blank", strip: &models.Strip{Origin: "EKCH", Destination: "EKYT", ReleasePoint: stringRef("  ")}},
+		{name: "not assigned", strip: &models.Strip{Origin: "EKCH", Destination: "EKYT"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Network: source, Viff: &networkTimingStub{},
+				Flights: &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: tc.strip}}})
+			req := httptest.NewRequest(http.MethodGet, "/efb/flight", nil)
+			req.Header.Set("Authorization", "Bearer token")
+			rec := httptest.NewRecorder()
+			api.handleFlight(rec, req)
+			var got snapshot
+			if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+				t.Fatalf("%d %s", rec.Code, rec.Body.String())
+			}
+			if (got.ReleasePoint == nil) != (tc.want == nil) || (tc.want != nil && *got.ReleasePoint != *tc.want) {
+				t.Fatalf("release point = %v, want %v", got.ReleasePoint, tc.want)
+			}
+		})
+	}
+}
+
 func TestNetworkDepartureDelaysRecentlyRequestedWebClearance(t *testing.T) {
 	requested := time.Now()
 	clearance := "CLEARED TO EKYT"

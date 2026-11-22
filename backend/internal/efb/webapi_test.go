@@ -359,6 +359,23 @@ func TestSnapshotUsesObservedStandAndNormalizesTSAT(t *testing.T) {
 	}
 }
 
+func TestSnapshotIncludesReleasePointForDeparturesOnly(t *testing.T) {
+	point := "j2"
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}})
+	departure := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{
+		Callsign: "SAS123", Origin: "EKCH", Destination: "ESSA", ReleasePoint: &point,
+	}}, &models.Session{Airport: "EKCH"})
+	if departure.ReleasePoint == nil || *departure.ReleasePoint != "J2" {
+		t.Fatalf("expected departure release point J2, got %v", departure.ReleasePoint)
+	}
+	arrival := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{
+		Callsign: "SAS124", Origin: "ESSA", Destination: "EKCH", ReleasePoint: &point,
+	}}, &models.Session{Airport: "EKCH"})
+	if arrival.ReleasePoint != nil {
+		t.Fatalf("expected no release point for an arrival, got %q", *arrival.ReleasePoint)
+	}
+}
+
 func TestSnapshotOnlyIncludesComputedDepartureFrequency(t *testing.T) {
 	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Departures: departureFrequencyStub{frequency: "124.980"}})
 	result := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{

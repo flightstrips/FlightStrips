@@ -257,7 +257,7 @@ func TestDepartureBlockObservationTimeout(t *testing.T) {
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, first)))
 
 		strip := loadStrip(t, strips, session, callsign)
-		stored, err := lifecycle.departureOnlineSighting(ctx, strip.ID)
+		stored, err := lifecycle.departureOnlineSighting(ctx, pool, strip.ID)
 		require.NoError(t, err)
 		require.NotNil(t, stored)
 		assert.True(t, stored.Equal(latest), "stored %s, want %s", stored, latest)
@@ -358,7 +358,7 @@ func TestDepartureOnlineSightingSerializesWithRelease(t *testing.T) {
 			writerDone := make(chan error, 1)
 			interrupted := errors.New("interrupt release after its final heartbeat read")
 			err = allocations.releaseAssignmentChecked(ctx, assignment, false, func(locked *models.Strip) error {
-				unobserved, err := lifecycle.departureBlockUnobservedNow(ctx, locked, assignment, clock.current())
+				unobserved, err := lifecycle.departureBlockUnobservedNow(ctx, pool, locked, assignment, clock.current())
 				require.NoError(t, err)
 				require.True(t, unobserved)
 				// Reproduce a feed update after the final heartbeat read, with an

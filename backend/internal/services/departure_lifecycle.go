@@ -813,7 +813,7 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	// Every other release path depends on a disconnect being reported. This
 	// heartbeat covers the cases where none ever is: a crashed EuroScope, a
 	// dropped disconnect timer, or a session the VATSIM reconciler skips.
-	if unobserved, err := s.departureBlockUnobservedNow(ctx, strip, assignment, now); err != nil {
+	if unobserved, err := s.departureBlockUnobservedNow(ctx, s.allocations.pool, strip, assignment, now); err != nil {
 		return err
 	} else if unobserved {
 		return s.releaseUnobservedDepartureBlock(ctx, assignment, now)

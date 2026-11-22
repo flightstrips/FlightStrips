@@ -93,13 +93,19 @@ func (s *DepartureLifecycleService) recordOnlineSighting(ctx context.Context, se
 	return err
 }
 
+// sightingReader is a pool or a dedicated pool connection; both read the
+// latest committed sighting outside any release transaction.
+type sightingReader interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // departureOnlineSighting returns the last online feed sighting for a strip.
 // The final release check uses this current committed read while holding the
 // strip lock. Reading through the serializable release transaction could miss
 // a sighting committed after that transaction's snapshot was established.
-func (s *DepartureLifecycleService) departureOnlineSighting(ctx context.Context, stripID int32) (*time.Time, error) {
+func (s *DepartureLifecycleService) departureOnlineSighting(ctx context.Context, reader sightingReader, stripID int32) (*time.Time, error) {
 	var seenAt time.Time
-	err := s.allocations.pool.QueryRow(ctx, "SELECT seen_at FROM departure_online_sightings WHERE strip_id = $1", stripID).Scan(&seenAt)
+	err := reader.QueryRow(ctx, "SELECT seen_at FROM departure_online_sightings WHERE strip_id = $1", stripID).Scan(&seenAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -112,11 +118,11 @@ func (s *DepartureLifecycleService) departureOnlineSighting(ctx context.Context,
 // departureBlockUnobservedNow loads the strip's online feed sighting and
 // applies the heartbeat rule. The sighting is only read once EuroScope alone
 // no longer keeps the block alive.
-func (s *DepartureLifecycleService) departureBlockUnobservedNow(ctx context.Context, strip *models.Strip, assignment *models.StandAssignment, now time.Time) (bool, error) {
+func (s *DepartureLifecycleService) departureBlockUnobservedNow(ctx context.Context, reader sightingReader, strip *models.Strip, assignment *models.StandAssignment, now time.Time) (bool, error) {
 	if !s.departureBlockUnobserved(strip, nil, assignment, now) {
 		return false, nil
 	}
-	onlineSeen, err := s.departureOnlineSighting(ctx, strip.ID)
+	onlineSeen, err := s.departureOnlineSighting(ctx, reader, strip.ID)
 	if err != nil {
 		return false, err
 	}
@@ -127,11 +133,21 @@ func (s *DepartureLifecycleService) departureBlockUnobservedNow(ctx context.Cont
 // live source has seen within the observation timeout. The locked strip is
 // rechecked so a sighting that lands after the sweep's read keeps the stand.
 func (s *DepartureLifecycleService) releaseUnobservedDepartureBlock(ctx context.Context, assignment *models.StandAssignment, now time.Time) error {
-	err := s.allocations.releaseAssignmentChecked(ctx, assignment, false, func(locked *models.Strip) error {
+	// The locked recheck needs a committed read outside the release
+	// transaction. Take that connection before the transaction locks the
+	// strip: sighting writers queue on the strip lock while holding their own
+	// connections, so asking the pool for one under the lock could wait for a
+	// connection that is never returned.
+	reader, err := s.allocations.pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer reader.Release()
+	err = s.allocations.releaseAssignmentChecked(ctx, assignment, false, func(locked *models.Strip) error {
 		if locked == nil {
 			return nil
 		}
-		unobserved, err := s.departureBlockUnobservedNow(ctx, locked, assignment, now)
+		unobserved, err := s.departureBlockUnobservedNow(ctx, reader, locked, assignment, now)
 		if err != nil {
 			return err
 		}

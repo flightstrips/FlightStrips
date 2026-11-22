@@ -79,12 +79,14 @@ func (s *DepartureLifecycleService) staleOnlineFeedSighting(flight vatsim.Depart
 // pilot online. Every newer sighting is stored, so the heartbeat never sees a
 // sighting older than the feed reported; replaying the same or an older one
 // writes nothing. The row is removed with its strip.
+// Lock the strip before writing so a sighting cannot commit between the
+// release transaction's locked heartbeat check and its assignment deletion.
 func (s *DepartureLifecycleService) recordOnlineSighting(ctx context.Context, session int32, callsign string, flight vatsim.DepartureFlightInfo) error {
 	if !flight.Online || flight.SeenAt.IsZero() {
 		return nil
 	}
 	_, err := s.allocations.pool.Exec(ctx, `INSERT INTO departure_online_sightings (strip_id, seen_at)
-		SELECT id, $3 FROM strips WHERE session = $1 AND callsign = $2
+		SELECT id, $3 FROM strips WHERE session = $1 AND callsign = $2 FOR UPDATE
 		ON CONFLICT (strip_id) DO UPDATE SET seen_at = EXCLUDED.seen_at
 		WHERE departure_online_sightings.seen_at < EXCLUDED.seen_at`,
 		session, callsign, flight.SeenAt.UTC())
@@ -92,6 +94,9 @@ func (s *DepartureLifecycleService) recordOnlineSighting(ctx context.Context, se
 }
 
 // departureOnlineSighting returns the last online feed sighting for a strip.
+// The final release check uses this current committed read while holding the
+// strip lock. Reading through the serializable release transaction could miss
+// a sighting committed after that transaction's snapshot was established.
 func (s *DepartureLifecycleService) departureOnlineSighting(ctx context.Context, stripID int32) (*time.Time, error) {
 	var seenAt time.Time
 	err := s.allocations.pool.QueryRow(ctx, "SELECT seen_at FROM departure_online_sightings WHERE strip_id = $1", stripID).Scan(&seenAt)

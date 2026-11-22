@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -296,6 +297,29 @@ func TestDepartureBlockObservationTimeout(t *testing.T) {
 		require.NoError(t, err, "the locked strip must protect a sighting that lands after the first read")
 	})
 
+	t.Run("an online sighting that overtakes the sweep read keeps the stand", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		const callsign = "SASOBS10"
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, clock.current())))
+		clock.advance(11 * time.Minute)
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
+		lifecycle.strips = &departureReconnectStripRepository{
+			StripRepository: strips, callsign: callsign,
+			afterRead: func(ctx context.Context, session int32, callsign string) error {
+				return lifecycle.recordOnlineSighting(ctx, session, callsign, onlineFlightSeenAt(callsign, 1, clock.current()))
+			},
+		}
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err := assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err)
+		assert.Empty(t, published, "a fresh sighting must not publish a removal")
+	})
+
 	t.Run("reservations are not departure blocks", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		const callsign = "SASOBS5"
@@ -306,4 +330,85 @@ func TestDepartureBlockObservationTimeout(t *testing.T) {
 		require.Equal(t, StageReserved, reservation.Stage)
 		assert.False(t, lifecycle.departureBlockUnobserved(loadStrip(t, strips, session, callsign), nil, reservation, clock.current().Add(time.Hour)))
 	})
+}
+
+func TestDepartureOnlineSightingSerializesWithRelease(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	for _, abortRelease := range []bool{false, true} {
+		name := "committed release"
+		if abortRelease {
+			name = "aborted release"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+			const callsign = "SASOBSRACE"
+			testdata.SeedTestStrip(t, queries, session, callsign)
+			require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, clock.current())))
+			assignment, err := assignments.GetAssignment(ctx, session, callsign)
+			require.NoError(t, err)
+			clock.advance(11 * time.Minute)
+			flight := onlineFlightSeenAt(callsign, 1, clock.current())
+			var published []StandAllocationResult
+			allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+				published = append(published, result)
+				return nil
+			})
+			writerDone := make(chan error, 1)
+			interrupted := errors.New("interrupt release after its final heartbeat read")
+			err = allocations.releaseAssignmentChecked(ctx, assignment, false, func(locked *models.Strip) error {
+				unobserved, err := lifecycle.departureBlockUnobservedNow(ctx, locked, assignment, clock.current())
+				require.NoError(t, err)
+				require.True(t, unobserved)
+				// Reproduce a feed update after the final heartbeat read, with an
+				// existing sighting row. It must wait until release commits or rolls back.
+				go func() { writerDone <- lifecycle.recordOnlineSighting(ctx, session, callsign, flight) }()
+				require.Eventually(t, func() bool {
+					var blocked bool
+					err := pool.QueryRow(ctx, `SELECT EXISTS (
+						SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+						AND wait_event_type = 'Lock' AND query LIKE 'INSERT INTO departure_online_sightings%'
+					)`).Scan(&blocked)
+					require.NoError(t, err)
+					return blocked
+				}, 5*time.Second, 10*time.Millisecond, "online sighting must wait for the release's strip lock")
+				select {
+				case err := <-writerDone:
+					t.Fatalf("sighting overtook the final release check: %v", err)
+				default:
+				}
+				if abortRelease {
+					return interrupted
+				}
+				return nil
+			})
+			if abortRelease {
+				require.ErrorIs(t, err, interrupted)
+				assert.Empty(t, published, "an interrupted release must not publish removal")
+				_, err = assignments.GetAssignment(ctx, session, callsign)
+				require.NoError(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Len(t, published, 1)
+				assert.True(t, published[0].Removed)
+				_, err = assignments.GetAssignment(ctx, session, callsign)
+				require.Error(t, err)
+			}
+			select {
+			case err := <-writerDone:
+				require.NoError(t, err)
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			// Resume normal reconciliation, including recovery after an aborted
+			// release. The fresh online sighting keeps the occupied stand booked.
+			require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), flight))
+			require.NoError(t, lifecycle.ReleaseExpired(ctx))
+			current, err := assignments.GetAssignment(ctx, session, callsign)
+			require.NoError(t, err)
+			assert.Equal(t, StageDepartureBlock, current.Stage)
+			assert.Equal(t, assignment.Stand, current.Stand)
+		})
+	}
 }

@@ -65,6 +65,7 @@ RETURNING id, version;
 WITH clearance_authority AS (
     SELECT s.id AS strip_id,
            sqlc.narg(sync_version)::integer IS NOT NULL AND s.version <> sqlc.narg(sync_version)::integer AS newer_version,
+           s.dedicated_cfl_version > sqlc.narg(sync_version)::integer AS newer_dedicated_cfl,
            ROW(s.cleared_altitude, s.hold, s.hold_type, s.hold_eat)
                IS DISTINCT FROM ROW(sqlc.narg(sync_cleared_altitude)::integer, sqlc.narg(sync_hold)::text,
                                     sqlc.narg(sync_hold_type)::text, sqlc.narg(sync_hold_eat)::text) AS different_clearance,
@@ -87,7 +88,7 @@ SET version = strips.version + 1,
     sid = sqlc.arg(sid),
     star = sqlc.arg(star),
     cleared_altitude = CASE WHEN sqlc.arg(sync_restart)::boolean THEN sqlc.narg(cleared_altitude)::integer
-                           WHEN (newer_version AND different_clearance) OR
+                           WHEN newer_dedicated_cfl OR (newer_version AND different_clearance) OR
                                  (non_tracking AND btrim(strips.tracking_controller) <> '' AND (newer_version OR btrim(strips.hold) <> ''))
                             THEN strips.cleared_altitude ELSE sqlc.narg(cleared_altitude)::integer END,
     heading = sqlc.arg(heading),
@@ -221,6 +222,7 @@ WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc
 -- name: UpdateStripClearedAltitudeByID :execrows
 UPDATE strips
 SET cleared_altitude = $1,
+    dedicated_cfl_version = version + 1,
     version          = version + 1
 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 

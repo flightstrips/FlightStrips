@@ -216,8 +216,6 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 	observation.Destination = strings.ToUpper(strings.TrimSpace(observation.Destination))
 	observation.TakeoffDetected = takeoffAfterGroundReport(observation.TakeoffDetected, observation)
 	owner := observationOwner(observation)
-	airport := strings.ToUpper(strings.TrimSpace(observation.Destination))
-	airport = aman.SessionAirportKey(ctx, airport)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !observation.Missing {
@@ -228,14 +226,21 @@ func (s *Service) Observe(ctx context.Context, observation aman.FlightObservatio
 		if s.destinationFacts[key] == nil {
 			s.destinationFacts[key] = map[aman.ObservationProvider]aman.FlightObservation{}
 		}
-		if previous, found := s.destinationFacts[key][owner]; found && observationPrecedes(observation, previous) {
-			return nil
+		if previous, found := s.destinationFacts[key][owner]; found {
+			if observationPrecedes(observation, previous) {
+				return nil
+			}
+			if owner == aman.ObservationProviderEuroScope && observationFactTime(observation).Before(observationFactTime(previous)) {
+				// Accept newer clearance revisions without rolling back the plan watermark.
+				observation = mergeSurveillanceObservation(previous, observation)
+			}
 		}
 		s.destinationFacts[key][owner] = observation
 	}
 	if !s.enabledAirport(observation.Destination) {
 		return nil
 	}
+	airport := aman.SessionAirportKey(ctx, observation.Destination)
 	if s.observed[airport] == nil {
 		s.observed[airport] = map[aman.Callsign]aman.FlightObservation{}
 	}
@@ -339,41 +344,43 @@ func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) ama
 		retainNewerClearedAltitude(previous, &incoming)
 		merged := previous
 		merged.Callsign = incoming.Callsign
-		merged.Origin, merged.Destination = incoming.Origin, incoming.Destination
-		if incoming.AircraftType != nil {
-			merged.AircraftType = incoming.AircraftType
-			merged.WakeCategory = incoming.WakeCategory
+		if observationOwner(previous) != aman.ObservationProviderEuroScope || !observationFactTime(incoming).Before(observationFactTime(previous)) {
+			merged.Origin, merged.Destination = incoming.Origin, incoming.Destination
+			if incoming.AircraftType != nil {
+				merged.AircraftType = incoming.AircraftType
+				merged.WakeCategory = incoming.WakeCategory
+			}
+			if incoming.RequestedLevel != nil {
+				merged.RequestedLevel = incoming.RequestedLevel
+			}
+			if incoming.FiledRoute != nil {
+				merged.FiledRoute = incoming.FiledRoute
+			}
+			merged.FlightPlan = incoming.FlightPlan
+			if merged.FlightPlan.ObservedAt == nil {
+				at := observationFactTime(incoming)
+				merged.FlightPlan.ObservedAt = &at
+			}
+			merged.AssignedSTAR = incoming.AssignedSTAR
+			if incoming.PlannedTiming != nil {
+				timing := *incoming.PlannedTiming
+				if previous.PlannedTiming != nil {
+					if timing.EstimatedOffBlockTime == nil {
+						timing.EstimatedOffBlockTime = previous.PlannedTiming.EstimatedOffBlockTime
+					}
+					if timing.EstimatedEnrouteTime == nil {
+						timing.EstimatedEnrouteTime = previous.PlannedTiming.EstimatedEnrouteTime
+					}
+				}
+				merged.PlannedTiming = &timing
+			}
 		}
-		if incoming.RequestedLevel != nil {
-			merged.RequestedLevel = incoming.RequestedLevel
-		}
-		if incoming.FiledRoute != nil {
-			merged.FiledRoute = incoming.FiledRoute
-		}
-		merged.FlightPlan = incoming.FlightPlan
-		if merged.FlightPlan.ObservedAt == nil {
-			at := observationFactTime(incoming)
-			merged.FlightPlan.ObservedAt = &at
-		}
-		merged.AssignedSTAR = incoming.AssignedSTAR
-		// EuroScope owns the CFL; a cleared value of nil removes it.
+		// EuroScope owns the CFL; its strip revision is independent of plan time.
 		merged.ClearedAltitude = incoming.ClearedAltitude
 		merged.ClearedAltitudeStripRevision = incoming.ClearedAltitudeStripRevision
 		if clearance := incoming.HoldingClearance; clearance != nil &&
 			previous.HoldingClearance.PredatesStripSnapshot(clearance.StripRevision, clearance.ObservedAt) {
 			merged.HoldingClearance = incoming.HoldingClearance
-		}
-		if incoming.PlannedTiming != nil {
-			timing := *incoming.PlannedTiming
-			if previous.PlannedTiming != nil {
-				if timing.EstimatedOffBlockTime == nil {
-					timing.EstimatedOffBlockTime = previous.PlannedTiming.EstimatedOffBlockTime
-				}
-				if timing.EstimatedEnrouteTime == nil {
-					timing.EstimatedEnrouteTime = previous.PlannedTiming.EstimatedEnrouteTime
-				}
-			}
-			merged.PlannedTiming = &timing
 		}
 		if incoming.Surveillance != nil && (previous.SurveillanceSource != aman.SurveillanceSourceEuroScope ||
 			previous.Surveillance == nil || previous.Surveillance.ObservedAt == nil ||
@@ -1207,7 +1214,7 @@ func (s *Service) reconcileFlightPrimary(ctx context.Context, state aman.Airport
 			if previousOwner == aman.ObservationProviderEuroScope && observationPrecedes(observation, *previous) {
 				return flight, nil
 			}
-			if previousOwner == aman.ObservationProviderEuroScope && observation.HoldingClearance != nil &&
+			if previousOwner == aman.ObservationProviderEuroScope &&
 				observationFactTime(observation).Before(observationFactTime(*previous)) {
 				observation = mergeSurveillanceObservation(*previous, observation)
 			}

@@ -77,14 +77,18 @@ func (o *syncRevisionObserver) ObserveEuroScopeStrips(_ context.Context, _ int32
 
 func TestFullSyncPreservesNewerTrackerClearance(t *testing.T) {
 	for _, scenario := range []struct {
-		name          string
-		holding       bool
-		newLevel      int32
-		incomingLevel int32
+		name            string
+		holding         bool
+		newLevel        int32
+		incomingLevel   int32
+		sender          string
+		unrelatedUpdate bool
 	}{
 		{name: "held arrival receives a newer level", holding: true, newLevel: 7000, incomingLevel: 9000},
 		{name: "nonholding arrival receives a newer clear", incomingLevel: 9000},
 		{name: "tracker reasserts same level outside a hold", newLevel: 9000, incomingLevel: 7000},
+		{name: "tracking sender reasserts same level", newLevel: 9000, incomingLevel: 7000, sender: "EKCH_APP"},
+		{name: "tracking sender sync after unrelated edit", newLevel: 7000, incomingLevel: 7000, sender: "EKCH_APP", unrelatedUpdate: true},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			pool, queries := testdata.SetupTestDB(t)
@@ -105,11 +109,16 @@ func TestFullSyncPreservesNewerTrackerClearance(t *testing.T) {
 			require.NoError(t, repo.Create(ctx, strip))
 			cached, err := repo.GetByCallsign(ctx, session, strip.Callsign)
 			require.NoError(t, err)
-			rows, err := repo.UpdateClearedAltitude(ctx, session, strip.Callsign, &scenario.newLevel, nil)
-			require.NoError(t, err)
-			require.EqualValues(t, 1, rows)
+			if scenario.unrelatedUpdate {
+				_, err = pool.Exec(ctx, "UPDATE strips SET remarks = 'unrelated edit', version = version + 1 WHERE id = $1", cached.ID)
+				require.NoError(t, err)
+			} else {
+				rows, err := repo.UpdateClearedAltitude(ctx, session, strip.Callsign, &scenario.newLevel, nil)
+				require.NoError(t, err)
+				require.EqualValues(t, 1, rows)
+			}
 			if scenario.holding {
-				rows, err = repo.UpdateHold(ctx, session, strip.Callsign, "TESPI", "enroute", "1431", nil)
+				rows, err := repo.UpdateHold(ctx, session, strip.Callsign, "TESPI", "enroute", "1431", nil)
 				require.NoError(t, err)
 				require.EqualValues(t, 1, rows)
 			}
@@ -118,7 +127,11 @@ func TestFullSyncPreservesNewerTrackerClearance(t *testing.T) {
 			require.Greater(t, current.Version, cached.Version)
 
 			batch := &shared.SyncState{ExistingStrips: map[string]*models.Strip{strip.Callsign: cached}}
-			batchCtx := shared.WithStripSyncController(shared.WithSyncState(ctx, batch), "EKCH_FMP")
+			sender := scenario.sender
+			if sender == "" {
+				sender = "EKCH_FMP"
+			}
+			batchCtx := shared.WithStripSyncController(shared.WithSyncState(ctx, batch), sender)
 			incoming := es.Strip{
 				Callsign: strip.Callsign, Origin: strip.Origin, Destination: strip.Destination, HasFp: true,
 				TrackingController: strip.TrackingController, ClearedAltitude: scenario.incomingLevel, Remarks: "new full-sync remark",
@@ -136,6 +149,14 @@ func TestFullSyncPreservesNewerTrackerClearance(t *testing.T) {
 			require.Equal(t, updated.Version, observer.strips[0].Version)
 			require.Equal(t, updated.ClearedAltitude, observer.strips[0].ClearedAltitude)
 			require.Equal(t, updated.Hold, observer.strips[0].Hold)
+			if scenario.sender == "EKCH_APP" && !scenario.unrelatedUpdate {
+				// The dedicated-write watermark only protects older bases. A fresh
+				// tracking sync must still be able to issue the next clearance.
+				require.NoError(t, service.SyncStrip(batchCtx, session, "MASTER", incoming, "EKCH"))
+				fresh, err := repo.GetByCallsign(ctx, session, strip.Callsign)
+				require.NoError(t, err)
+				require.Equal(t, &incoming.ClearedAltitude, fresh.ClearedAltitude)
+			}
 		})
 	}
 }
@@ -221,6 +242,9 @@ func TestFlightPlanEETDoesNotCarryIntoRestartedFlightLifecycle(t *testing.T) {
 	remark := "intervening unrelated update"
 	_, err = pool.Exec(ctx, "UPDATE strips SET remarks = $1, version = version + 1 WHERE id = $2", remark, cached.ID)
 	require.NoError(t, err)
+	rows, err := repo.UpdateClearedAltitude(ctx, session, event.Callsign, &oldCFL, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, rows)
 	ctx = shared.WithSyncState(ctx, &shared.SyncState{ExistingStrips: map[string]*models.Strip{event.Callsign: cached}})
 	require.NoError(t, service.SyncStrip(ctx, session, "MASTER", event, "EKCH"))
 	restarted, err := repo.GetByCallsign(ctx, session, event.Callsign)

@@ -216,6 +216,8 @@ type AMANFlight struct {
 	Callsign              string  `json:"callsign"`
 	AircraftType          *string `json:"aircraft_type,omitempty"`
 	WakeCategory          *string `json:"wake_category,omitempty"`
+	// ClearedAltitude is the EuroScope CFL in feet, or 1 (ILS) / 2 (visual).
+	ClearedAltitude *int `json:"cleared_altitude,omitempty"`
 	LifecycleState        string  `json:"lifecycle_state"`
 	LifecycleReason       string  `json:"lifecycle_reason,omitempty"`
 	Expedited             bool    `json:"expedited,omitempty"`
@@ -702,9 +704,24 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	if result.PredictionReason == nil && flight.Prediction != nil {
 		result.PredictionReason = cloneString(flight.Prediction.DegradationReason)
 	}
-	if flight.LatestObservation != nil {
-		result.AircraftType = cloneString(flight.LatestObservation.AircraftType)
-		result.WakeCategory = cloneString(flight.LatestObservation.WakeCategory)
+	observation := flight.LatestObservation
+	if observation != nil {
+		result.AircraftType = cloneString(observation.AircraftType)
+		result.WakeCategory = cloneString(observation.WakeCategory)
+		result.ClearedAltitude = cloneInt(observation.ClearedAltitude)
+	}
+	if clearance := flight.HoldingClearance; clearance != nil && clearance.ArrivalClearedAltitude != nil {
+		// Position reports reread the persisted strip. For unversioned snapshots,
+		// the EuroScope flight plan time stays tied to the report across network updates.
+		newerEuroScopeObservation := observation != nil && observation.Provider == aman.ObservationProviderEuroScope &&
+			observation.FlightPlan.ObservedAt != nil && clearance.PredatesStripSnapshot(observation.ClearedAltitudeStripRevision, *observation.FlightPlan.ObservedAt)
+		if !newerEuroScopeObservation {
+			result.ClearedAltitude = nil
+			if level := *clearance.ArrivalClearedAltitude; level > 0 {
+				value := int(level)
+				result.ClearedAltitude = &value
+			}
+		}
 	}
 	if flight.Lifecycle != nil {
 		result.LifecycleReason = string(flight.Lifecycle.Reason)

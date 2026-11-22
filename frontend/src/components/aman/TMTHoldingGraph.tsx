@@ -65,7 +65,7 @@ function accessibleEntryLabel(position: ReturnType<typeof layoutHoldingGraph>[nu
   ].join(", ");
 }
 
-export function TMTHoldingGraph({compact = false, entries, holding, now = new Date(), onOpenFlightActions}: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; now?: Date; onOpenFlightActions?: (callsign: string) => void}) {
+export function TMTHoldingGraph({compact = false, entries, holding, now = new Date(), onOpenFlightActions}: {compact?: boolean; entries: AMANHoldingEntry[]; holding?: string; now?: Date; onOpenFlightActions?: (callsign: string, anchor?: HTMLElement) => void}) {
   const positions = layoutHoldingGraph(entries.filter(({cleared_altitude}) => cleared_altitude === null || cleared_altitude <= HOLDING_GRAPH_MAX_FLIGHT_LEVEL * 100), now);
   const placed = positions.filter(({altitude}) => altitude.percent !== null);
   const unplaced = positions.filter(({altitude}) => altitude.percent === null);
@@ -115,7 +115,7 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
   function moveFocus(event: KeyboardEvent<HTMLLIElement>, callsign: string) {
     if (onOpenFlightActions && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
-      onOpenFlightActions(callsign);
+      onOpenFlightActions(callsign, event.currentTarget);
       return;
     }
     const current = positions.findIndex(({entry}) => entry.callsign === callsign);
@@ -183,9 +183,9 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
                 aria-keyshortcuts={`ArrowDown ArrowRight ArrowUp ArrowLeft Home End${onOpenFlightActions ? " Enter Space" : ""}`}
                 title={onOpenFlightActions ? `Open flight menu for ${position.entry.callsign}` : undefined}
                 data-altitude-y={labels.altitudeY(position.altitude.percent!)}
-                className="absolute grid -translate-y-1/2 grid-cols-[39%_minmax(0,1fr)] bg-[#3c3c3c] font-semibold leading-none hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
+                className="absolute grid -translate-y-1/2 grid-cols-[39%_minmax(0,1fr)] bg-[#3c3c3c] font-semibold leading-none hover:z-10 focus:z-20 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 key={position.entry.callsign}
-                onClick={() => onOpenFlightActions?.(position.entry.callsign)}
+                onClick={(event) => onOpenFlightActions?.(position.entry.callsign, event.currentTarget)}
                 onKeyDown={(event) => moveFocus(event, position.entry.callsign)}
                 ref={(element) => setEntryRef(position.entry.callsign, element)}
                 role={onOpenFlightActions ? "button" : undefined}
@@ -222,9 +222,9 @@ export function TMTHoldingGraph({compact = false, entries, holding, now = new Da
               aria-label={accessibleEntryLabel(position)}
               aria-keyshortcuts={`ArrowDown ArrowRight ArrowUp ArrowLeft Home End${onOpenFlightActions ? " Enter Space" : ""}`}
               title={onOpenFlightActions ? `Open flight menu for ${entry.callsign}` : undefined}
-              className="grid grid-cols-[1fr_55px_55px_55px_auto] gap-1 font-mono focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
+              className="grid grid-cols-[1fr_55px_55px_55px_auto] gap-1 font-mono outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               key={entry.callsign}
-              onClick={() => onOpenFlightActions?.(entry.callsign)}
+              onClick={(event) => onOpenFlightActions?.(entry.callsign, event.currentTarget)}
               onKeyDown={(event) => moveFocus(event, entry.callsign)}
               ref={(element) => setEntryRef(entry.callsign, element)}
               role={onOpenFlightActions ? "button" : undefined}

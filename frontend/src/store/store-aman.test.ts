@@ -411,10 +411,12 @@ describe("EuroScope AMAN selection", () => {
     const initial = {...initialSnapshot(true), aircraft_selection: {callsign: "SAS123", revision: 1}};
     client._emit(EventType.FrontendInitial, initial);
     expect(store.getState().amanSelectedCallsign).toBe("SAS123");
+    const initialGeneration = store.getState().amanEuroScopeSelectionGeneration;
     store.getState().selectAMANFlight("SAS456");
     client._emit(EventType.FrontendInitial, initial);
     client._emit(EventType.FrontendAircraftSelection, {callsign: "SAS123", revision: 1});
     expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    expect(store.getState().amanEuroScopeSelectionGeneration).toBe(initialGeneration);
     client._emit(EventType.FrontendAircraftSelection, {callsign: "OTHER", revision: 3});
     client._emit(EventType.FrontendAircraftSelection, {callsign: "SAS123", revision: 2});
     expect(store.getState().amanSelectedCallsign).toBe("OTHER");
@@ -441,16 +443,21 @@ describe("EuroScope AMAN selection", () => {
     const client = createMockClient();
     const store = createWebSocketStore(client);
     const board = {session_id: 1, airport: "EKCH", environment: "LIVE", instance_id: "one", membership_id: "a", generation: "1", transport_generation: "1", definition_revision: "v1", subscription_id: "tab"};
-    const initial = {...initialSnapshot(true), session_id: 1, board, aircraft_selection: {callsign: "SAS123", revision: 9}};
+    const initial = {...initialSnapshot(true), session_id: 1, board, aircraft_selection: {callsign: "SAS123", revision: 1}};
     client._emit(EventType.FrontendInitial, initial);
-    client._emit(EventType.FrontendInitial, {...initial, board: {...board, instance_id: "two"}, aircraft_selection: {callsign: "SAS456", revision: 1}});
+    const initialGeneration = store.getState().amanEuroScopeSelectionGeneration;
+    client._emit(EventType.FrontendInitial, {...initial, board: {...board, membership_id: "b"}, aircraft_selection: {callsign: "SAS456", revision: 1}});
     expect(store.getState().amanSelectedCallsign).toBe("SAS456");
+    expect(store.getState().amanEuroScopeSelectionRevision).toBe(1);
+    expect(store.getState().amanEuroScopeSelectionGeneration).toBeGreaterThan(initialGeneration);
     client._invalidate();
     expect(store.getState().amanSelectedCallsign).toBe("SAS456");
     expect(store.getState().readOnly).toBe(true);
     expect(store.getState().amanEuroScopeSelectionRevision).toBe(0);
-    client._emit(EventType.FrontendInitial, initial);
+    const invalidatedGeneration = store.getState().amanEuroScopeSelectionGeneration;
+    client._emit(EventType.FrontendInitial, {...initial, board: {...board, membership_id: "b"}});
     expect(store.getState().amanSelectedCallsign).toBe("SAS123");
+    expect(store.getState().amanEuroScopeSelectionGeneration).toBeGreaterThan(invalidatedGeneration);
   });
 
 });

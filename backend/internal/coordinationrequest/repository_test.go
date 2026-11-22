@@ -16,11 +16,12 @@ func TestTrackingControllerUsesAMANCallsign(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
 	sessionID := testdata.SeedTestSession(t, queries)
-	require.NoError(t, queries.InsertStrip(ctx, database.InsertStripParams{
+	_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign: "SAS123", Session: sessionID, Origin: "ESSA", Destination: "EKCH", Bay: "ARR_HIDDEN",
 		TrackingController: "EKCH_APP", EngineType: "J", CdmData: []byte("null"), NextOwners: []byte("[]"), PreviousOwners: []byte("[]"),
-	}))
-	_, err := pool.Exec(ctx, `INSERT INTO aman_airport_states
+	})
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO aman_airport_states
 		(airport, revision, generated_at, policy_version, mode, authoritative, runway_groups)
 		VALUES ('EKCH', 0, NOW(), 'test', 'shadow', false, '[]')`)
 	require.NoError(t, err)

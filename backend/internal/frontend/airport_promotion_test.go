@@ -78,10 +78,11 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 			hub.SetValidationService(validation)
 			allocations.SetPublisher(hub.PublishStandAllocation)
 			for _, callsign := range []string{"SAS970", "SAS971", "SAS972"} {
-				require.NoError(t, queries.InsertStrip(ctx, database.InsertStripParams{
+				_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 					Callsign: callsign, Session: session, Origin: "ESSA", Destination: "EKCH", AircraftType: ptr("A320"),
 					Bay: "ARR_HIDDEN", CdmData: []byte(`{"canonical":{}}`), NextOwners: []byte(`[]`), PreviousOwners: []byte(`[]`),
-				}))
+				})
+				require.NoError(t, err)
 			}
 			load := func(callsign string) *models.Strip {
 				strip, err := strips.GetByCallsign(ctx, session, callsign)

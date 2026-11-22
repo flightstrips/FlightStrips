@@ -29,7 +29,7 @@ func TestServicePersistsESOnlyClearanceCreateUpdateAndCancelWithoutCID(t *testin
 	require.Equal(t, aman.SequenceRevision(8), repository.state.Revision)
 	require.Equal(t, &aman.HoldingClearance{
 		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1422",
-		ClearedAltitude: &altitude, ObservedAt: now,
+		ClearedAltitude: &altitude, ObservedAt: now, ArrivalClearedAltitude: &altitude,
 	}, repository.state.Flights[0].HoldingClearance)
 	fact.HoldEAT = "1430"
 	fact.ObservedAt = now.Add(30 * time.Second)
@@ -50,7 +50,8 @@ func TestServicePersistsESOnlyClearanceCreateUpdateAndCancelWithoutCID(t *testin
 	fact.Hold, fact.HoldType, fact.HoldEAT, fact.ClearedAltitude = "", "tsa", "", nil
 	fact.ObservedAt = now.Add(2 * time.Minute)
 	require.NoError(t, restarted.ObserveHoldingClearance(context.Background(), fact))
-	require.Equal(t, &aman.HoldingClearance{ObservedAt: fact.ObservedAt}, restartedRepository.state.Flights[0].HoldingClearance)
+	cleared := int32(0)
+	require.Equal(t, &aman.HoldingClearance{ObservedAt: fact.ObservedAt, ArrivalClearedAltitude: &cleared}, restartedRepository.state.Flights[0].HoldingClearance)
 	canceledAt := fact.ObservedAt
 	require.Equal(t, &canceledAt, restartedRepository.state.Flights[0].HoldingClearanceCanceledAt)
 	afterCancellation := restartedRepository.restart(t)
@@ -111,6 +112,68 @@ func TestClearanceReplansBatchButNotEATWritebackEchoes(t *testing.T) {
 type recordingPlanner struct {
 	batches [][]aman.Callsign
 	holds   []string
+}
+
+func TestHoldingClearanceCanApplyAfterNewerPositionReport(t *testing.T) {
+	assigned := int32(7000)
+	positionLevel := int(assigned)
+	otherLevel := 6000
+	for _, scenario := range []struct {
+		name          string
+		stripID       int32
+		dedicated     *int32
+		position      *int
+		wantPublished bool
+	}{
+		{name: "same level", stripID: 42, dedicated: &assigned, position: &positionLevel, wantPublished: true},
+		{name: "same clear", stripID: 42, wantPublished: true},
+		{name: "different level", stripID: 42, dedicated: &assigned, position: &otherLevel},
+		{name: "replacement strip", stripID: 43, dedicated: &assigned, position: &positionLevel},
+	} {
+		for _, source := range []struct {
+			name      string
+			dedicated bool
+		}{{name: "dedicated", dedicated: true}, {name: "full sync"}} {
+			t.Run(source.name+"/"+scenario.name, func(t *testing.T) {
+				now := time.Date(2026, 11, 2, 18, 25, 0, 0, time.UTC)
+				state := airportState(now)
+				flight := &state.Flights[0]
+				previousLevel := int32(9000)
+				fact := aman.HoldingClearanceFact{
+					Callsign: flight.Callsign, Destination: state.Airport,
+					Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ClearedAltitude: &previousLevel,
+					ObservedAt: now.Add(-time.Minute), StripRevision: aman.StripRevision{ID: 42, Version: 17},
+				}
+				flight.HoldingClearance = NormalizeStripFact(fact)
+				flight.LatestObservation = &aman.FlightObservation{
+					Callsign: flight.Callsign, Origin: "ESSA", Destination: state.Airport,
+					Provider: aman.ObservationProviderEuroScope, SourceStatus: aman.DataFresh, ReconciledAt: now,
+					ClearedAltitude: scenario.position, ClearedAltitudeStripRevision: aman.StripRevision{ID: scenario.stripID, Version: 19},
+				}
+				repo := &factReadRepository{memoryRepository: &memoryRepository{state: state}}
+				pub := &publisher{}
+				planner := &recordingPlanner{}
+				svc, err := New(Dependencies{Repository: repo, Publisher: pub, Planner: planner})
+				require.NoError(t, err)
+				fact.ClearedAltitude = scenario.dedicated
+				fact.ObservedAt = now.Add(time.Second)
+				fact.StripRevision.Version = 18
+				fact.DedicatedClearedAltitude = source.dedicated
+				require.NoError(t, svc.ObserveHoldingClearance(t.Context(), fact))
+				retained := repo.state.Flights[0].HoldingClearance
+				if scenario.wantPublished {
+					require.Equal(t, 1, pub.calls)
+					require.Equal(t, [][]aman.Callsign{{flight.Callsign}}, planner.batches)
+					require.Equal(t, scenario.dedicated, retained.ClearedAltitude)
+					require.Equal(t, fact.StripRevision, retained.StripRevision)
+				} else {
+					require.Zero(t, pub.calls)
+					require.Empty(t, planner.batches)
+					require.Equal(t, &previousLevel, retained.ClearedAltitude)
+				}
+			})
+		}
+	}
 }
 
 func TestClearedLevelDescentReplansExistingHold(t *testing.T) {

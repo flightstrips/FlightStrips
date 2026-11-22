@@ -8,6 +8,7 @@ import {
   buildAMANLanes,
   buildRWYTimelineLanes,
   buildTimelineRange,
+  formatAMANClearedAltitude,
   formatGainLoss,
   layoutTimelineMarkers,
   operationalMarkerTimestamp,
@@ -176,5 +177,16 @@ describe("AMAN presentation model", () => {
     expect(lanes).toHaveLength(2);
     expect(lanes.flatMap((lane) => lane.flights)).toHaveLength(200);
     expect(new Set(lanes.flatMap((lane) => lane.flights.map((value) => value.callsign))).size).toBe(200);
+  });
+});
+
+describe("AMAN cleared flight level", () => {
+  it("formats the EuroScope CFL like the strips, with approach codes labelled", () => {
+    expect(formatAMANClearedAltitude(9000, 5000)).toBe("FL90");
+    expect(formatAMANClearedAltitude(5000, 5000)).toBe("5000");
+    expect(formatAMANClearedAltitude(1, 5000)).toBe("ILS");
+    expect(formatAMANClearedAltitude(2, 5000)).toBe("VIS");
+    expect(formatAMANClearedAltitude(undefined, 5000)).toBe("");
+    expect(formatAMANClearedAltitude(0, 5000)).toBe("");
   });
 });

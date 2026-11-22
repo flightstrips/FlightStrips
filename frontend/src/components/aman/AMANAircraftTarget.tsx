@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 import type {AMANFlight} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import {freezePresentation} from "./freeze-presentation";
-import {formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
+import {formatAMANClearedAltitude, formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
 
 export type AMANAircraftTargetOptionalField =
   | "feeder-fix-eta"
@@ -20,17 +20,19 @@ export interface AMANAircraftTargetField {
 }
 
 export interface AMANAircraftTargetProps {
-  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate" | "approach_release_forecast_time">;
+  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate" | "approach_release_forecast_time" | "cleared_altitude">;
   guidance: Omit<AMANGainLossPresentationContext, "fresh">;
   selected?: boolean;
   disabled?: boolean;
   leadingFields?: readonly AMANAircraftTargetField[];
   trailingFields?: readonly AMANAircraftTargetField[];
-  onSelect?: () => void;
+  /** Receives the target element so menus can open over the callsign. */
+  onSelect?: (target: HTMLElement) => void;
   emphasis?: "primary" | "subdued";
   dimmed?: boolean;
   compact?: boolean;
   delayFirst?: boolean;
+  transitionAltitude?: number;
 }
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; tone: string} {
@@ -87,7 +89,9 @@ export function AMANAircraftTarget({
   dimmed = false,
   compact = false,
   delayFirst = false,
+  transitionAltitude = 0,
 }: AMANAircraftTargetProps) {
+  const clearedAltitude = formatAMANClearedAltitude(flight.cleared_altitude, transitionAltitude);
   const delay = formatGainLoss(flight.gain_loss_seconds, {
     ...guidance,
     fresh: flight.data_status === "fresh",
@@ -101,11 +105,14 @@ export function AMANAircraftTarget({
   const displayedDelay = forecastRelease && delay !== "Unavailable" ? `~${delay}` : delay;
   return (
     <button
-      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${forecastRelease ? "; Forecast approach release; not committed" : ""}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
+      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${forecastRelease ? "; Forecast approach release; not committed" : ""}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}${clearedAltitude ? `; cleared altitude ${clearedAltitude}` : ""}`}
       aria-pressed={selected}
       className={cn(
         "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border-2 border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
-        !selected && "hover:border-white hover:bg-[#a3d5e8] hover:text-white [&:hover>span]:!text-white focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white [&:focus-visible>span]:!text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+        // Hover previews the selected box, so it matches the selected style exactly.
+        // A plain :hover variant is used because Tailwind's hover: only applies
+        // under @media (hover: hover), which touch-capable displays can fail.
+        !selected && "[&:hover]:border-white [&:hover]:bg-[#5174B8] focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white [&:focus-visible>span]:!text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         "disabled:cursor-not-allowed disabled:opacity-60",
         selected && "border-white bg-[#5174B8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         emphasis === "primary" && "text-[#96d796] [&>span:not([data-retained-guidance])]:!text-[#96d796]",
@@ -115,7 +122,7 @@ export function AMANAircraftTarget({
       data-dimmed={dimmed || undefined}
       data-emphasis={emphasis}
       disabled={disabled}
-      onClick={onSelect}
+      onClick={(event) => onSelect?.(event.currentTarget)}
       type="button"
     >
       <TargetFields fields={leadingFields} />
@@ -125,6 +132,7 @@ export function AMANAircraftTarget({
         {flight.basic_estimate && <span aria-hidden="true" className="ml-0.5 shrink-0 font-normal">≈</span>}
       </span>
       {!delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{displayedDelay}</span>}
+      {clearedAltitude && <span className="flex shrink-0 items-center px-1 text-[#a9bdc5]" data-field="cfl" title="Cleared flight level (EuroScope)">{clearedAltitude}</span>}
       <TargetFields fields={trailingFields} />
       <span className="sr-only">{lifecycle.label}</span>
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}

@@ -44,10 +44,13 @@ test("clips a gap at the horizon and preserves sub-minute duration", async ({pag
   const axis = (await timeline.getByRole("img", {name: /^UTC timeline/}).boundingBox())!;
   const clipped = (await timeline.locator("[data-gap-id]").boundingBox())!;
   expect(clipped.y).toBeCloseTo(axis.y, 1);
-  expect(clipped.height / axis.height).toBeCloseTo(2 / 95, 3);
+  // Home scrolls the 40-minute window to the 90-minute look-ahead without
+  // compressing it, so the clipped gap shows 2 of those 40 minutes.
+  expect(clipped.height / axis.height).toBeCloseTo(2 / 40, 3);
+  // The scroll position is not persisted, so a reload is back at the default 40-minute view.
   await page.goto("/visual-tests/aman-gap-preview.html?gap=short");
   const short = (await page.getByTestId("fmp-timeline-1").locator("[data-gap-id]").boundingBox())!;
-  expect(short.height / axis.height).toBeCloseTo(0.1 / 95, 4);
+  expect(short.height / axis.height).toBeCloseTo(0.1 / 40, 4);
 });
 
 test("keeps the gap until removal is confirmed and sends the correct command", async ({page}) => {

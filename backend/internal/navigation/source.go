@@ -3,6 +3,7 @@ package navigation
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -164,7 +165,11 @@ func (s *Source) Start(ctx context.Context) {
 	if s == nil || s.Materializer == nil || s.Terminal.Airport == "" {
 		return
 	}
-	refresh := func() { _ = s.Materializer.Refresh(ctx, materializer.Request{Airport: s.Terminal.Airport}) }
+	refresh := func() {
+		if err := s.Materializer.Refresh(ctx, materializer.Request{Airport: s.Terminal.Airport}); err != nil && ctx.Err() == nil {
+			slog.Warn("Navigation refresh failed", "airport", s.Terminal.Airport, "source", s.routeSource, "error", err)
+		}
+	}
 	refresh()
 	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()

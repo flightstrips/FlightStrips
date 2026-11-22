@@ -43,9 +43,10 @@ func TestUpdateClearedAltitudeImmediatelyNotifiesAMANFromPersistedStrip(t *testi
 			service.SetHoldingClearanceObserver(observer)
 
 			require.NoError(t, service.UpdateClearedAltitude(context.Background(), persisted.Session, persisted.Callsign, altitude))
-			require.Len(t, observer.strips, 1, "a level change must reach AMAN without another hold event or full sync")
-			require.Equal(t, persisted, observer.strips[0])
-			require.Equal(t, altitude, *observer.strips[0].ClearedAltitude)
+			require.Empty(t, observer.strips)
+			require.Len(t, observer.altitudes, 1, "a level change must reach AMAN as a dedicated update")
+			require.Equal(t, persisted, observer.altitudes[0])
+			require.Equal(t, altitude, *observer.altitudes[0].ClearedAltitude)
 		})
 	}
 }
@@ -73,6 +74,7 @@ func TestUpdateClearedAltitudeOnlyObservesSuccessfulWrites(t *testing.T) {
 
 			require.ErrorIs(t, service.UpdateClearedAltitude(context.Background(), 12, "SAS123", 9000), scenario.err)
 			require.Empty(t, observer.strips)
+			require.Empty(t, observer.altitudes)
 		})
 	}
 }

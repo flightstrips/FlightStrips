@@ -1125,7 +1125,7 @@ func handleStandAutomaticRequest(ctx context.Context, client *Client, message Me
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	result, err := client.hub.standActionService.Allocate(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Version)
+	result, err := client.hub.standActionService.Allocate(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Version, action.AssignmentID)
 	return publishStandAction(client, message.Type, action.Callsign, "", &action.Version, result, err)
 }
 
@@ -1135,7 +1135,7 @@ func handleStandManualRequest(ctx context.Context, client *Client, message Messa
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	result, err := client.hub.standActionService.AssignManually(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Stand, action.Version)
+	result, err := client.hub.standActionService.AssignManually(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Stand, action.Version, action.AssignmentID)
 	return publishStandAction(client, message.Type, action.Callsign, action.Stand, &action.Version, result, err)
 }
 
@@ -1145,7 +1145,7 @@ func handleStandConfirmedOverride(ctx context.Context, client *Client, message M
 	if err := message.JsonUnmarshal(&action); err != nil {
 		return err
 	}
-	result, err := client.hub.standActionService.Override(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Stand, action.Reason, action.Version)
+	result, err := client.hub.standActionService.Override(ctx, identity.session, identity.airport, identity.position, action.Callsign, action.Stand, action.Reason, action.Version, action.AssignmentID)
 	return publishStandAction(client, message.Type, action.Callsign, action.Stand, &action.Version, result, err)
 }
 

@@ -39,8 +39,8 @@ func NewStandActionService(allocations *StandAllocationService, assignments repo
 	return &StandActionService{allocations: allocations, assignments: assignments, strips: strips, aircraft: aircraft, engines: engines, borders: borders}
 }
 
-func (s *StandActionService) Allocate(ctx context.Context, session int32, airport, position, callsign string, version int32) (*StandAllocationResult, error) {
-	req, err := s.request(ctx, session, airport, position, callsign, version)
+func (s *StandActionService) Allocate(ctx context.Context, session int32, airport, position, callsign string, version int32, assignmentID ...*int64) (*StandAllocationResult, error) {
+	req, err := s.request(ctx, session, airport, position, callsign, version, assignmentID...)
 	if err != nil {
 		s.recordRequestFailure(AutomaticStandAllocation, session, airport, callsign, "", err)
 		return nil, err
@@ -94,8 +94,8 @@ func (s *StandActionService) AvailableForPilot(ctx context.Context, session int3
 	return s.allocations.AvailableStands(ctx, req)
 }
 
-func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32) (*StandAllocationResult, error) {
-	req, err := s.request(ctx, session, airport, position, callsign, version)
+func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32, assignmentID ...*int64) (*StandAllocationResult, error) {
+	req, err := s.request(ctx, session, airport, position, callsign, version, assignmentID...)
 	if err != nil {
 		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, err)
 		return nil, err
@@ -127,8 +127,8 @@ func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, 
 	return s.allocations.AssignManually(ctx, req)
 }
 
-func (s *StandActionService) Override(ctx context.Context, session int32, airport, position, callsign, stand, reason string, version int32) (*StandAllocationResult, error) {
-	req, err := s.request(ctx, session, airport, position, callsign, version)
+func (s *StandActionService) Override(ctx context.Context, session int32, airport, position, callsign, stand, reason string, version int32, assignmentID ...*int64) (*StandAllocationResult, error) {
+	req, err := s.request(ctx, session, airport, position, callsign, version, assignmentID...)
 	if err != nil {
 		s.recordRequestFailure(IncompatibleManualOverride, session, airport, callsign, stand, err)
 		return nil, err
@@ -164,7 +164,7 @@ func (s *StandActionService) recordRequestFailure(command StandAllocationCommand
 	}, outcome, err, 0)
 }
 
-func (s *StandActionService) request(ctx context.Context, session int32, airport, position, callsign string, version int32) (StandAllocationRequest, error) {
+func (s *StandActionService) request(ctx context.Context, session int32, airport, position, callsign string, version int32, assignmentID ...*int64) (StandAllocationRequest, error) {
 	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
 		return StandAllocationRequest{}, err
 	}
@@ -187,6 +187,9 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 	} else if existing != nil && existing.Version != version {
 		return StandAllocationRequest{}, ErrStandActionStaleVersion
 	}
+	if len(assignmentID) > 0 && assignmentID[0] != nil && existing.Revision().ID != *assignmentID[0] {
+		return StandAllocationRequest{}, ErrStandActionStaleVersion
+	}
 	direction := sat.AssignmentDirectionArrival
 	compatDirection := sat.Arrival
 	if strings.EqualFold(strip.Origin, airport) {
@@ -205,6 +208,11 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 		stage = existing.Stage
 		expiresAt = existing.ExpiresAt
 	}
+	if HasPinnedArrivalPromotionConflict(existing) {
+		// A controller's explicit reassignment replaces the blocked pin with
+		// an operational stand, including when the controller chooses AUTO.
+		stage, expiresAt = StageAssigned, nil
+	}
 	vatsimCID, vatsimRevision := resolvedVatsimIdentity(strip, "", 0)
 	var observedStand *string
 	if direction == sat.AssignmentDirectionArrival {
@@ -212,8 +220,10 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 			observedStand = &stand
 		}
 	}
+	expected := existing.Revision()
 	return StandAllocationRequest{SessionID: session, Callsign: strip.Callsign, Airport: strings.ToUpper(airport), Direction: direction, Stage: stage,
-		FlightFacts: facts, AssignmentFacts: sat.AssignmentFlightFacts{Callsign: strip.Callsign, AircraftType: valueString(strip.AircraftType), AircraftUse: facts.Aircraft.UseCode, BorderStatus: facts.BorderStatus, Direction: direction}, ETA: arrivalETATime(strip), ETASource: existingETASource(existing), ExpiresAt: expiresAt, DepartureTOBT: departureTobtTime(strip, time.Now().UTC()), DepartureTSAT: departureTsatTime(strip, time.Now().UTC()), DepartureStartupRequestedAt: departureStartupRequestTime(strip, time.Now().UTC()), DepartureReady: departureExpectedToVacate(strip), VatsimCID: vatsimCID, VatsimRevision: vatsimRevision, ObservedStand: observedStand}, nil
+		expectedAssignment: &expected,
+		FlightFacts:        facts, AssignmentFacts: sat.AssignmentFlightFacts{Callsign: strip.Callsign, AircraftType: valueString(strip.AircraftType), AircraftUse: facts.Aircraft.UseCode, BorderStatus: facts.BorderStatus, Direction: direction}, ETA: arrivalETATime(strip), ETASource: existingETASource(existing), ExpiresAt: expiresAt, DepartureTOBT: departureTobtTime(strip, time.Now().UTC()), DepartureTSAT: departureTsatTime(strip, time.Now().UTC()), DepartureStartupRequestedAt: departureStartupRequestTime(strip, time.Now().UTC()), DepartureReady: departureExpectedToVacate(strip), VatsimCID: vatsimCID, VatsimRevision: vatsimRevision, ObservedStand: observedStand}, nil
 }
 
 func (s *StandActionService) Acknowledge(ctx context.Context, session int32, position, callsign string, version int32) (*models.StandAssignment, error) {

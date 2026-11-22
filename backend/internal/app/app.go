@@ -429,6 +429,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	if defaultAMAN.transport != nil {
 		defaultAMAN.transport.setHubs(frontendHub, euroscopeHub)
+		if amanRuntime.Ownership().AMANArrivalETAWriter {
+			defaultAMAN.transport.setArrivalETAProjection(newAMANArrivalETAProjection(cfg.AMAN.Mode, stripRepo, frontendHub.SendStripUpdate))
+		}
 	}
 	stripValidationService, err := services.NewStripValidationService(services.StripValidationDependencies{
 		Strips: stripRepo, Statuses: stripRepo, Publisher: frontendHub,

@@ -798,7 +798,7 @@ func TestArrivalReusesStandAfterDepartureEffectiveRelease(t *testing.T) {
 	staleRelease := now.Add(-time.Minute)
 	existing.ProjectedReleaseAt = &staleRelease
 	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
-	assert.Empty(t, unavailable["A1"], "a missed projection does not evict the physical block but may reserve a later non-overlapping arrival")
+	assert.Contains(t, unavailable["A1"], "reserved by DEP1", "a missed projection leaves the release unknown until the physical departure clears")
 }
 
 func TestActiveArrivalExpiryOverridesFutureETAReservation(t *testing.T) {

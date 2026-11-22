@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ActionType, EventType } from "@/api/models";
+import { ActionType, EventType, type ValidationStatus } from "@/api/models";
 import type { WebSocketState } from "@/store/store";
 import { ArrStandDialog } from "./ArrStandDialog";
 
 const state = vi.hoisted(() => ({
-  strip: undefined as { communication_type: string } | undefined,
+  strip: undefined as { communication_type: string; validation_status?: ValidationStatus } | undefined,
   openTextPilotMenu: vi.fn(),
   sendFrequencyMessage: vi.fn(),
   satEnabled: false,
@@ -62,6 +62,27 @@ afterEach(() => {
 });
 
 describe("arrival stand assignment dialog", () => {
+  it.each(["auto", "manual"])("uses the pinned warning version for a %s reassignment", (mode) => {
+    state.satEnabled = true;
+    state.strip = {
+      communication_type: "VOICE",
+      validation_status: {
+        issue_type: "STAND ASSIGNMENT", message: "Pinned stand A18 is occupied",
+        owning_position: "EKCH_APP", active: true, activation_key: "pin-warning",
+        custom_action: { label: "REQUEST NEW STAND", action_kind: "assign_stand", payload: { assignment_id: 123, assignment_version: 7 } },
+      },
+    };
+    show("");
+    const input = screen.getByRole("textbox", { name: "Manual stand" });
+    if (mode === "manual") fireEvent.change(input, { target: { value: "A23" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    if (mode === "manual") {
+      expect(state.requestManualStand).toHaveBeenCalledWith("SAS123", "A23", 7, 123);
+    } else {
+      expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 7, 123);
+    }
+  });
+
   it("focuses the dialog on opening and reopening while allowing manual entry", () => {
     const { rerender, props } = show();
     expect(screen.getByRole("dialog")).toHaveFocus();

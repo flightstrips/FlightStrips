@@ -107,6 +107,7 @@ type Hub struct {
 	snapshotBuilder     *SnapshotBuilder
 	standActionService  *services.StandActionService
 	standCapabilities   *sat.StandCapabilityRegistry
+	standSnapshotLocks  sync.Map
 	textPilotInputs     func(string) *pkgModels.TextPilotInputs
 	amanStateProvider   AMANStateProvider
 	amanCommandService  aman.CommandService
@@ -133,7 +134,7 @@ type nextDisplayBatchComputer interface {
 
 type validationStatusAcknowledger interface {
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error
-	ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string) error
+	ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string, assignments internalModels.StandValidationAssignments) error
 }
 
 type HubDependencies struct {
@@ -1360,6 +1361,8 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	if !result.Removed && standAssignmentFrontendVisible(&result.Assignment) {
 		publishEntries = append(publishEntries, mapStandAssignmentEntry(&result.Assignment))
 	}
+	var hiddenArrivals []frontend.StandAssignmentEntry
+	var assignmentRevisions map[int64]int32
 	blockEntries := []frontend.StandBlockEntry{}
 	assignmentStatusReady := false
 	snapshotReady := false
@@ -1373,9 +1376,22 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 			slog.ErrorContext(ctx, "Failed to list committed stand assignments for publication", slog.Int("session", int(sessionID)), slog.Any("error", assignmentsErr))
 		} else {
 			publishEntries = make([]frontend.StandAssignmentEntry, 0, len(all))
+			assignmentRevisions = make(map[int64]int32, len(all))
 			for _, item := range all {
+				if item == nil {
+					continue
+				}
+				assignmentRevisions[item.ID] = item.Version
+				entry := mapStandAssignmentEntry(item)
 				if standAssignmentFrontendVisible(item) {
-					publishEntries = append(publishEntries, mapStandAssignmentEntry(item))
+					publishEntries = append(publishEntries, entry)
+				} else {
+					// Reconcile strip warnings for hidden estimates too. Only a
+					// blocked pin should carry a warning at this stage.
+					if !services.HasPinnedArrivalPromotionConflict(item) {
+						entry.ConflictReason = nil
+					}
+					hiddenArrivals = append(hiddenArrivals, entry)
 				}
 			}
 			enrichStandAssignmentBlocking(publishEntries, session.Airport, hub.standCapabilities)
@@ -1404,16 +1420,21 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	}
 	metrics.RecordStandPublication(ctx, publicationMode, len(publishEntries))
 
-	for _, published := range publishEntries {
-		conflictReason := ""
-		if published.ConflictReason != nil {
-			conflictReason = *published.ConflictReason
-		}
-		if assignmentStatusReady && hub.validationService != nil {
-			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, result.Assignment.SessionID, published.Callsign, published.Direction, published.BlockedBy, conflictReason); err != nil {
+	if assignmentStatusReady && hub.validationService != nil {
+		for _, published := range slices.Concat(publishEntries, hiddenArrivals) {
+			conflictReason := ""
+			if published.ConflictReason != nil {
+				conflictReason = *published.ConflictReason
+			}
+			assignments := internalModels.StandValidationAssignments{
+				Target: internalModels.StandAssignmentRevision{ID: published.ID, Version: published.Version}, Session: assignmentRevisions,
+			}
+			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, sessionID, published.Callsign, published.Direction, published.BlockedBy, conflictReason, assignments); err != nil {
 				slog.ErrorContext(ctx, "Failed to reconcile stand assignment validation", slog.String("callsign", published.Callsign), slog.Any("error", err))
 			}
 		}
+	}
+	for _, published := range publishEntries {
 		// A successful reload is followed by one authoritative snapshot below.
 		// Sending every assignment individually as well turns one lifecycle
 		// change into O(assignments * clients) queued websocket messages and can
@@ -1446,7 +1467,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	}
 	for _, assignment := range removed {
 		if hub.validationService != nil {
-			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, sessionID, assignment.Callsign, assignment.Direction, nil, ""); err != nil {
+			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, sessionID, assignment.Callsign, assignment.Direction, nil, "", internalModels.StandValidationAssignments{}); err != nil {
 				slog.ErrorContext(ctx, "Failed to clear removed stand assignment validation", slog.String("callsign", assignment.Callsign), slog.Any("error", err))
 			}
 		}
@@ -1455,8 +1476,17 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 		}
 	}
 
+	var publicationErr error
 	if snapshotReady {
-		hub.SendStandStatusSnapshot(sessionID, publishEntries, blockEntries)
+		publicationErr = hub.publishCurrentStandSnapshot(ctx, sessionID, session.Airport)
+		if publicationErr != nil && ctx.Err() == nil {
+			// Retry a fresh, serialized read. The earlier assembled snapshot may
+			// already have been superseded by a concurrent publication.
+			publicationErr = hub.publishCurrentStandSnapshot(ctx, sessionID, session.Airport)
+		}
+		if publicationErr != nil {
+			slog.ErrorContext(ctx, "Failed to publish current stand snapshot", slog.Int("session", int(sessionID)), slog.Any("error", publicationErr))
+		}
 	}
 
 	euroscopeHub := hub.server.GetEuroscopeHub()
@@ -1482,7 +1512,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	if !result.Removed && result.NotifyEuroscope {
 		hub.sendAllocatedStandToEuroscope(ctx, euroscopeHub, result.Assignment, result.Assignment.Stand)
 	}
-	return nil
+	return publicationErr
 }
 
 func (hub *Hub) sendAllocatedStandToEuroscope(ctx context.Context, euroscopeHub shared.EuroscopeHub, assignment internalModels.StandAssignment, stand string) {
@@ -1548,6 +1578,37 @@ func (hub *Hub) SendStandBlockBroadcast(session int32, stand string, block *fron
 
 func (hub *Hub) PublishStandBlockRemoval(_ context.Context, block internalModels.StandBlock) error {
 	hub.SendStandBlockBroadcast(block.SessionID, block.Stand, nil, block.ID)
+	return nil
+}
+
+func (hub *Hub) publishCurrentStandSnapshot(ctx context.Context, session int32, airport string) error {
+	value, _ := hub.standSnapshotLocks.LoadOrStore(session, &sync.Mutex{})
+	lock := value.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	repo := hub.server.GetStandAssignmentRepository()
+	all, err := repo.ListAssignments(ctx, session)
+	if err != nil {
+		return err
+	}
+	blocks, err := repo.ListBlocks(ctx, session)
+	if err != nil {
+		return err
+	}
+	assignments := make([]frontend.StandAssignmentEntry, 0, len(all))
+	for _, assignment := range all {
+		if standAssignmentFrontendVisible(assignment) {
+			assignments = append(assignments, mapStandAssignmentEntry(assignment))
+		}
+	}
+	enrichStandAssignmentBlocking(assignments, airport, hub.standCapabilities)
+	entries := make([]frontend.StandBlockEntry, 0, len(blocks))
+	for _, block := range blocks {
+		if block != nil {
+			entries = append(entries, mapStandBlockEntry(block, airport, hub.standCapabilities))
+		}
+	}
+	hub.SendStandStatusSnapshot(session, assignments, entries)
 	return nil
 }
 

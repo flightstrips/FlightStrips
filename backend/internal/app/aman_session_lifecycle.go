@@ -19,4 +19,7 @@ func (p *amanTransport) RemoveSession(session int32) {
 			delete(p.lastHoldingEAT, key)
 		}
 	}
+	if p.arrivalETA != nil {
+		p.arrivalETA.forgetSession(session)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/shared"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
@@ -123,7 +124,7 @@ func (s *StripValidationService) ClearValidationStatus(ctx context.Context, sess
 // higher-priority validation produced by another subsystem. Departure
 // assignments retain their SAT conflict metadata but do not produce strip
 // validations.
-func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string) error {
+func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string, assignments internalModels.StandValidationAssignments) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// SAT reconciliation can outlive a concurrently removed strip.
@@ -133,20 +134,14 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 		return err
 	}
 	current := strip.ValidationStatus
-	if strings.EqualFold(strings.TrimSpace(direction), string(sat.AssignmentDirectionDeparture)) ||
+	update := internalModels.StandValidationUpdate{Assignments: assignments, Owner: strip.Owner, Previous: current}
+	suppress := strings.EqualFold(strings.TrimSpace(direction), string(sat.AssignmentDirectionDeparture)) ||
 		isWrongStandConflictReason(conflictReason) ||
-		strings.HasPrefix(strings.TrimSpace(conflictReason), observedDepartureConflictPrefix) {
-		// Departures are physical truth at their observed stand. Keep conflicts
-		// in SAT diagnostics and put controller action on the arrival reservation.
-		if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment {
-			return s.ClearValidationStatus(ctx, session, callsign)
-		}
-		return nil
-	}
+		strings.HasPrefix(strings.TrimSpace(conflictReason), observedDepartureConflictPrefix)
 	blocked := len(blockedBy) > 0 || strings.TrimSpace(conflictReason) != ""
-	if !blocked {
+	if suppress || !blocked {
 		if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment {
-			return s.ClearValidationStatus(ctx, session, callsign)
+			return s.writeStandValidation(ctx, session, callsign, update)
 		}
 		return nil
 	}
@@ -162,19 +157,45 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 	if strip.Owner != nil {
 		owner = *strip.Owner
 	}
-	if current != nil && current.Message == message && current.OwningPosition == owner {
-		return nil
+	payload, err := json.Marshal(internalModels.StandAssignmentActionPayload{AssignmentID: assignments.Target.ID, AssignmentVersion: assignments.Target.Version})
+	if err != nil {
+		return err
 	}
-	return s.SetValidationStatus(ctx, session, callsign, &internalModels.ValidationStatus{
+	action := &internalModels.ValidationAction{
+		Label: "REQUEST NEW STAND", ActionKind: "assign_stand", Payload: payload,
+	}
+	if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment &&
+		current.Message == message && current.OwningPosition == owner {
+		if current.CustomAction != nil && current.CustomAction.ActionKind == action.ActionKind {
+			var previous internalModels.StandAssignmentActionPayload
+			if json.Unmarshal(current.CustomAction.Payload, &previous) == nil && previous.AssignmentID == assignments.Target.ID && previous.AssignmentVersion == assignments.Target.Version {
+				return nil
+			}
+		}
+		// Timing refreshes can bump the assignment version while the blocker
+		// stays the same. Refresh the action without reopening the warning.
+		next := *current
+		next.CustomAction = action
+		update.Next = &next
+		return s.writeStandValidation(ctx, session, callsign, update)
+	}
+	update.Next = &internalModels.ValidationStatus{
 		IssueType:      internalModels.ValidationIssueTypeStandAssignment,
 		Message:        message,
 		OwningPosition: owner,
 		Active:         true,
-		CustomAction: &internalModels.ValidationAction{
-			Label:      "REQUEST NEW STAND",
-			ActionKind: "assign_stand",
-		},
-	})
+		ActivationKey:  uuid.NewString(),
+		CustomAction:   action,
+	}
+	return s.writeStandValidation(ctx, session, callsign, update)
+}
+
+func (s *StripValidationService) writeStandValidation(ctx context.Context, session int32, callsign string, update internalModels.StandValidationUpdate) error {
+	changed, err := s.validationStore.CompareAndSetStandValidation(ctx, session, callsign, update)
+	if err == nil && changed {
+		s.sendStripUpdate(ctx, session, callsign)
+	}
+	return err
 }
 
 // IsValidationBlocking returns true when the strip has an active (unacknowledged) validation.

@@ -46,6 +46,23 @@ describe("stand store events", () => {
   });
   afterEach(() => store.dispose());
 
+  it("carries assignment identity from a warning through every stand action", () => {
+    store.setState({ readOnly: false });
+    store.getState().requestAutomaticStand("SAS123", 7, 123);
+    expect(client.send).toHaveBeenLastCalledWith({
+      type: ActionType.FrontendStandAssignmentAutomaticRequest, callsign: "SAS123", version: 7, assignment_id: 123,
+    });
+    store.getState().requestManualStand("SAS123", "A23", 7, 123);
+    expect(client.send).toHaveBeenLastCalledWith({
+      type: ActionType.FrontendStandAssignmentManualRequest, callsign: "SAS123", stand: "A23", version: 7, assignment_id: 123,
+    });
+    store.getState().confirmStandOverride("SAS123", "A23", 7, "controller choice", 123);
+    expect(client.send).toHaveBeenLastCalledWith({
+      type: ActionType.FrontendStandAssignmentConfirmedOverride, callsign: "SAS123", stand: "A23",
+      version: 7, reason: "controller choice", assignment_id: 123,
+    });
+  });
+
   describe("satEnabled", () => {
     it("is false by default", () => {
       expect(store.getState().satEnabled).toBe(false);

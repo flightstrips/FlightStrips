@@ -32,3 +32,23 @@ type ValidationAction struct {
 	ActionKind string          `json:"action_kind"`
 	Payload    json.RawMessage `json:"payload,omitempty"`
 }
+
+type StandAssignmentActionPayload struct {
+	AssignmentID      int64 `json:"assignment_id"`
+	AssignmentVersion int32 `json:"assignment_version"`
+}
+
+// StandValidationAssignments identifies the target and the session assignment
+// snapshot used to determine its blockers. A removal only checks target absence.
+type StandValidationAssignments struct {
+	Target  StandAssignmentRevision
+	Session map[int64]int32
+}
+
+// StandValidationUpdate carries the inputs observed by a stand publication.
+type StandValidationUpdate struct {
+	Assignments StandValidationAssignments
+	Owner       *string
+	Previous    *ValidationStatus
+	Next        *ValidationStatus
+}

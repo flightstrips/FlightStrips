@@ -220,7 +220,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.NotEqual(t, estimated.Stand, recalculated.Stand, "the estimate moves when its original stand remains occupied at promotion")
 	})
 
-	t.Run("sweep preserves shared estimate until blocked promotion becomes an advisory", func(t *testing.T) {
+	t.Run("sweep keeps a blocked estimate until its promotion succeeds", func(t *testing.T) {
 		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -276,12 +276,17 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NotNil(t, refreshed.ConflictReason)
 		assert.Equal(t, arrivalPromotionConflictReason, *refreshed.ConflictReason)
 
-		require.NoError(t, lifecycle.ReleaseExpired(ctx))
-		advisory, err := assignments.GetAssignment(ctx, session, "SAS307")
-		require.NoError(t, err)
-		assert.Empty(t, advisory.Stand)
-		require.NotNil(t, advisory.ConflictReason)
-		assert.Contains(t, *advisory.ConflictReason, "physically displaced")
+		// Repeated overlap sweeps keep the estimate and its pending warning
+		// while the promotion waits for capacity.
+		for range 2 {
+			require.NoError(t, lifecycle.ReleaseExpired(ctx))
+			pending, err := assignments.GetAssignment(ctx, session, "SAS307")
+			require.NoError(t, err)
+			assert.Equal(t, estimated.Stand, pending.Stand)
+			assert.Equal(t, StageEstimated, pending.Stage)
+			require.NotNil(t, pending.ConflictReason)
+			assert.Equal(t, arrivalPromotionConflictReason, *pending.ConflictReason)
+		}
 
 		otherManual, err := assignments.GetAssignment(ctx, session, "SAS309")
 		require.NoError(t, err)
@@ -615,8 +620,8 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, "A1", updated.Stand, "arrival keeps A1 when departure block expires before ETA")
 	})
 
-	t.Run("departure block extending past arrival ETA forces reallocation", func(t *testing.T) {
-		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+	t.Run("observed departure keeps the overlapping estimate until promotion", func(t *testing.T) {
+		lifecycle, allocation, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		now := time.Now().UTC()
 		clock.set(now)
 		arrivalETA := now.Add(45 * time.Minute)
@@ -624,18 +629,46 @@ func TestArrivalLifecycle(t *testing.T) {
 		setArrivalETA(t, strips, session, "SAS1003", arrivalETA)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS1003"), arrivalFlight("SAS1003", 1)))
 
-		expiresAt := arrivalETA.Add(5 * time.Minute)
-		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
-			SessionID: session, Callsign: "SAS1004", Stand: "A1", Direction: "DEPARTURE",
-			Stage: StageDepartureBlock, Source: "AUTOMATIC", ExpiresAt: &expiresAt,
-		}))
+		estimate, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		require.Equal(t, "A1", estimate.Stand)
+
+		testdata.SeedTestStrip(t, queries, session, "SAS1004")
+		departure := withStand(standAllocationRequest(session, "SAS1004"), "A1")
+		departure.Direction = sat.AssignmentDirectionDeparture
+		departure.FlightFacts.Direction = sat.Departure
+		departure.Stage = StageDepartureBlock
+		departure.ObservedStand = strp("A1")
+		result, err := allocation.assignObservedStand(ctx, departure)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.Equal(t, StageDepartureBlock, result.Assignment.Stage)
+		assert.Empty(t, result.RemovedAssignments)
+		retained, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		assert.Equal(t, estimate.ID, retained.ID)
+		assert.Equal(t, estimate.Stand, retained.Stand)
 
 		clock.advance(5 * time.Minute)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS1003"), arrivalFlight("SAS1003", 1)))
 
 		updated, err := assignments.GetAssignment(ctx, session, "SAS1003")
 		require.NoError(t, err)
-		assert.NotEqual(t, "A1", updated.Stand, "arrival is reallocated when departure block extends past ETA")
+		assert.Equal(t, StageEstimated, updated.Stage)
+		assert.Equal(t, "A1", updated.Stand, "an ESTIMATED stand is not moved before promotion")
+
+		require.NoError(t, lifecycle.allocations.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+		kept, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", kept.Stand, "the overlap sweep leaves the estimate for its promotion to resolve")
+
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS1003", posPtr(55.6285306), posPtr(12.642625), altPtr(5000), "FINAL", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS1003"), arrivalFlight("SAS1003", 2)))
+		promoted, err := assignments.GetAssignment(ctx, session, "SAS1003")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, promoted.Stage)
+		assert.NotEqual(t, "A1", promoted.Stand, "promotion to ASSIGNED moves away from the still-blocked stand")
 	})
 
 	t.Run("keeps the same optimal stand when retaining is correct", func(t *testing.T) {
@@ -905,7 +938,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Nil(t, assignment.ExpiresAt, "ETA alone must not start stand-retention expiry")
 	})
 
-	t.Run("blocked stand triggers reallocation at same stage", func(t *testing.T) {
+	t.Run("blocked stand does not move an ESTIMATED arrival", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -923,10 +956,10 @@ func TestArrivalLifecycle(t *testing.T) {
 		clock.advance(5 * time.Minute)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS920"), arrivalFlight("SAS920", 1)))
 
-		reallocated, err := assignments.GetAssignment(ctx, session, "SAS920")
+		kept, err := assignments.GetAssignment(ctx, session, "SAS920")
 		require.NoError(t, err)
-		assert.Equal(t, StageEstimated, reallocated.Stage)
-		assert.NotEqual(t, original.Stand, reallocated.Stand, "reallocated to a different stand when original is blocked")
+		assert.Equal(t, StageEstimated, kept.Stage)
+		assert.Equal(t, original.Stand, kept.Stand, "an ESTIMATED stand waits for promotion before moving")
 	})
 
 	t.Run("CONFIRMED never churns after entry even when its stand becomes blocked", func(t *testing.T) {

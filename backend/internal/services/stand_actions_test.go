@@ -110,6 +110,119 @@ func TestControllerCanForceAutomaticReassignmentOfConfirmedArrival(t *testing.T)
 	assert.False(t, forced.Assignment.Manual)
 }
 
+func TestStandReassignmentRejectsChangesAfterVersionCheck(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	for _, tc := range []struct {
+		name    string
+		manual  bool
+		initial bool
+		replace bool
+	}{
+		{name: "AUTO after pinned arrival promotion", initial: true},
+		{name: "manual after pinned arrival promotion", initial: true, manual: true},
+		{name: "manual after different assignment with the same version", initial: true, manual: true, replace: true},
+		{name: "AUTO after assignment created", replace: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
+			allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+			const callsign = "SAS808"
+			seedTestArrivalStrip(t, queries, session, callsign)
+			strips := postgres.NewStripRepository(pool)
+			initial := &models.StandAssignment{
+				SessionID: session, Callsign: callsign, Stand: "A1", Direction: "ARRIVAL",
+				Stage: StageEstimated, Source: "MANUAL", Manual: true,
+				ConflictReason: pinnedArrivalPromotionConflict("A1", nil, []string{"reserved"}),
+			}
+			var version int32
+			if tc.initial {
+				require.NoError(t, assignments.CreateAssignment(ctx, initial))
+				version = initial.Version
+			}
+			hook := &standActionPreflightRepository{StandAssignmentRepository: assignments}
+			hook.afterRead = func() {
+				if tc.replace {
+					if tc.initial {
+						rows, err := assignments.DeleteAssignment(ctx, session, initial.ID, initial.Version)
+						require.NoError(t, err)
+						require.EqualValues(t, 1, rows)
+					}
+					replacement := *initial
+					replacement.Stage = StageConfirmed
+					require.NoError(t, assignments.CreateAssignment(ctx, &replacement))
+					if tc.initial {
+						require.NotEqual(t, initial.ID, replacement.ID)
+						require.Equal(t, version, replacement.Version)
+					}
+					return
+				}
+				promoted := *initial
+				promoted.Stage = StageConfirmed
+				rows, err := assignments.UpdateAssignment(ctx, &promoted)
+				require.NoError(t, err)
+				require.EqualValues(t, 1, rows)
+			}
+			actions := NewStandActionService(allocation, hook, strips, nil, nil, nil)
+			var err error
+			if tc.manual {
+				_, err = actions.AssignManually(ctx, session, "EKCH", "GND", callsign, "A2", version)
+			} else {
+				_, err = actions.Allocate(ctx, session, "EKCH", "GND", callsign, version)
+			}
+			require.ErrorIs(t, err, ErrStandActionStaleVersion)
+			retained, err := assignments.GetAssignment(ctx, session, callsign)
+			require.NoError(t, err)
+			assert.Equal(t, StageConfirmed, retained.Stage)
+			assert.Equal(t, "A1", retained.Stand)
+		})
+	}
+}
+
+type standActionPreflightRepository struct {
+	repository.StandAssignmentRepository
+	afterRead func()
+}
+
+func TestStandWarningRejectsReplacementBeforePreflight(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := t.Context()
+	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+	const callsign = "SAS808"
+	seedTestArrivalStrip(t, queries, session, callsign)
+	strips := postgres.NewStripRepository(pool)
+	old := &models.StandAssignment{SessionID: session, Callsign: callsign, Stand: "A1",
+		Direction: "ARRIVAL", Stage: StageEstimated, Manual: true, Source: "MANUAL"}
+	require.NoError(t, assignments.CreateAssignment(ctx, old))
+	rows, err := assignments.DeleteAssignment(ctx, session, old.ID, old.Version)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, rows)
+	replacement := *old
+	replacement.Stage = StageConfirmed
+	require.NoError(t, assignments.CreateAssignment(ctx, &replacement))
+	require.Equal(t, old.Version, replacement.Version)
+	require.NotEqual(t, old.ID, replacement.ID)
+	actions := NewStandActionService(allocation, assignments, strips, nil, nil, nil)
+	_, err = actions.Allocate(ctx, session, "EKCH", "APP", callsign, old.Version, &old.ID)
+	require.ErrorIs(t, err, ErrStandActionStaleVersion)
+	_, err = actions.AssignManually(ctx, session, "EKCH", "APP", callsign, "A2", old.Version, &old.ID)
+	require.ErrorIs(t, err, ErrStandActionStaleVersion)
+	_, err = actions.Override(ctx, session, "EKCH", "APP", callsign, "A2", "controller override", old.Version, &old.ID)
+	require.ErrorIs(t, err, ErrStandActionStaleVersion)
+	retained, err := assignments.GetAssignment(ctx, session, callsign)
+	require.NoError(t, err)
+	require.Equal(t, replacement.Revision(), retained.Revision())
+	require.Equal(t, StageConfirmed, retained.Stage)
+}
+
+func (r *standActionPreflightRepository) GetAssignment(ctx context.Context, session int32, callsign string) (*models.StandAssignment, error) {
+	assignment, err := r.StandAssignmentRepository.GetAssignment(ctx, session, callsign)
+	if r.afterRead != nil {
+		r.afterRead()
+		r.afterRead = nil
+	}
+	return assignment, err
+}
+
 type failingGetAssignmentRepository struct {
 	repository.StandAssignmentRepository
 	err error

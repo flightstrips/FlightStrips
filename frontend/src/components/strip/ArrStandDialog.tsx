@@ -135,7 +135,14 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
   const [automaticSelected, setAutomaticSelected] = useState(satEnabled);
   const [group, setGroup] = useState<StandGroup | null>(() => defaultGroup(initialStand));
   const submittedVersion = useRef<number | null>(null);
-  const version = assignment?.version ?? 0;
+  const action = strip?.validation_status?.custom_action;
+  const payload = action?.action_kind === "assign_stand" ? action.payload : undefined;
+  const warningVersion = payload && typeof payload === "object" && "assignment_version" in payload
+    && typeof payload.assignment_version === "number" ? payload.assignment_version : undefined;
+  const version = assignment?.version ?? warningVersion ?? 0;
+  const warningID = payload && typeof payload === "object" && "assignment_id" in payload
+    && typeof payload.assignment_id === "number" ? payload.assignment_id : undefined;
+  const assignmentID = assignment?.id ?? warningID;
   const relevantRejection = satEnabled && rejection?.callsign === callsign ? rejection : null;
   const unsafeManual = relevantRejection?.action === ActionType.FrontendStandAssignmentManualRequest
     && relevantRejection.code === "incompatible_or_occupied";
@@ -164,7 +171,8 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
     submittedStand.current = true;
     setAutomaticSelected(true);
     submittedVersion.current = version;
-    requestAutomatic(callsign, version);
+    if (assignmentID === undefined) requestAutomatic(callsign, version);
+    else requestAutomatic(callsign, version, assignmentID);
   };
   const selectManualStand = (stand: string) => {
     setAutomaticSelected(false);
@@ -215,7 +223,8 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
       }
     } else if (stand) {
       submittedVersion.current = version;
-      requestManual(callsign, stand, version);
+      if (assignmentID === undefined) requestManual(callsign, stand, version);
+      else requestManual(callsign, stand, version, assignmentID);
     }
   };
   const panel = group === "C" || group === "D" ? "C+D" : group;
@@ -246,7 +255,8 @@ function StandAssignmentMenu({ onOpenChange, callsign, currentStand }: Props) {
                 return;
               }
               submittedVersion.current = version;
-              confirmOverride(callsign, stand, version, relevantRejection.reason);
+              if (assignmentID === undefined) confirmOverride(callsign, stand, version, relevantRejection.reason);
+              else confirmOverride(callsign, stand, version, relevantRejection.reason, assignmentID);
             }}>YES</MenuButton>}
           </div>
         </DialogContent>

@@ -19,10 +19,14 @@ import (
 
 type standAssignmentSnapshotRepository struct {
 	repository.StandAssignmentRepository
-	assignments    []*models.StandAssignment
-	blocks         []*models.StandBlock
-	assignmentsErr error
-	blocksErr      error
+	assignments          []*models.StandAssignment
+	blocks               []*models.StandBlock
+	assignmentsErr       error
+	blocksErr            error
+	assignmentReads      int
+	blockReads           int
+	assignmentReadErrors map[int]error
+	blockReadErrors      map[int]error
 }
 
 func TestHumanStandPublicationRetainsInitiatingPlugin(t *testing.T) {
@@ -41,11 +45,65 @@ func TestHumanStandPublicationRetainsInitiatingPlugin(t *testing.T) {
 }
 
 func (r *standAssignmentSnapshotRepository) ListAssignments(context.Context, int32) ([]*models.StandAssignment, error) {
+	r.assignmentReads++
+	if err := r.assignmentReadErrors[r.assignmentReads]; err != nil {
+		return nil, err
+	}
 	return r.assignments, r.assignmentsErr
 }
 
 func (r *standAssignmentSnapshotRepository) ListBlocks(context.Context, int32) ([]*models.StandBlock, error) {
+	r.blockReads++
+	if err := r.blockReadErrors[r.blockReads]; err != nil {
+		return nil, err
+	}
 	return r.blocks, r.blocksErr
+}
+
+func TestPublishStandAllocationRetriesSnapshotReload(t *testing.T) {
+	unavailable := errors.New("snapshot read unavailable")
+	for _, tc := range []struct {
+		name                          string
+		assignmentErrors, blockErrors map[int]error
+		wantErr                       bool
+	}{
+		{name: "assignment reload recovers", assignmentErrors: map[int]error{2: unavailable}},
+		{name: "block reload recovers", blockErrors: map[int]error{2: unavailable}},
+		{name: "persistent assignment failure", assignmentErrors: map[int]error{2: unavailable, 3: unavailable}, wantErr: true},
+		{name: "persistent block failure", blockErrors: map[int]error{2: unavailable, 3: unavailable}, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assignment := &models.StandAssignment{SessionID: 7, Callsign: "SAS501", Stand: "A1"}
+			repo := &standAssignmentSnapshotRepository{
+				assignments:          []*models.StandAssignment{assignment},
+				assignmentReadErrors: tc.assignmentErrors, blockReadErrors: tc.blockErrors,
+			}
+			hub := &Hub{
+				send: make(chan internalMessage, 10),
+				server: &standAllocationPublishingServer{
+					MockServer: &testutil.MockServer{SessionRepoVal: &testutil.MockSessionRepository{
+						GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+							return &models.Session{ID: 7, Airport: "EKCH"}, nil
+						},
+					}},
+					assignments: repo,
+				},
+			}
+			err := hub.PublishStandAllocation(t.Context(), services.StandAllocationResult{Assignment: *assignment})
+			require.Equal(t, 3, repo.assignmentReads)
+			if tc.wantErr {
+				require.ErrorIs(t, err, unavailable)
+				require.Empty(t, hub.send, "never publish a potentially stale assembled snapshot")
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, hub.send, 1)
+			snapshot, ok := (<-hub.send).message.(frontendEvents.StandStatusSnapshotEvent)
+			require.True(t, ok)
+			require.Len(t, snapshot.Assignments, 1)
+			require.Equal(t, assignment.Callsign, snapshot.Assignments[0].Callsign)
+		})
+	}
 }
 
 type standAllocationPublishingServer struct {

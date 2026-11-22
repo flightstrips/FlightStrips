@@ -243,6 +243,35 @@ func TestDepartureBlockObservationTimeout(t *testing.T) {
 		require.NoError(t, err, "a fresh online sighting at the gate recreates the block")
 	})
 
+	t.Run("every newer online sighting postpones the release", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		const callsign = "SASOBS9"
+		testdata.SeedTestStrip(t, queries, session, callsign)
+		first := clock.current()
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, first)))
+		clock.advance(20 * time.Second)
+		latest := clock.current()
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, latest)))
+		// A replayed older record must not move the sighting backwards.
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, first)))
+
+		strip := loadStrip(t, strips, session, callsign)
+		stored, err := lifecycle.departureOnlineSighting(ctx, strip.ID)
+		require.NoError(t, err)
+		require.NotNil(t, stored)
+		assert.True(t, stored.Equal(latest), "stored %s, want %s", stored, latest)
+
+		clock.set(first.Add(10*time.Minute + time.Second))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, callsign)
+		require.NoError(t, err, "the aircraft was seen 9m41s ago")
+
+		clock.set(latest.Add(10*time.Minute + time.Second))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, callsign)
+		require.Error(t, err)
+	})
+
 	t.Run("a sighting that overtakes the sweep read keeps the stand", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		const callsign = "SASOBS4"

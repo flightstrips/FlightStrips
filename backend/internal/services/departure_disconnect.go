@@ -29,11 +29,6 @@ var (
 	errDepartureObservedAgain = errors.New("departure observed again before stand release")
 )
 
-// departureOnlineSightingThrottle limits how often a feed poll rewrites the
-// online sighting. It is far below the observation timeout, so the heartbeat
-// never sees a sighting older than it really is by more than this.
-const departureOnlineSightingThrottle = 30 * time.Second
-
 // departureLastSighting returns the most recent live evidence that the
 // aircraft exists. EuroScope refreshes euroscope_seen_at on every position
 // report and sync. onlineSeen is the last time the VATSIM feed showed the
@@ -81,7 +76,9 @@ func (s *DepartureLifecycleService) staleOnlineFeedSighting(flight vatsim.Depart
 }
 
 // recordOnlineSighting persists when the feed last showed this departure's
-// pilot online. Writes are throttled; the row is removed with its strip.
+// pilot online. Every newer sighting is stored, so the heartbeat never sees a
+// sighting older than the feed reported; replaying the same or an older one
+// writes nothing. The row is removed with its strip.
 func (s *DepartureLifecycleService) recordOnlineSighting(ctx context.Context, session int32, callsign string, flight vatsim.DepartureFlightInfo) error {
 	if !flight.Online || flight.SeenAt.IsZero() {
 		return nil
@@ -89,8 +86,8 @@ func (s *DepartureLifecycleService) recordOnlineSighting(ctx context.Context, se
 	_, err := s.allocations.pool.Exec(ctx, `INSERT INTO departure_online_sightings (strip_id, seen_at)
 		SELECT id, $3 FROM strips WHERE session = $1 AND callsign = $2
 		ON CONFLICT (strip_id) DO UPDATE SET seen_at = EXCLUDED.seen_at
-		WHERE departure_online_sightings.seen_at < EXCLUDED.seen_at - $4::interval`,
-		session, callsign, flight.SeenAt.UTC(), departureOnlineSightingThrottle.String())
+		WHERE departure_online_sightings.seen_at < EXCLUDED.seen_at`,
+		session, callsign, flight.SeenAt.UTC())
 	return err
 }
 

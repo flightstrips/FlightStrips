@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import BriefingDialog from './BriefingDialog';
 
-const briefingImages = import.meta.glob<string>('../../../assets/efb/arrival-briefing/*.webp', {
+const briefingImages = import.meta.glob<string>('../../../assets/efb/arrival-briefing/*.{webp,jpg}', {
   eager: true,
   import: 'default',
 });
 
 const image = (filename: string) => {
-  const source = briefingImages[`../../../assets/efb/arrival-briefing/${filename}.webp`];
+  const source = briefingImages[`../../../assets/efb/arrival-briefing/${filename}.webp`] ?? briefingImages[`../../../assets/efb/arrival-briefing/${filename}.jpg`];
   if (!source) throw new Error(`Missing arrival briefing asset: ${filename}`);
   return source;
 };
@@ -137,6 +137,11 @@ const briefingPages = ({ stand, star, runway, holdingFix, holdingDetail, termina
     },
     {
       id: 'taxi-in', image: taxi.image, imageAlt: taxi.imageAlt, title: `Taxi to stand ${normalize(stand) || 'unassigned'}`, description: taxi.description,
+    },
+    {
+      // Same for every runway configuration.
+      id: 'taxi-clearance', image: image('taxi-clearance'), imageAlt: 'Taxi clearance in the EFB charts', title: 'Follow your taxi route progressively!',
+      description: ['Click on Charts and navigate to "Taxi Clearance". Here you can write your clearance, and it is drawn for you.'],
     },
     {
       id: 'complete', image: image(`complete-variation-${completeVariation}`), imageAlt: 'Arrival briefing complete', title: 'On stand',

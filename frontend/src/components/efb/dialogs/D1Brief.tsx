@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import BriefingDialog from './BriefingDialog';
 
-const briefingImages = import.meta.glob<string>('../../../assets/efb/departure-briefing/*.webp', {
+const briefingImages = import.meta.glob<string>('../../../assets/efb/departure-briefing/*.{webp,jpg}', {
   eager: true,
   import: 'default',
 });
 
 const image = (filename: string) => {
-  const source = briefingImages[`../../../assets/efb/departure-briefing/${filename}.webp`];
+  const source = briefingImages[`../../../assets/efb/departure-briefing/${filename}.webp`] ?? briefingImages[`../../../assets/efb/departure-briefing/${filename}.jpg`];
   if (!source) throw new Error(`Missing departure briefing asset: ${filename}`);
   return source;
 };
+
+/** Points pilots to the EFB taxi clearance (Charts > Taxi Clearance); same for every runway. */
+const TAXI_CLEARANCE_HINT = 'Click on "CHARTS" and you will see the pane of "Taxi Clearance". Here you can write your instruction, and the route is drawn for you with all you need!';
 
 type RunwayVariant = '04R' | '22R';
 
@@ -274,12 +277,12 @@ const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[
 
   const taxiInitial = runwayForBriefing === '22R'
     ? {
-        image: image('TAXIINIT22R'),
-        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway A or F. Taxiway D may be used when traffic demands.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.'],
+        image: image('TAXI-CLEARANCE'),
+        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway A or F. Taxiway D may be used when traffic demands.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.', TAXI_CLEARANCE_HINT],
       }
     : {
-        image: image('TAXIINIT04R'),
-        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway D or B, depending on the stand.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.'],
+        image: image('TAXI-CLEARANCE'),
+        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway D or B, depending on the stand.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.', TAXI_CLEARANCE_HINT],
       };
   const taxiNext = runwayForBriefing === '22R'
     ? {

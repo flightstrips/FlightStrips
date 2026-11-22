@@ -8,6 +8,7 @@ import D1Stand from './D1Stand';
 import D2ATISDialog from './D2ATISDialog';
 import D2CDMDialog from './D2CDMDialog';
 import D2PDCDialog from './D2PDCDialog';
+import { computeTaxiRoute } from '../taxi/taxiRoute';
 
 describe('EFB operational dialogs', () => {
   it.each([
@@ -42,6 +43,154 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByRole('button', { name: 'EXPECTED STAR 0' })).toBeInTheDocument();
     expect(screen.getByText(/not an ATC clearance. Confirm the procedure and version with ATC/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ASSIGNED STAR/ })).not.toBeInTheDocument();
+  });
+
+  it('offers the taxi clearance only for departures with a taxi network', () => {
+    const { rerender } = render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
+    expect(screen.queryByRole('button', { name: 'TAXI CLEARANCE' })).not.toBeInTheDocument();
+    rerender(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} taxiClearance={{ callsign: 'SAS123', releasePoint: null }} />);
+    expect(screen.getByRole('button', { name: 'TAXI CLEARANCE' })).toBeInTheDocument();
+  });
+
+  it('starts the taxi route from the ATC release point and draws the typed clearance', () => {
+    const props = { isOpen: true, onClose: vi.fn(), airport: 'EKCH', runway: '22R', procedure: 'ODON1C', arrival: false } as const;
+    const { rerender } = render(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'z3' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z3');
+    expect(screen.getByText('ATC', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('No common routes for runway 22R yet.')).toBeInTheDocument();
+    // The help table explains the syntax without offering "," (still accepted as hold short).
+    const help = screen.getByRole('table');
+    expect(within(help).getByText('Hold short of')).toBeInTheDocument();
+    expect(help).not.toHaveTextContent(',');
+    expect(screen.getByRole('img', { name: 'Taxi route' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KZAx30A4.22R' } });
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('Z3›K›Z›A›X 30›A4›HS 22R');
+    expect(screen.queryByRole('button', { name: /FLIP/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Route OK.')).toBeInTheDocument();
+    // No runway on the flight: the hold short of 22R in the clearance gives the departure runway.
+    expect(screen.getByLabelText('DEP RWY')).toHaveValue('');
+    expect(screen.getByText('CLEARANCE', { selector: 'span' })).toBeInTheDocument();
+    expect(within(screen.getByRole('img', { name: 'Taxi route' })).getByText('RWY 22R')).toBeInTheDocument();
+    const map = within(screen.getByRole('img', { name: 'Taxi route' }));
+    expect(map.getByText('HOLD SHORT 22R')).toBeInTheDocument();
+    expect(map.getByText('CROSS 30')).toBeInTheDocument();
+
+    // "/" starts an onward clearance: what came before turns grey.
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KZ.A/Ax30A4.22R' } });
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('Z3›K›Z›HS A/A›X 30›A4›HS 22R');
+    expect(screen.getByRole('img', { name: 'Taxi route' }).querySelectorAll('polyline[stroke="#d3d8df"]').length).toBeGreaterThan(0);
+    // Taxiway names are yellow signs that never overlap each other.
+    const signs = Array.from(screen.getByRole('img', { name: 'Taxi route' }).querySelectorAll('rect[fill="#e9e814"], rect[fill="#d3d8df"]'), (rect) => {
+      const [x, y, w, hgt] = ['x', 'y', 'width', 'height'].map((key) => Number(rect.getAttribute(key)));
+      return { x0: x, y0: y, x1: x + w, y1: y + hgt };
+    });
+    expect(signs.length).toBe(4);
+    for (const [i, p] of signs.entries()) for (const q of signs.slice(i + 1)) expect(p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1).toBe(false);
+
+    // The aircraft moves to where the active (magenta) part begins.
+    const activeStart = computeTaxiRoute('Z3', 'KZ.A/Ax30A4.22R').legs.find((leg) => !leg.past)!.pts[0];
+    const aircraft = screen.getByRole('img', { name: 'Taxi route' }).querySelector('g[transform*="rotate"]')!;
+    expect(aircraft.getAttribute('transform')).toContain(`translate(${activeStart[0]} ${activeStart[1]})`);
+
+    // A clearance that does not connect is reported, not thrown.
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KBx30ZA4.22R' } });
+    expect(screen.getByText('K does not connect to B')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KZAx30A4.22R' } });
+
+    // ATC moves the release point: followed while the pilot has not typed their own.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'Z4' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z4');
+
+    // Once the pilot types their own, an ATC change is offered instead of overwriting it.
+    fireEvent.change(screen.getByLabelText('RELEASE POINT'), { target: { value: 'z2' } });
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'Z5' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z2');
+    fireEvent.click(screen.getByRole('button', { name: 'USE Z5' }));
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z5');
+
+    // A new flight starts over.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS456', releasePoint: null }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('');
+  });
+
+  it('uses the stand default release point ahead of ATC for G stands without release points', () => {
+    const props = { isOpen: true, onClose: vi.fn(), airport: 'EKCH', runway: '22L', procedure: 'ODON1C', arrival: false } as const;
+    const { rerender } = render(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'T3', stand: 'G112' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('I');
+    expect(screen.getByText('STAND', { selector: 'span' })).toBeInTheDocument();
+
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'T3', stand: 'G120' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('G6');
+
+    fireEvent.change(screen.getByLabelText('RELEASE POINT'), { target: { value: 'G' } });
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'T3', stand: 'G111' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('G');
+    expect(screen.getByText('Default for stand G111')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'USE I' }));
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('I');
+
+    // Other stands fall back to ATC's release point.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS456', releasePoint: 'T3', stand: 'C30' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('T3');
+    expect(screen.getByText('ATC', { selector: 'span' })).toBeInTheDocument();
+  });
+
+  it('marks the departure runway in yellow as the destination', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} taxiClearance={{ callsign: 'SAS123', mode: 'departure', releasePoint: 'Z3', stand: 'A30', runway: '22R' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+    const map = screen.getByRole('img', { name: 'Taxi route' });
+    expect(map.querySelectorAll('polyline[stroke="#ffd84a"]').length).toBeGreaterThan(0);
+    expect(within(map).getByText('RWY 22R')).toBeInTheDocument();
+    expect(screen.getByLabelText('DEP RWY')).toHaveValue('22R');
+    expect(screen.getByText('FLIGHT', { selector: 'span' })).toBeInTheDocument();
+    // The view frames the release point and runway once, and keeps that zoom while the clearance grows.
+    const viewBox = () => screen.getByRole('img', { name: 'Taxi route' }).getAttribute('viewBox');
+    const framed = viewBox();
+    for (const value of ['K', 'KZ', 'KZA', 'KZAx30A4']) {
+      fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value } });
+      expect(viewBox()).toBe(framed);
+    }
+
+    // The assigned runway written first is the destination, not the start of the taxi route.
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: '22RKZAx30A4' } });
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('Z3›K›Z›A›X 30›A4›HS 22R');
+    expect(screen.getByText('Route OK.')).toBeInTheDocument();
+  });
+
+  it('draws arrivals from the runway exit to the assigned stand', () => {
+    const props = { isOpen: true, onClose: vi.fn(), airport: 'EKCH', runway: '22L', procedure: 'TUDLO', arrival: true } as const;
+    const { rerender } = render(<D1Chart {...props} taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F98', runway: '22L' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+
+    expect(screen.queryByLabelText('RELEASE POINT')).not.toBeInTheDocument();
+    expect(screen.queryByText('COMMON ROUTES')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('LDG RWY')).toHaveValue('22L');
+    expect(screen.getByLabelText('STAND')).toHaveValue('F98');
+    // The standard routing for 22L is drawn as a cyan preliminary route, not written in the field.
+    const cyanPieces = () => screen.getByRole('img', { name: 'Taxi route' }).querySelectorAll('polyline[stroke="#22d3ee"]').length;
+    expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('');
+    expect(screen.getByText('PRELIMINARY')).toBeInTheDocument();
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('RWY 22L›STAND F98');
+    expect(cyanPieces()).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'V1V' } });
+    expect(screen.queryByText('PRELIMINARY')).not.toBeInTheDocument();
+    expect(cyanPieces()).toBe(0);
+    expect(screen.getByText('Route OK. Taxi to stand F98.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('RWY 22L›V1›V›STAND F98');
+    expect(within(screen.getByRole('img', { name: 'Taxi route' })).getByText('STAND F98')).toBeInTheDocument();
+
+    // The flight's stand changes: followed until the pilot edits it.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F96', runway: '22L' }} />);
+    expect(screen.getByLabelText('STAND')).toHaveValue('F96');
+    fireEvent.change(screen.getByLabelText('STAND'), { target: { value: 'f94' } });
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F92', runway: '22L' }} />);
+    expect(screen.getByLabelText('STAND')).toHaveValue('F94');
   });
 
   it('loads and displays the ChartFox chart matching the assigned SID', async () => {
@@ -88,7 +237,7 @@ describe('EFB operational dialogs', () => {
     expect(fetchMock.mock.calls).toHaveLength(3);
   });
 
-  it('shows only taxi, assigned arrival, and runway-matched approach charts', async () => {
+  it('shows only assigned arrival and runway-matched approach charts', async () => {
     const charts = [
       { id: 'taxi-chart', name: 'Ground movement chart', type_key: 'GND' },
       { id: 'star-chart', name: 'TUDLO 4C', type_key: 'STAR', meta: [{ type_key: 'ProcedureIdent', value: ['TUDLO4C'] }] },
@@ -116,8 +265,15 @@ describe('EFB operational dialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next chart' }));
     expect(await screen.findByTitle('ILS Z RWY 22L - 2')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'AIRPORT / TAXI 1' }));
-    expect(await screen.findByTitle('Ground movement chart')).toBeInTheDocument();
+    // Airport/taxi charts are not offered; the taxi clearance section (when available) comes last.
+    expect(screen.queryByRole('button', { name: /AIRPORT \/ TAXI/ })).not.toBeInTheDocument();
+  });
+
+  it('lists the taxi clearance after the chart sections', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22L" procedure="TUDLO" arrival taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F98', runway: '22L' }} />);
+    const sections = Array.from(document.querySelectorAll('button[aria-pressed]'), (button) => button.getAttribute('aria-label'));
+    expect(sections).toEqual(['ASSIGNED STAR 0', 'APPROACH 0', 'TAXI CLEARANCE']);
+    expect(sections.at(-1)).toBe('TAXI CLEARANCE');
   });
 
   it('uses the selected stand, runway, and SID briefing assets', () => {
@@ -131,7 +287,7 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByText(/A12: expect Y1/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to Initial taxi: 22R' }));
-    expect(screen.getByAltText('Initial taxi guidance for runway 22R').getAttribute('src')).toContain('TAXIINIT22R');
+    expect(screen.getByAltText('Initial taxi guidance for runway 22R').getAttribute('src')).toContain('TAXI-CLEARANCE');
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to SID: NEXEN2A' }));
     expect(screen.getByAltText('22R SID chart for NEXEN2A').getAttribute('src')).toContain('NEX-KOP-LAN-22');
@@ -154,6 +310,25 @@ describe('EFB operational dialogs', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to Taxi to stand A12' }));
     expect(screen.getByAltText('Taxi-in guidance for Bravo stands on runway 22L').getAttribute('src')).toContain('taxiin-22bravo');
+  });
+
+  it.each([['22L', 'A12'], ['04L', 'F98'], ['22L', 'TBA']])('adds the taxi clearance slide before On stand for runway %s, stand %s', (runway, stand) => {
+    render(<D1ArrivalBrief isOpen onClose={vi.fn()} stand={stand} star="TUDLO4C" runway={runway} holdingFix="" holdingDetail="" terminalFix="" arrivalHeading="" />);
+    const slides = screen.getAllByRole('button', { name: /^Go to / }).map((button) => button.getAttribute('aria-label') ?? button.textContent);
+    const at = slides.findIndex((name) => name?.includes('Follow your taxi route progressively!'));
+    expect(at).toBeGreaterThan(-1);
+    expect(slides[at + 1]).toContain('On stand');
+    expect(slides[at - 1]).toMatch(/Taxi to stand|Landing and runway vacation/);
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Follow your taxi route progressively!' }));
+    expect(screen.getByAltText('Taxi clearance in the EFB charts').getAttribute('src')).toContain('taxi-clearance');
+    expect(screen.getByText(/navigate to "Taxi Clearance"/)).toBeInTheDocument();
+  });
+
+  it.each(['22R', '04R'])('shows the taxi clearance image and hint on the initial taxi slide for %s', (runway) => {
+    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" runway={runway} />);
+    fireEvent.click(screen.getByRole('button', { name: `Go to Initial taxi: ${runway}` }));
+    expect(screen.getByAltText(`Initial taxi guidance for runway ${runway}`).getAttribute('src')).toContain('TAXI-CLEARANCE');
+    expect(screen.getByText(/you will see the pane of "Taxi Clearance"/)).toBeInTheDocument();
   });
 
   it('reminds pilots about the GSX profile and the B3 departure on 04R', () => {

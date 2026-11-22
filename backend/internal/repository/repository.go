@@ -15,7 +15,9 @@ type StripRepository interface {
 	Create(ctx context.Context, strip *models.Strip) error
 	GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	LockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
-	LockArrivalETAs(ctx context.Context, session int32, callsigns []string) (map[string]*models.ArrivalETA, error)
+	TryLockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+	ArrivalETARevision(ctx context.Context, session int32) (int64, error)
+	LockArrivalETARevision(ctx context.Context, session int32) (int64, error)
 	List(ctx context.Context, session int32) ([]*models.Strip, error)
 	Update(ctx context.Context, strip *models.Strip) (int64, error)
 	Delete(ctx context.Context, session int32, callsign string) error

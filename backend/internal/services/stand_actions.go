@@ -39,8 +39,8 @@ func NewStandActionService(allocations *StandAllocationService, assignments repo
 	return &StandActionService{allocations: allocations, assignments: assignments, strips: strips, aircraft: aircraft, engines: engines, borders: borders}
 }
 
-func (s *StandActionService) Allocate(ctx context.Context, session int32, airport, position, callsign string, version int32) (*StandAllocationResult, error) {
-	req, err := s.request(ctx, session, airport, position, callsign, version)
+func (s *StandActionService) Allocate(ctx context.Context, session int32, airport, position, callsign string, version int32, assignmentID ...*int64) (*StandAllocationResult, error) {
+	req, err := s.request(ctx, session, airport, position, callsign, version, assignmentID...)
 	if err != nil {
 		s.recordRequestFailure(AutomaticStandAllocation, session, airport, callsign, "", err)
 		return nil, err
@@ -94,8 +94,8 @@ func (s *StandActionService) AvailableForPilot(ctx context.Context, session int3
 	return s.allocations.AvailableStands(ctx, req)
 }
 
-func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32) (*StandAllocationResult, error) {
-	req, err := s.request(ctx, session, airport, position, callsign, version)
+func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32, assignmentID ...*int64) (*StandAllocationResult, error) {
+	req, err := s.request(ctx, session, airport, position, callsign, version, assignmentID...)
 	if err != nil {
 		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, err)
 		return nil, err
@@ -127,8 +127,8 @@ func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, 
 	return s.allocations.AssignManually(ctx, req)
 }
 
-func (s *StandActionService) Override(ctx context.Context, session int32, airport, position, callsign, stand, reason string, version int32) (*StandAllocationResult, error) {
-	req, err := s.request(ctx, session, airport, position, callsign, version)
+func (s *StandActionService) Override(ctx context.Context, session int32, airport, position, callsign, stand, reason string, version int32, assignmentID ...*int64) (*StandAllocationResult, error) {
+	req, err := s.request(ctx, session, airport, position, callsign, version, assignmentID...)
 	if err != nil {
 		s.recordRequestFailure(IncompatibleManualOverride, session, airport, callsign, stand, err)
 		return nil, err
@@ -164,7 +164,7 @@ func (s *StandActionService) recordRequestFailure(command StandAllocationCommand
 	}, outcome, err, 0)
 }
 
-func (s *StandActionService) request(ctx context.Context, session int32, airport, position, callsign string, version int32) (StandAllocationRequest, error) {
+func (s *StandActionService) request(ctx context.Context, session int32, airport, position, callsign string, version int32, assignmentID ...*int64) (StandAllocationRequest, error) {
 	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
 		return StandAllocationRequest{}, err
 	}
@@ -185,6 +185,9 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 		}
 		existing = nil
 	} else if existing != nil && existing.Version != version {
+		return StandAllocationRequest{}, ErrStandActionStaleVersion
+	}
+	if len(assignmentID) > 0 && assignmentID[0] != nil && existing.Revision().ID != *assignmentID[0] {
 		return StandAllocationRequest{}, ErrStandActionStaleVersion
 	}
 	direction := sat.AssignmentDirectionArrival

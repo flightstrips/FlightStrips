@@ -157,7 +157,7 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 	if strip.Owner != nil {
 		owner = *strip.Owner
 	}
-	payload, err := json.Marshal(internalModels.StandAssignmentActionPayload{AssignmentVersion: assignments.Target.Version})
+	payload, err := json.Marshal(internalModels.StandAssignmentActionPayload{AssignmentID: assignments.Target.ID, AssignmentVersion: assignments.Target.Version})
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 		current.Message == message && current.OwningPosition == owner {
 		if current.CustomAction != nil && current.CustomAction.ActionKind == action.ActionKind {
 			var previous internalModels.StandAssignmentActionPayload
-			if json.Unmarshal(current.CustomAction.Payload, &previous) == nil && previous.AssignmentVersion == assignments.Target.Version {
+			if json.Unmarshal(current.CustomAction.Payload, &previous) == nil && previous.AssignmentID == assignments.Target.ID && previous.AssignmentVersion == assignments.Target.Version {
 				return nil
 			}
 		}

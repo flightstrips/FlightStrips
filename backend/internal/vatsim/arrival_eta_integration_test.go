@@ -154,10 +154,13 @@ func TestArrivalLifecycleSelectsFallbackWhenAMANExpiresBeforeStandPass(t *testin
 	require.NotNil(t, persisted.ArrivalETA)
 	require.Equal(t, vatsim.ETAFiled, persisted.ArrivalETA.Source)
 	require.True(t, start.Add(time.Hour).Equal(persisted.ArrivalETA.Time), "EOBT 0800 + 0300 enroute")
-	require.NotEmpty(t, lifecycle.processed)
-	for _, eta := range lifecycle.processed {
-		require.NotNil(t, eta, "the stand pass must never see a missing ETA while a filed fallback exists")
-		require.Equal(t, vatsim.ETAFiled, eta.Source)
+	for _, timings := range [][]*models.ArrivalETA{lifecycle.prioritized, lifecycle.processed} {
+		require.NotEmpty(t, timings)
+		for _, eta := range timings {
+			require.NotNil(t, eta, "the stand pass must never see a missing ETA while a filed fallback exists")
+			require.Equal(t, vatsim.ETAFiled, eta.Source)
+			require.Equal(t, start.Add(time.Hour), eta.Time, "ordering and processing must use the 11:00 UTC filed ETA")
+		}
 	}
 }
 

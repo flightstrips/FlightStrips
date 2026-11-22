@@ -183,6 +183,37 @@ type standActionPreflightRepository struct {
 	afterRead func()
 }
 
+func TestStandWarningRejectsReplacementBeforePreflight(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := t.Context()
+	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+	const callsign = "SAS808"
+	seedTestArrivalStrip(t, queries, session, callsign)
+	strips := postgres.NewStripRepository(pool)
+	old := &models.StandAssignment{SessionID: session, Callsign: callsign, Stand: "A1",
+		Direction: "ARRIVAL", Stage: StageEstimated, Manual: true, Source: "MANUAL"}
+	require.NoError(t, assignments.CreateAssignment(ctx, old))
+	rows, err := assignments.DeleteAssignment(ctx, session, old.ID, old.Version)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, rows)
+	replacement := *old
+	replacement.Stage = StageConfirmed
+	require.NoError(t, assignments.CreateAssignment(ctx, &replacement))
+	require.Equal(t, old.Version, replacement.Version)
+	require.NotEqual(t, old.ID, replacement.ID)
+	actions := NewStandActionService(allocation, assignments, strips, nil, nil, nil)
+	_, err = actions.Allocate(ctx, session, "EKCH", "APP", callsign, old.Version, &old.ID)
+	require.ErrorIs(t, err, ErrStandActionStaleVersion)
+	_, err = actions.AssignManually(ctx, session, "EKCH", "APP", callsign, "A2", old.Version, &old.ID)
+	require.ErrorIs(t, err, ErrStandActionStaleVersion)
+	_, err = actions.Override(ctx, session, "EKCH", "APP", callsign, "A2", "controller override", old.Version, &old.ID)
+	require.ErrorIs(t, err, ErrStandActionStaleVersion)
+	retained, err := assignments.GetAssignment(ctx, session, callsign)
+	require.NoError(t, err)
+	require.Equal(t, replacement.Revision(), retained.Revision())
+	require.Equal(t, StageConfirmed, retained.Stage)
+}
+
 func (r *standActionPreflightRepository) GetAssignment(ctx context.Context, session int32, callsign string) (*models.StandAssignment, error) {
 	assignment, err := r.StandAssignmentRepository.GetAssignment(ctx, session, callsign)
 	if r.afterRead != nil {

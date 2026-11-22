@@ -69,7 +69,7 @@ describe("arrival stand assignment dialog", () => {
       validation_status: {
         issue_type: "STAND ASSIGNMENT", message: "Pinned stand A18 is occupied",
         owning_position: "EKCH_APP", active: true, activation_key: "pin-warning",
-        custom_action: { label: "REQUEST NEW STAND", action_kind: "assign_stand", payload: { assignment_version: 7 } },
+        custom_action: { label: "REQUEST NEW STAND", action_kind: "assign_stand", payload: { assignment_id: 123, assignment_version: 7 } },
       },
     };
     show("");
@@ -77,9 +77,9 @@ describe("arrival stand assignment dialog", () => {
     if (mode === "manual") fireEvent.change(input, { target: { value: "A23" } });
     fireEvent.keyDown(input, { key: "Enter" });
     if (mode === "manual") {
-      expect(state.requestManualStand).toHaveBeenCalledWith("SAS123", "A23", 7);
+      expect(state.requestManualStand).toHaveBeenCalledWith("SAS123", "A23", 7, 123);
     } else {
-      expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 7);
+      expect(state.requestAutomaticStand).toHaveBeenCalledWith("SAS123", 7, 123);
     }
   });
 

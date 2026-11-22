@@ -48,6 +48,7 @@ var (
 	ErrNoTierImprovement             = errors.New("no better stand tier is currently available")
 	ErrRelocationCycle               = errors.New("displaced arrival relocation revisited the same callsign")
 	errAllocationVersionConflict     = errors.New("stand assignment version conflict")
+	errDisplacementLockBusy          = errors.New("displaced arrival strip is being updated")
 	ErrArrivalStandRestricted        = errors.New("stand is closed to arrival assignments")
 )
 
@@ -405,7 +406,7 @@ func (s *StandAllocationService) refreshArrivalInPlace(ctx context.Context, exis
 		}
 		txStrips := s.strips.WithTx(tx)
 		txAssignments := s.assignments.WithTx(tx)
-		if err := vatsim.CheckArrivalETASnapshot(ctx, existing.SessionID, txStrips.LockArrivalETAs, s.now); err != nil {
+		if err := vatsim.CheckArrivalETASnapshot(ctx, existing.SessionID, txStrips.LockArrivalETARevision, s.now); err != nil {
 			return err
 		}
 		currentAssignments, err := txAssignments.LockAssignments(ctx, existing.SessionID, existing.Callsign)
@@ -458,11 +459,11 @@ func (s *StandAllocationService) promoteArrivalInPlace(ctx context.Context, exis
 		}
 		txStrips := s.strips.WithTx(tx)
 		txAssignments := s.assignments.WithTx(tx)
-		if err := vatsim.CheckArrivalETASnapshot(ctx, existing.SessionID, txStrips.LockArrivalETAs, s.now); err != nil {
-			return err
-		}
 		strip, err := txStrips.LockByCallsign(ctx, existing.SessionID, existing.Callsign)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if err := vatsim.CheckArrivalETASnapshot(ctx, existing.SessionID, txStrips.LockArrivalETARevision, s.now); err != nil {
 			return err
 		}
 		currentAssignments, err := txAssignments.LockAssignments(ctx, existing.SessionID, existing.Callsign)
@@ -1140,7 +1141,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			s.relocateDisplacedArrivals(ctx, result.RemovedAssignments, string(command))
 			return result, nil
 		}
-		if selected != "" {
+		if selected != "" && !errors.Is(err, errDisplacementLockBusy) {
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
@@ -1432,12 +1433,12 @@ func (s *StandAllocationService) allocateInTransaction(ctx context.Context, tx p
 	}
 	txStrips := s.strips.WithTx(tx)
 	txAssignments := s.assignments.WithTx(tx)
-	if err := vatsim.CheckArrivalETASnapshot(ctx, request.SessionID, txStrips.LockArrivalETAs, s.now); err != nil {
-		return nil, "", err
-	}
 	strip, err := txStrips.LockByCallsign(ctx, request.SessionID, request.Callsign)
 	if err != nil {
 		return nil, "", fmt.Errorf("load allocation strip: %w", err)
+	}
+	if err := vatsim.CheckArrivalETASnapshot(ctx, request.SessionID, txStrips.LockArrivalETARevision, s.now); err != nil {
+		return nil, "", err
 	}
 	if request.Direction == sat.AssignmentDirectionDeparture {
 		var released bool
@@ -2354,7 +2355,13 @@ func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips
 		if !s.assignmentOverlapsSelectedStand(request.Airport, selected, selectedBlocks, assignment) {
 			continue
 		}
-		strip, err := strips.LockByCallsign(ctx, request.SessionID, assignment.Callsign)
+		strip, err := strips.TryLockByCallsign(ctx, request.SessionID, assignment.Callsign)
+		var lockErr *pgconn.PgError
+		if errors.As(err, &lockErr) && lockErr.Code == "55P03" {
+			// Roll back before retrying so an ETA writer can finish its
+			// revision update without waiting in a revision/strip lock cycle.
+			return nil, nil, errDisplacementLockBusy
+		}
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil, err
 		}
@@ -2415,7 +2422,7 @@ func allocationVariantKey(airport, stand string, line int) string {
 }
 
 func retryableStandAllocationError(err error) bool {
-	if errors.Is(err, errAllocationVersionConflict) {
+	if errors.Is(err, errAllocationVersionConflict) || errors.Is(err, errDisplacementLockBusy) {
 		return true
 	}
 	var pgErr *pgconn.PgError

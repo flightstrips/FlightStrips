@@ -37,6 +37,7 @@ type reconciliationSessionStore interface {
 
 type reconciliationStripStore interface {
 	List(context.Context, int32) ([]*models.Strip, error)
+	ArrivalETARevision(context.Context, int32) (int64, error)
 	Create(context.Context, *models.Strip) error
 	UpdateVatsimSource(context.Context, int32, string, models.VatsimStripSource) (int64, error)
 	UpdateArrivalETA(context.Context, int32, string, models.ArrivalETA) (int64, error)
@@ -487,10 +488,11 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 	}
 	orderer, converge := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
 	if !converge {
-		if err := r.reloadArrivalStrips(ctx, sessionID, strips, flights); err != nil {
+		revision, err := r.reloadArrivalStrips(ctx, sessionID, strips, flights)
+		if err != nil {
 			return err
 		}
-		return r.processArrivalPass(withArrivalETASnapshot(ctx, sessionID, strips, flights), sessionID, strips, flights)
+		return r.processArrivalPass(withArrivalETASnapshot(ctx, sessionID, strips, flights, revision), sessionID, strips, flights)
 	}
 
 	assignments, err := r.loadArrivalAssignments(ctx, sessionID, flights)
@@ -499,13 +501,14 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 	}
 	// Read committed strip timing after assignments, immediately before
 	// ordering. The write also checks this timing under the strip lock.
-	if err := r.reloadArrivalStrips(ctx, sessionID, strips, flights); err != nil {
+	revision, err := r.reloadArrivalStrips(ctx, sessionID, strips, flights)
+	if err != nil {
 		return err
 	}
 	for pass := 1; pass <= maxArrivalReconciliationPasses; pass++ {
 		previousAssignments := snapshotArrivalAssignments(assignments, flights)
 		previousStrips := snapshotArrivalStrips(strips, flights)
-		passCtx := withArrivalETASnapshot(ctx, sessionID, strips, flights)
+		passCtx := withArrivalETASnapshot(ctx, sessionID, strips, flights, revision)
 		orderArrivalFlights(orderer, strips, assignments, flights)
 		passErr := r.processArrivalPass(passCtx, sessionID, strips, flights)
 		if passErr != nil && !errors.Is(passErr, ErrArrivalETAChanged) {
@@ -515,7 +518,8 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 		if err != nil {
 			return err
 		}
-		if err := r.reloadArrivalStrips(ctx, sessionID, strips, flights); err != nil {
+		revision, err = r.reloadArrivalStrips(ctx, sessionID, strips, flights)
+		if err != nil {
 			return err
 		}
 		if passErr == nil && maps.Equal(previousAssignments, snapshotArrivalAssignments(assignments, flights)) &&
@@ -571,7 +575,27 @@ func snapshotArrivalStrips(strips map[string]*models.Strip, flights []Flight) ma
 	return states
 }
 
-func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) error {
+func (r *Reconciler) reloadArrivalStrips(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) (int64, error) {
+	for attempt := 0; attempt < maxArrivalReconciliationPasses; attempt++ {
+		before, err := r.strips.ArrivalETARevision(ctx, sessionID)
+		if err != nil {
+			return 0, err
+		}
+		if err := r.reloadArrivalStripValues(ctx, sessionID, strips, flights); err != nil {
+			return 0, err
+		}
+		after, err := r.strips.ArrivalETARevision(ctx, sessionID)
+		if err != nil {
+			return 0, err
+		}
+		if before == after {
+			return after, nil
+		}
+	}
+	return 0, ErrArrivalETAChanged
+}
+
+func (r *Reconciler) reloadArrivalStripValues(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) error {
 	committed, err := r.strips.List(ctx, sessionID)
 	if err != nil {
 		return fmt.Errorf("reload committed arrival strips: %w", err)

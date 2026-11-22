@@ -165,12 +165,13 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 					require.NotNil(t, status.CustomAction)
 					require.NoError(t, json.Unmarshal(status.CustomAction.Payload, &payload))
 					require.Equal(t, promoted.Version, payload.AssignmentVersion)
+					require.Equal(t, promoted.ID, payload.AssignmentID)
 					if scenario.reassign != "" {
 						var result *services.StandAllocationResult
 						if scenario.reassign == "manual" {
-							result, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS970", "A2", payload.AssignmentVersion)
+							result, err = actions.AssignManually(ctx, session, "EKCH", "GND", "SAS970", "A2", payload.AssignmentVersion, &payload.AssignmentID)
 						} else {
-							result, err = actions.Allocate(ctx, session, "EKCH", "GND", "SAS970", payload.AssignmentVersion)
+							result, err = actions.Allocate(ctx, session, "EKCH", "GND", "SAS970", payload.AssignmentVersion, &payload.AssignmentID)
 						}
 						require.NoError(t, err)
 						require.Equal(t, "A2", result.Assignment.Stand)
@@ -190,6 +191,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 					require.Equal(t, status.ActivationKey, refreshed.ActivationKey)
 					require.NoError(t, json.Unmarshal(refreshed.CustomAction.Payload, &payload))
 					require.Equal(t, promoted.Version, payload.AssignmentVersion)
+					require.Equal(t, promoted.ID, payload.AssignmentID)
 					blocker = "SAS971"
 				}
 				now = now.Add(5 * time.Minute)
@@ -351,6 +353,20 @@ func TestStandPublicationUsesCurrentBlockersAndHiddenReplacement(t *testing.T) {
 			current, err := assignments.GetAssignment(ctx, session, inbound)
 			require.NoError(t, err)
 			require.Equal(t, target.Revision(), current.Revision(), "only the blocker was changed")
+			var lastSnapshot *frontendEvents.StandStatusSnapshotEvent
+			for len(hub.send) > 0 {
+				if snapshot, ok := (<-hub.send).message.(frontendEvents.StandStatusSnapshotEvent); ok {
+					lastSnapshot = &snapshot
+				}
+			}
+			require.NotNil(t, lastSnapshot)
+			require.Len(t, lastSnapshot.Assignments, 2)
+			for _, assignment := range lastSnapshot.Assignments {
+				if assignment.Callsign == blocker {
+					require.Equal(t, moved, assignment.Stand, "the last snapshot must contain the latest committed stand")
+					require.Equal(t, other.Version, assignment.Version)
+				}
+			}
 		})
 	}
 }

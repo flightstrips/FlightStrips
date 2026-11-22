@@ -296,6 +296,67 @@ type arrivalPriorityRefresh struct {
 	priorities []int
 }
 
+func TestDisplacedArrivalRetainsAdvisoryWhenETAChangesAfterTakeover(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := t.Context()
+	lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+	for _, callsign := range []string{"SAS910", "SAS911"} {
+		seedTestArrivalStrip(t, queries, session, callsign)
+	}
+	now := clock.current()
+	_, err := pool.Exec(ctx, "UPDATE strips SET vatsim_seen_at=$1 WHERE session=$2 AND callsign='SAS910'", now, session)
+	require.NoError(t, err)
+	require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+		SessionID: session, Callsign: "SAS910", Stand: "A1", Direction: "ARRIVAL",
+		Stage: StageAssigned, Source: "AUTOMATIC", ETA: &now,
+	}))
+	_, err = strips.UpdateGroundState(ctx, session, "SAS911", strp("PARK"), "ARR_HIDDEN", nil)
+	require.NoError(t, err)
+	source := vatsim.NewSnapshotReplaySource()
+	feed := fmt.Sprintf(`{
+		"general": {"update_timestamp": %q},
+		"pilots": [{"cid": 2, "callsign": "SAS911",
+			"latitude": 55.6285306, "longitude": 12.642625, "altitude": 0, "groundspeed": 0,
+			"flight_plan": {"departure": "ESSA", "arrival": "EKCH", "aircraft_short": "A320", "revision_id": 1}}]
+	}`, now.Format(time.RFC3339))
+	require.NoError(t, source.Load(strings.NewReader(feed), now))
+	sessions := postgres.NewSessionRepository(pool)
+	departures, err := NewDepartureLifecycleService(allocations, assignments, strips, sessions, lifecycle.stands, nil, nil,
+		sat.NewAirportCountryRegistry(), WithDepartureLifecycleClock(clock.current))
+	require.NoError(t, err)
+	reconciler, err := vatsim.NewReconciler(vatsim.ReconcilerDependencies{
+		Cache: source, Sessions: sessions, Strips: strips, Assignments: assignments,
+		DepartureLifecycle: departures, ArrivalLifecycle: lifecycle, Notifier: satHistoryNotifier{},
+	}, time.Second, vatsim.WithClock(clock.current), vatsim.WithLegacyArrivalETAWriter(false))
+	require.NoError(t, err)
+	takeovers := 0
+	allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+		if len(result.RemovedAssignments) > 0 {
+			takeovers++
+			_, err := strips.UpdateArrivalETA(ctx, session, "SAS911", models.ArrivalETA{
+				Time: now.Add(time.Minute), Source: compatibility.ArrivalETASource, CalculatedAt: now,
+			})
+			require.NoError(t, err)
+		}
+		return nil
+	})
+	require.NoError(t, reconciler.ReconcileSession(ctx, session))
+	require.Equal(t, 1, takeovers, "the committed takeover must never be replayed")
+	parked, err := assignments.GetAssignment(ctx, session, "SAS911")
+	require.NoError(t, err)
+	require.Equal(t, "A1", parked.Stand)
+	advisory, err := assignments.GetAssignment(ctx, session, "SAS910")
+	require.NoError(t, err)
+	require.Empty(t, advisory.Stand)
+	require.Equal(t, StageAssigned, advisory.Stage)
+	require.NotNil(t, advisory.ConflictReason)
+	require.Contains(t, *advisory.ConflictReason, "timing changed")
+	actions := NewStandActionService(allocations, assignments, strips, nil, nil, nil)
+	recovered, err := actions.AssignManually(ctx, session, "EKCH", "APP", "SAS910", "A2", advisory.Version, &advisory.ID)
+	require.NoError(t, err)
+	require.Equal(t, "A2", recovered.Assignment.Stand)
+}
+
 func TestArrivalPromotionRetriesWhenCompetingETAChangesAfterOrdering(t *testing.T) {
 	t.Run("earlier competing ETA", func(t *testing.T) {
 		testArrivalPromotionAfterOrderChange(t, false)

@@ -36,44 +36,39 @@ func arrivalTiming(eta *models.ArrivalETA) arrivalETATiming {
 type arrivalETAContextKey struct{}
 
 type arrivalETASnapshot struct {
-	session   int32
-	callsigns []string
-	timings   map[string]arrivalETATiming
+	session  int32
+	revision int64
+	expires  time.Time
 }
 
-func withArrivalETASnapshot(ctx context.Context, session int32, strips map[string]*models.Strip, flights []Flight) context.Context {
-	snapshot := arrivalETASnapshot{
-		session: session, callsigns: make([]string, 0, len(flights)), timings: make(map[string]arrivalETATiming, len(flights)),
-	}
+func withArrivalETASnapshot(ctx context.Context, session int32, strips map[string]*models.Strip, flights []Flight, revision int64) context.Context {
+	snapshot := arrivalETASnapshot{session: session, revision: revision}
 	for _, flight := range flights {
-		if strip := strips[flight.Callsign]; strip != nil {
-			snapshot.callsigns = append(snapshot.callsigns, strip.Callsign)
-			snapshot.timings[strip.Callsign] = arrivalTiming(strip.ArrivalETA)
+		strip := strips[flight.Callsign]
+		if strip == nil || strip.ArrivalETA == nil || strip.ArrivalETA.Source != compatibility.ArrivalETASource {
+			continue
+		}
+		expires := strip.ArrivalETA.CalculatedAt.Add(compatibility.FreshFor)
+		if snapshot.expires.IsZero() || expires.Before(snapshot.expires) {
+			snapshot.expires = expires
 		}
 	}
 	return context.WithValue(ctx, arrivalETAContextKey{}, snapshot)
 }
 
-// CheckArrivalETASnapshot locks and validates all timing inputs that determined
-// the pass order. Those locks must be held until the stand transaction commits.
-func CheckArrivalETASnapshot(ctx context.Context, session int32, lockETAs func(context.Context, int32, []string) (map[string]*models.ArrivalETA, error), clock func() time.Time) error {
+// CheckArrivalETASnapshot checks one transactionally maintained session revision.
+// The shared revision lock protects all pass inputs through the stand commit.
+func CheckArrivalETASnapshot(ctx context.Context, session int32, lockRevision func(context.Context, int32) (int64, error), clock func() time.Time) error {
 	snapshot, ok := ctx.Value(arrivalETAContextKey{}).(arrivalETASnapshot)
-	if !ok || snapshot.session != session || len(snapshot.callsigns) == 0 {
+	if !ok || snapshot.session != session {
 		return nil
 	}
-	etas, err := lockETAs(ctx, session, snapshot.callsigns)
+	revision, err := lockRevision(ctx, session)
 	if err != nil {
 		return err
 	}
-	if len(etas) != len(snapshot.timings) {
+	if revision != snapshot.revision || (!snapshot.expires.IsZero() && clock().After(snapshot.expires)) {
 		return ErrArrivalETAChanged
-	}
-	now := clock()
-	for callsign, expected := range snapshot.timings {
-		eta, found := etas[callsign]
-		if !found || arrivalTiming(effectiveArrivalETA(eta, now)) != expected {
-			return ErrArrivalETAChanged
-		}
 	}
 	return nil
 }

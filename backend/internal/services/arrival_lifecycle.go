@@ -134,11 +134,15 @@ func (s *ArrivalLifecycleService) reassignDisplacedArrival(ctx context.Context, 
 		return nil
 	}
 	if !errors.Is(err, ErrNoAvailableStand) && !errors.Is(err, ErrNoPolicyStand) &&
-		!errors.Is(err, ErrNoCompatibleStand) && !errors.Is(err, ErrAutomaticAllocationSuppressed) {
+		!errors.Is(err, ErrNoCompatibleStand) && !errors.Is(err, ErrAutomaticAllocationSuppressed) &&
+		!errors.Is(err, vatsim.ErrArrivalETAChanged) {
 		return err
 	}
 
 	reason := "physically displaced; no compatible replacement stand available"
+	if errors.Is(err, vatsim.ErrArrivalETAChanged) {
+		reason = "physically displaced; arrival timing changed during relocation; controller retry available"
+	}
 	if advisoryErr := s.recordDisplacedArrivalAdvisory(ctx, displaced, reason); advisoryErr != nil {
 		return advisoryErr
 	}

@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
+	"FlightStrips/internal/vatsim"
 	"context"
 	"encoding/json"
 	"errors"
@@ -349,33 +350,36 @@ func (r *stripRepository) LockByCallsign(ctx context.Context, session int32, cal
 	return stripToModel(dbStrip)
 }
 
-// LockArrivalETAs protects the arrival ordering inputs for a stand write.
-// It must run in the transaction that will commit the stand assignment.
-func (r *stripRepository) LockArrivalETAs(ctx context.Context, session int32, callsigns []string) (map[string]*models.ArrivalETA, error) {
-	rows, err := r.db.Query(ctx, `
-SELECT callsign, arrival_eta
-FROM strips
-WHERE session = $1 AND callsign = ANY($2::text[])
-ORDER BY callsign
-FOR SHARE`, session, callsigns)
+// TryLockByCallsign avoids waiting on a strip whose ETA writer may be waiting
+// for an arrival revision lock held by this transaction.
+func (r *stripRepository) TryLockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error) {
+	row, err := r.db.Query(ctx, "SELECT * FROM strips WHERE session=$1 AND callsign=$2 FOR UPDATE NOWAIT", session, callsign)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	etas := make(map[string]*models.ArrivalETA, len(callsigns))
-	for rows.Next() {
-		var callsign string
-		var payload []byte
-		if err := rows.Scan(&callsign, &payload); err != nil {
-			return nil, err
-		}
-		eta, err := unmarshalArrivalETA(payload)
-		if err != nil {
-			return nil, err
-		}
-		etas[callsign] = eta
+	strip, err := pgx.CollectOneRow(row, pgx.RowToStructByName[database.Strip])
+	if err != nil {
+		return nil, err
 	}
-	return etas, rows.Err()
+	return stripToModel(strip)
+}
+
+// ArrivalETARevision reads the session's timing generation before loading strips.
+func (r *stripRepository) ArrivalETARevision(ctx context.Context, session int32) (int64, error) {
+	var revision int64
+	err := r.db.QueryRow(ctx, "SELECT COALESCE((SELECT revision FROM arrival_eta_revisions WHERE session_id=$1),0)", session).Scan(&revision)
+	return revision, err
+}
+
+// LockArrivalETARevision protects the timing generation through a stand commit.
+func (r *stripRepository) LockArrivalETARevision(ctx context.Context, session int32) (int64, error) {
+	var revision int64
+	err := r.db.QueryRow(ctx, "SELECT revision FROM arrival_eta_revisions WHERE session_id=$1 FOR SHARE NOWAIT", session).Scan(&revision)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "55P03" {
+		return 0, vatsim.ErrArrivalETAChanged
+	}
+	return revision, err
 }
 
 // List retrieves all strips for a session

@@ -107,6 +107,7 @@ type Hub struct {
 	snapshotBuilder     *SnapshotBuilder
 	standActionService  *services.StandActionService
 	standCapabilities   *sat.StandCapabilityRegistry
+	standSnapshotLocks  sync.Map
 	textPilotInputs     func(string) *pkgModels.TextPilotInputs
 	amanStateProvider   AMANStateProvider
 	amanCommandService  aman.CommandService
@@ -1476,7 +1477,9 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	}
 
 	if snapshotReady {
-		hub.SendStandStatusSnapshot(sessionID, publishEntries, blockEntries)
+		if err := hub.publishCurrentStandSnapshot(ctx, sessionID, session.Airport); err != nil {
+			slog.ErrorContext(ctx, "Failed to publish current stand snapshot", slog.Int("session", int(sessionID)), slog.Any("error", err))
+		}
 	}
 
 	euroscopeHub := hub.server.GetEuroscopeHub()
@@ -1568,6 +1571,37 @@ func (hub *Hub) SendStandBlockBroadcast(session int32, stand string, block *fron
 
 func (hub *Hub) PublishStandBlockRemoval(_ context.Context, block internalModels.StandBlock) error {
 	hub.SendStandBlockBroadcast(block.SessionID, block.Stand, nil, block.ID)
+	return nil
+}
+
+func (hub *Hub) publishCurrentStandSnapshot(ctx context.Context, session int32, airport string) error {
+	value, _ := hub.standSnapshotLocks.LoadOrStore(session, &sync.Mutex{})
+	lock := value.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	repo := hub.server.GetStandAssignmentRepository()
+	all, err := repo.ListAssignments(ctx, session)
+	if err != nil {
+		return err
+	}
+	blocks, err := repo.ListBlocks(ctx, session)
+	if err != nil {
+		return err
+	}
+	assignments := make([]frontend.StandAssignmentEntry, 0, len(all))
+	for _, assignment := range all {
+		if standAssignmentFrontendVisible(assignment) {
+			assignments = append(assignments, mapStandAssignmentEntry(assignment))
+		}
+	}
+	enrichStandAssignmentBlocking(assignments, airport, hub.standCapabilities)
+	entries := make([]frontend.StandBlockEntry, 0, len(blocks))
+	for _, block := range blocks {
+		if block != nil {
+			entries = append(entries, mapStandBlockEntry(block, airport, hub.standCapabilities))
+		}
+	}
+	hub.SendStandStatusSnapshot(session, assignments, entries)
 	return nil
 }
 

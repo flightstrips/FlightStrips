@@ -1278,24 +1278,27 @@ type StandVacateAction struct {
 }
 
 type StandAutomaticRequestAction struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Version  int32     `json:"version"`
+	AssignmentID *int64    `json:"assignment_id,omitempty"`
+	Type         EventType `json:"type"`
+	Callsign     string    `json:"callsign"`
+	Version      int32     `json:"version"`
 }
 
 type StandManualRequestAction struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Stand    string    `json:"stand"`
-	Version  int32     `json:"version"`
+	AssignmentID *int64    `json:"assignment_id,omitempty"`
+	Type         EventType `json:"type"`
+	Callsign     string    `json:"callsign"`
+	Stand        string    `json:"stand"`
+	Version      int32     `json:"version"`
 }
 
 type StandConfirmedOverrideAction struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Stand    string    `json:"stand"`
-	Reason   string    `json:"reason"`
-	Version  int32     `json:"version"`
+	AssignmentID *int64    `json:"assignment_id,omitempty"`
+	Type         EventType `json:"type"`
+	Callsign     string    `json:"callsign"`
+	Stand        string    `json:"stand"`
+	Reason       string    `json:"reason"`
+	Version      int32     `json:"version"`
 }
 
 type StandAcknowledgeAction struct {

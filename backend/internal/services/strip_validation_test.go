@@ -152,7 +152,7 @@ func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing
 	require.Equal(t, owner, persisted.OwningPosition)
 	require.True(t, persisted.Active)
 	require.Equal(t, "assign_stand", persisted.CustomAction.ActionKind)
-	require.JSONEq(t, `{"assignment_version":7}`, string(persisted.CustomAction.Payload))
+	require.JSONEq(t, `{"assignment_id":10,"assignment_version":7}`, string(persisted.CustomAction.Payload))
 }
 
 func TestReconcileStandAssignmentValidationIgnoresRemovedStrip(t *testing.T) {
@@ -340,7 +340,7 @@ func TestStandValidationRejectsStalePublications(t *testing.T) {
 				require.NotNil(t, current.CustomAction)
 				assert.False(t, current.Active)
 				assert.Equal(t, warning.ActivationKey, current.ActivationKey)
-				require.JSONEq(t, fmt.Sprintf(`{"assignment_version":%d}`, pin.Version), string(current.CustomAction.Payload))
+				require.JSONEq(t, fmt.Sprintf(`{"assignment_id":%d,"assignment_version":%d}`, pin.ID, pin.Version), string(current.CustomAction.Payload))
 			}
 		})
 	}

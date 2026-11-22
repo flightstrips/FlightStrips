@@ -108,6 +108,10 @@ func (s *reconciliationSessionFailureStrips) List(ctx context.Context, session i
 	return s.reconciliationTestStrips.List(ctx, session)
 }
 
+func (s *reconciliationTestStrips) ArrivalETARevision(context.Context, int32) (int64, error) {
+	return 0, nil
+}
+
 func (s *reconciliationTestStrips) List(_ context.Context, session int32) ([]*models.Strip, error) {
 	return s.bySession[session], nil
 }

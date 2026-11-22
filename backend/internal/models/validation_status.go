@@ -34,6 +34,7 @@ type ValidationAction struct {
 }
 
 type StandAssignmentActionPayload struct {
+	AssignmentID      int64 `json:"assignment_id"`
 	AssignmentVersion int32 `json:"assignment_version"`
 }
 

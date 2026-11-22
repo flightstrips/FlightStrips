@@ -821,12 +821,14 @@ export interface FrontendStandAssignmentEntry {
 }
 
 export interface FrontendStandAutomaticRequestAction {
+  assignment_id?: number;
   type: ActionType.FrontendStandAssignmentAutomaticRequest;
   callsign: string;
   version: number;
 }
 
 export interface FrontendStandManualRequestAction {
+  assignment_id?: number;
   type: ActionType.FrontendStandAssignmentManualRequest;
   callsign: string;
   stand: string;
@@ -834,6 +836,7 @@ export interface FrontendStandManualRequestAction {
 }
 
 export interface FrontendStandConfirmedOverrideAction {
+  assignment_id?: number;
   type: ActionType.FrontendStandAssignmentConfirmedOverride;
   callsign: string;
   stand: string;

@@ -489,8 +489,16 @@ func (m *MockStripRepository) AcknowledgeCdmMilestone(ctx context.Context, sessi
 	return m.AcknowledgeCdmMilestoneFn(ctx, session, callsign, milestone, value)
 }
 
-func (m *MockStripRepository) LockArrivalETAs(context.Context, int32, []string) (map[string]*models.ArrivalETA, error) {
-	panic("unexpected call to MockStripRepository.LockArrivalETAs")
+func (m *MockStripRepository) TryLockByCallsign(context.Context, int32, string) (*models.Strip, error) {
+	panic("unexpected call to MockStripRepository.TryLockByCallsign")
+}
+
+func (m *MockStripRepository) ArrivalETARevision(context.Context, int32) (int64, error) {
+	panic("unexpected call to MockStripRepository.ArrivalETARevision")
+}
+
+func (m *MockStripRepository) LockArrivalETARevision(context.Context, int32) (int64, error) {
+	panic("unexpected call to MockStripRepository.LockArrivalETARevision")
 }
 
 func (m *MockStripRepository) UpdateFallbackArrivalETA(context.Context, int32, string, *models.ArrivalETA, time.Time) (*models.ArrivalETA, bool, error) {

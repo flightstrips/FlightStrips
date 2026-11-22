@@ -283,9 +283,9 @@ export interface WebSocketState {
 
   occupyStand: (stand: string) => void;
   vacateStand: (stand: string, blockId: number, version: number) => void;
-  requestManualStand: (callsign: string, stand: string, version: number) => void;
-  requestAutomaticStand: (callsign: string, version: number) => void;
-  confirmStandOverride: (callsign: string, stand: string, version: number, reason: string) => void;
+  requestManualStand: (callsign: string, stand: string, version: number, assignmentID?: number) => void;
+  requestAutomaticStand: (callsign: string, version: number, assignmentID?: number) => void;
+  confirmStandOverride: (callsign: string, stand: string, version: number, reason: string, assignmentID?: number) => void;
   acknowledgeStandAssignment: (callsign: string, version: number) => void;
   standActionRejection: ActionRejectedEvent | null;
   clearStandActionRejection: () => void;
@@ -1296,17 +1296,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     vacateStand: (stand, blockId, version) => {
       sendIfWritable({ type: ActionType.FrontendStandBlockRemove, stand, block_id: blockId, version });
     },
-    requestManualStand: (callsign, stand, version) => {
+    requestManualStand: (callsign, stand, version, assignmentID) => {
       store.setState({ standActionRejection: null });
-      sendIfWritable({ type: ActionType.FrontendStandAssignmentManualRequest, callsign, stand, version });
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentManualRequest, callsign, stand, version, ...(assignmentID === undefined ? {} : { assignment_id: assignmentID }) });
     },
-    requestAutomaticStand: (callsign, version) => {
+    requestAutomaticStand: (callsign, version, assignmentID) => {
       store.setState({ standActionRejection: null });
-      sendIfWritable({ type: ActionType.FrontendStandAssignmentAutomaticRequest, callsign, version });
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentAutomaticRequest, callsign, version, ...(assignmentID === undefined ? {} : { assignment_id: assignmentID }) });
     },
-    confirmStandOverride: (callsign, stand, version, reason) => {
+    confirmStandOverride: (callsign, stand, version, reason, assignmentID) => {
       store.setState({ standActionRejection: null });
-      sendIfWritable({ type: ActionType.FrontendStandAssignmentConfirmedOverride, callsign, stand, version, reason });
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentConfirmedOverride, callsign, stand, version, reason, ...(assignmentID === undefined ? {} : { assignment_id: assignmentID }) });
     },
     acknowledgeStandAssignment: (callsign, version) => {
       sendIfWritable({ type: ActionType.FrontendStandAssignmentAcknowledge, callsign, version });

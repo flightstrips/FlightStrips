@@ -406,9 +406,14 @@ describe('EFB page interactions', () => {
     render(<EFBPage />);
 
     expect(await screen.findByLabelText('Development callsign')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'L1 Picture' })).toHaveAttribute('href', 'https://www.simbrief.com/home/');
-    expect(screen.getByRole('link', { name: 'R1 Picture' })).toHaveAttribute('href', 'https://my.vatsim.net/pilots/flightplan');
+    expect(screen.queryByRole('link', { name: 'L1 Picture' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'R1 Picture' })).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'CLICK TO REFRESH' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    expect(await screen.findByText('AIRPORT SCENERY')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Downloads' }));
+    expect(await screen.findByRole('button', { name: 'Close downloads' })).toBeInTheDocument();
 
     const nilTiles = screen.getAllByAltText('Loading');
     for (const tile of nilTiles) fireEvent.click(tile);
@@ -785,15 +790,15 @@ describe('EFB page interactions', () => {
     expect(screen.queryByText('CONTACT PASSING')).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Departure Freq' })).toHaveTextContent('NIL');
     expect(screen.getByRole('group', { name: 'Departure CTOT' })).toHaveTextContent('NIL');
-    expect(screen.getByRole('link', { name: 'Traffic Board' })).toHaveAttribute('href', 'https://flightboard.simfixr.com/?icao=EKCH');
+    expect(screen.queryByRole('link', { name: 'Traffic Board' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Downloads' })).toHaveClass('top-[2.5%]', 'h-[60%]', 'w-[30.83%]', 'left-[2.5%]');
-    expect(screen.getByRole('link', { name: 'Traffic Board' })).toHaveClass('top-[2.5%]', 'h-[60%]', 'w-[30.83%]', 'left-[66.66%]');
+    expect(screen.getByRole('button', { name: 'Options' })).toHaveClass('top-[2.5%]', 'h-[60%]', 'w-[30.83%]', 'left-[66.66%]');
     expect(screen.getByRole('button', { name: 'Downloads' })).toHaveClass('bg-[#011328]', 'text-white', 'efb-action-bar', 'efb-clickspot');
-    expect(screen.getByRole('link', { name: 'Traffic Board' })).toHaveClass('bg-[#011328]', 'text-white', 'efb-action-bar', 'efb-clickspot');
+    expect(screen.getByRole('button', { name: 'Options' })).toHaveClass('bg-[#011328]', 'text-white', 'efb-action-bar', 'efb-clickspot');
     expect(screen.getByRole('button', { name: 'Downloads' })).toHaveTextContent('DOWNLOADS');
-    expect(screen.getByRole('link', { name: 'Traffic Board' })).toHaveTextContent('TRAFFIC BOARD');
+    expect(screen.getByRole('button', { name: 'Options' })).toHaveTextContent('OPTIONS');
     const downloadsArrow = screen.getByRole('button', { name: 'Downloads' }).querySelector('img')!;
-    const trafficArrow = screen.getByRole('link', { name: 'Traffic Board' }).querySelector('img')!;
+    const trafficArrow = screen.getByRole('button', { name: 'Options' }).querySelector('img')!;
     expect(downloadsArrow).toHaveAttribute('src', expect.stringContaining('stand-arrow.png'));
     expect(trafficArrow).toHaveAttribute('src', expect.stringContaining('stand-arrow.png'));
     expect(downloadsArrow).toHaveClass('left-[3%]', 'h-[85%]', 'w-[12%]');
@@ -805,12 +810,21 @@ describe('EFB page interactions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Downloads' }));
     expect(screen.getByRole('dialog', { name: 'Downloads' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Download GSX profile' })).toHaveAttribute('href', 'https://www.flightsim.to');
+    expect(screen.getByRole('link', { name: 'Download GSX profile' })).toHaveAttribute('href', 'https://flightsim.to/profile/vatsca');
     fireEvent.click(screen.getByRole('button', { name: 'Close downloads' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    expect(screen.getByRole('dialog', { name: 'Options' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Traffic Board' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close options' }));
+    expect(screen.queryByRole('dialog', { name: 'Options' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByAltText('Charts'));
     const chartDialog = screen.getByRole('dialog', { name: 'EKCH' });
     expect(chartDialog).toBeInTheDocument();
+    // On the ground Charts opens on the taxi clearance; the SID charts are one click away.
+    expect(within(chartDialog).getByRole('button', { name: 'TAXI CLEARANCE' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(chartDialog).getByRole('button', { name: /^ASSIGNED SID/ }));
     expect(within(chartDialog).getByText('EKCH, runway 22R')).toBeInTheDocument();
     expect(within(chartDialog).getByText('NEXEN2A')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'CLICK TO CLOSE' }));
@@ -1080,6 +1094,27 @@ describe('EFB page interactions', () => {
     expect(screen.queryByText('NO FLIGHTPLAN')).not.toBeInTheDocument();
   });
 
+  it('keeps the Z on departure identifiers and accepts it on UTC times', async () => {
+    const fetchMock = vi.fn().mockImplementation(previewResponse);
+    vi.stubGlobal('fetch', fetchMock);
+    render(<EFBPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'PREVIEW DEPARTURE' }));
+    const form = screen.getByRole('form', { name: 'Simulated departure' });
+    fireEvent.change(within(form).getByLabelText('Callsign'), { target: { value: ' sas12z ' } });
+    fireEvent.change(within(form).getByLabelText('Destination ICAO'), { target: { value: 'edhz' } });
+    fireEvent.change(within(form).getByLabelText('TOBT (HHMM UTC)'), { target: { value: '1935Z' } });
+    fireEvent.change(within(form).getByLabelText('TSAT (HHMM UTC)'), { target: { value: '1940z' } });
+    fireEvent.change(within(form).getByLabelText('CTOT (HHMM UTC)'), { target: { value: '1950Z' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'SHOW DEPARTURE' }));
+
+    expect(await screen.findByRole('status', { name: 'Simulated departure preview' })).toHaveTextContent('SAS12Z · EKCH–EDHZ');
+    expect(screen.getByText('1935')).toBeInTheDocument();
+    expect(screen.getByText('1940')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Departure CTOT' })).toHaveTextContent('1950');
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/weather/atis?airport=EKCH&departure=true'))).toBe(true));
+  });
+
   it('previews the supplied simulated arrival without calling flight or controller APIs', async () => {
     const fetchMock = vi.fn().mockImplementation(previewResponse);
     vi.stubGlobal('fetch', fetchMock);
@@ -1140,14 +1175,17 @@ describe('EFB page interactions', () => {
     expect(within(publishedHolding).getByText('PUBLISHED HOLDING')).toHaveClass('text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)]');
     expect(within(publishedHolding).getByText('MONAK')).toHaveClass('text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]');
     expect(within(publishedHolding).getByText('RIGHT 1 MIN')).toHaveClass('text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]');
-    expect(within(publishedHolding).getByText('MONAK')).toHaveClass('top-[16%]', 'left-[35%]');
-    expect(within(publishedHolding).getByText('RIGHT 1 MIN')).toHaveClass('top-[38%]', 'left-[35%]');
+    const holdingRow = screen.getByAltText('Holding pattern').parentElement!;
+    expect(holdingRow).toHaveClass('top-[16%]', 'left-0');
+    expect(holdingRow.firstElementChild).toBe(screen.getByAltText('Holding pattern'));
+    expect(holdingRow).toContainElement(within(publishedHolding).getByText('MONAK'));
+    expect(holdingRow).toContainElement(within(publishedHolding).getByText('RIGHT 1 MIN'));
     expect(screen.getByText('Maintain HDG037').parentElement).toHaveClass('top-[38%]', 'right-0');
     expect(screen.getByText('Maintain HDG037')).toHaveClass('underline', 'underline-offset-4');
     const afterPassing = screen.getByRole('group', { name: 'After passing' });
     expect(afterPassing).toHaveClass('w-[108%]');
     expect(publishedHolding).toContainElement(screen.getByAltText('Holding pattern'));
-    expect(screen.getByAltText('Holding pattern')).toHaveClass('h-[46%]', 'w-[30%]');
+    expect(screen.getByAltText('Holding pattern')).toHaveClass('h-full', 'max-w-[30%]', 'object-left');
     expect(publishedHolding.parentElement).toContainElement(screen.getByAltText('Arrival Info'));
     expect(screen.getByRole('group', { name: 'After passing' })).toBeInTheDocument();
 

@@ -1,6 +1,7 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/models"
 	pkg "FlightStrips/pkg/models"
 	"context"
@@ -151,6 +152,26 @@ func (s *reconciliationTestStrips) UpdateArrivalETA(_ context.Context, session i
 		return 1, nil
 	}
 	return 0, nil
+}
+
+func (s *reconciliationTestStrips) GetByCallsign(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+	for _, strip := range s.bySession[session] {
+		if strip.Callsign == callsign {
+			return strip, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *reconciliationTestStrips) UpdateFallbackArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA, now time.Time) (int64, error) {
+	strip, err := s.GetByCallsign(ctx, session, callsign)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && compatibility.IsFresh(strip.ArrivalETA, now)) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return s.UpdateArrivalETA(ctx, session, callsign, eta)
 }
 
 func (s *reconciliationTestStrips) UpdateBayAndSequence(_ context.Context, session int32, callsign, bay string, sequence int32) (int64, error) {

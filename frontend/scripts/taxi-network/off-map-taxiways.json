@@ -1,0 +1,16 @@
+{
+ "_comment": "Connections beyond the edge of the taxi map. 'taxiways' continue from where 'from' leaves the map and end at 'runway'. 'runwayLinks' say that a taxiway reaches a runway beyond the map edge (where it leaves the map). Neither is drawn; both connect at the map edge. A runway link with 'connect' also lets routes along that taxiway reach the runway there (hold short at the map edge).",
+ "taxiways": [
+  { "name": "B1", "from": "B", "runway": "04R/22L" },
+  { "name": "B2", "from": "B", "runway": "04R/22L" },
+  { "name": "B3", "from": "B", "runway": "04R/22L" },
+  { "name": "B4", "from": "B", "runway": "04R/22L" }
+ ],
+ "runwayLinks": [
+  { "taxiway": "B", "runway": "04R/22L", "connect": true },
+  { "taxiway": "A", "runway": "04L/22R" }
+ ],
+ "holdingPoints": [
+  { "taxiway": "A5", "node": "E35a", "runway": "04L/22R" }
+ ]
+}

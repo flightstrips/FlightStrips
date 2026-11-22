@@ -5,8 +5,6 @@ import { getApiUrl } from '@/lib/api-url';
 import { isLocalDevelopment } from '@/lib/local-development';
 import { fetchCachedAtis, parseAtisWeather } from '@/api/atis';
 import { ArrowDown, Gauge, Thermometer, Wind } from 'lucide-react';
-import simbriefFplImg from '../assets/efb/simbrief-fpl.png';
-import fileVatsimFplImg from '../assets/efb/file-vatsim-fpl.png';
 import standImage from '../assets/efb/stand-image.png';
 import standArrow from '@/assets/stand-arrow.png';
 import depinfoImage from '../assets/efb/depinfo-image.png';
@@ -24,6 +22,7 @@ import D1ArrivalBriefDialog from '../components/efb/dialogs/D1ArrivalBrief';
 import D1BRIEFDialog from '../components/efb/dialogs/D1Brief';
 import D1ChartDialog from '../components/efb/dialogs/D1Chart';
 import D1DownloadsDialog from '../components/efb/dialogs/D1DownloadsDialog';
+import D1OptionsDialog from '../components/efb/dialogs/D1OptionsDialog';
 import D1STANDDialog, { type StandAvailability } from '../components/efb/dialogs/D1Stand';
 import D2CDMDialog from '../components/efb/dialogs/D2CDMDialog';
 import D2ATISDialog from '../components/efb/dialogs/D2ATISDialog';
@@ -41,6 +40,11 @@ function elapsedSinceUtcTime(time: string, nowMs: number): number | null {
   target.setUTCHours(Number(time.slice(0, 2)), Number(time.slice(2, 4)), 0, 0);
   const day = 86_400_000;
   return ((nowMs - target.getTime() + day / 2) % day + day) % day - day / 2;
+}
+
+// The METAR stands in for the ATIS when no fresh ATIS is online.
+function usesMetarFallback(flight: ApiFlight | null | undefined): boolean {
+  return Boolean(flight?.metar) && (!flight?.atis || flight.atis.stale);
 }
 
 function atisAcknowledgementKey(flight: ApiFlight | null, source: string): string | null {
@@ -90,6 +94,8 @@ interface ApiFlight {
   stand_version?: number | null;
   stand_state?: string | null;
   stand_request_unavailable_reason?: string;
+  // Pushback release point ATC assigned on the strip (departures only).
+  release_point?: string | null;
   cleared_altitude?: number | null;
   initial_climb?: string | null;
   ctot?: string | null;
@@ -113,6 +119,8 @@ interface ApiFlight {
   eobt?: string | null;
   tsat?: string | null;
   atis?: { code: string; text: string[]; frequency?: string; last_updated?: string; stale: boolean } | null;
+  // Raw METAR, sent only when no fresh ATIS is online.
+  metar?: string | null;
   pdc_available: boolean;
   pdc_can_submit: boolean;
   capabilities: {
@@ -213,6 +221,53 @@ function loadArrivalPreview(): { input: ArrivalPreviewInput; onGround: boolean }
   }
 }
 
+interface DeparturePreviewInput {
+  callsign: string;
+  origin: string;
+  destination: string;
+  aircraftType: string;
+  stand: string;
+  runway: string;
+  sid: string;
+  releasePoint: string;
+  tobt: string;
+  tsat: string;
+  ctot: string;
+}
+
+const initialDeparturePreviewInput: DeparturePreviewInput = {
+  callsign: 'SAS123',
+  origin: 'EKCH',
+  destination: 'EDDF',
+  aircraftType: 'A320',
+  stand: 'A12',
+  runway: '22R',
+  sid: '',
+  releasePoint: '',
+  tobt: '',
+  tsat: '',
+  ctot: '',
+};
+
+const DEPARTURE_PREVIEW_KEY = 'efb-departure-preview';
+
+function loadDeparturePreview(): DeparturePreviewInput {
+  if (!isLocalDevelopment) return initialDeparturePreviewInput;
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(DEPARTURE_PREVIEW_KEY) ?? 'null');
+    if (!saved || typeof saved !== 'object') return initialDeparturePreviewInput;
+    const input = { ...initialDeparturePreviewInput };
+    for (const key of Object.keys(input) as (keyof DeparturePreviewInput)[]) {
+      const value = Reflect.get(saved, key);
+      if (typeof value === 'string') input[key] = value;
+    }
+    return input;
+  } catch (error) {
+    console.error('Unable to restore saved EFB test departure', error);
+    return initialDeparturePreviewInput;
+  }
+}
+
 const DEV_CALLSIGN_KEY = 'efb-test-callsign';
 
 class ApiRequestError extends Error {
@@ -240,7 +295,7 @@ const unavailableFlightData: FlightDisplayData = {
   tobt: 'NIL', tobtStatus: 'DEFAULT', tsat: 'NIL', tsatStatus: 'DEFAULT',
 };
 
-type DialogType = 'D1ARRBRIEF' | 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
+type DialogType = 'D1ARRBRIEF' | 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1OPTIONS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
 type BoxType = 'L2' | 'M2' | 'R2' | 'L3' | 'M3' | 'R3';
 
 const arrivalTileInfo: Record<BoxType, string[]> = {
@@ -402,6 +457,11 @@ export default function EFBPage() {
   const [arrivalPreviewOpen, setArrivalPreviewOpen] = useState(false);
   const [arrivalPreviewInput, setArrivalPreviewInput] = useState(savedArrivalPreview.input);
   const [arrivalPreviewError, setArrivalPreviewError] = useState<string | null>(null);
+  // Which kind of simulated flight is shown while a preview is active.
+  const [previewPhase, setPreviewPhase] = useState<'ARRIVAL' | 'DEPARTURE'>('ARRIVAL');
+  const [departurePreviewOpen, setDeparturePreviewOpen] = useState(false);
+  const [departurePreviewInput, setDeparturePreviewInput] = useState(loadDeparturePreview);
+  const [departurePreviewError, setDeparturePreviewError] = useState<string | null>(null);
   const [profile, setProfile] = useState<EfbProfile | null>(null);
   const [trainingSessions, setTrainingSessions] = useState<TrainingSession[]>([]);
   const [trainingSessionsError, setTrainingSessionsError] = useState<string | null>(null);
@@ -469,6 +529,15 @@ export default function EFBPage() {
     if (!response.ok) throw new ApiRequestError(body?.error || `Request failed (${response.status})`, response.status);
     return body;
   }, [getAccessTokenSilently]);
+
+  const loadScenery = useCallback(async () => {
+    const body = await authorizedFetch('/api/efb/scenery') as { scenery?: string | null } | null;
+    return body?.scenery ?? null;
+  }, [authorizedFetch]);
+
+  const saveScenery = useCallback((scenery: string) => (
+    authorizedFetch('/api/efb/scenery', { method: 'PUT', body: JSON.stringify({ scenery }) })
+  ), [authorizedFetch]);
 
   const efbPath = useCallback((path: string, callsign?: string) => {
     const query = new URLSearchParams();
@@ -538,7 +607,10 @@ export default function EFBPage() {
       setLoadError(null);
       setFlightStale(false);
       setPdcStatus(flight.pdc_requires_pilot_action ? 'RECEIVED' : flight.pdc_state === 'CONFIRMED' ? 'CONFIRMED' : flight.pdc_state === 'REQUESTED' ? 'PENDING' : !flight.atis || flight.atis.stale ? 'NOATIS' : 'NOREQ');
-      if (flight.atis) {
+      if (usesMetarFallback(flight)) {
+        setAtisTextCurrent(flight.metar ?? '');
+        setAtisLetterCurrent('');
+      } else if (flight.atis) {
         setAtisTextCurrent(flight.atis.text.join('\n'));
         setAtisLetterCurrent(flight.atis.code);
       } else {
@@ -610,13 +682,13 @@ export default function EFBPage() {
     return () => window.clearTimeout(timer);
   }, [apiFlight, refreshFlight]);
 
-  const previewAtisAirport = arrivalPreview ? apiFlight?.destination : undefined;
+  const previewAtisAirport = arrivalPreview ? (previewPhase === 'DEPARTURE' ? apiFlight?.origin : apiFlight?.destination) : undefined;
   useEffect(() => {
     if (!previewAtisAirport) return;
     const controller = new AbortController();
     const refreshAtis = async () => {
       try {
-        const atis = await fetchCachedAtis(previewAtisAirport, false, authorizedFetch, controller.signal);
+        const atis = await fetchCachedAtis(previewAtisAirport, previewPhase === 'DEPARTURE', authorizedFetch, controller.signal);
         if (controller.signal.aborted) return;
         setPreviewAtisError(null);
         setApiFlight((flight) => {
@@ -643,7 +715,7 @@ export default function EFBPage() {
     void refreshAtis();
     const timer = window.setInterval(() => void refreshAtis(), 60_000);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [previewAtisAirport, authorizedFetch]);
+  }, [previewAtisAirport, previewPhase, authorizedFetch]);
 
   useEffect(() => {
     if (openDialog !== 'D1STAND' || !apiFlight) {
@@ -736,12 +808,13 @@ export default function EFBPage() {
       pdc_requires_pilot_action: false,
       pdc_available: false,
       pdc_can_submit: false,
-      atis: arrivalPreviewRef.current && apiFlightRef.current?.destination === destination ? apiFlightRef.current.atis : null,
+      atis: arrivalPreviewRef.current && previewPhase === 'ARRIVAL' && apiFlightRef.current?.destination === destination ? apiFlightRef.current.atis : null,
       capabilities: { pdc: false, tobt_update: false, stand_reassignment: false },
     };
 
     apiFlightRef.current = preview;
     arrivalPreviewRef.current = true;
+    setPreviewPhase('ARRIVAL');
     setApiFlight(preview);
     setArrivalPreview(true);
     setArrivalPreviewOpen(false);
@@ -767,6 +840,77 @@ export default function EFBPage() {
       setActionError('Unable to save the test flight in this browser');
     }
   }, [arrivalPreviewInput, previewOnGround]);
+
+  useEffect(() => {
+    if (!isLocalDevelopment) return;
+    try {
+      window.localStorage.setItem(DEPARTURE_PREVIEW_KEY, JSON.stringify(departurePreviewInput));
+    } catch (error) {
+      console.error('Unable to save EFB test departure', error);
+    }
+  }, [departurePreviewInput]);
+
+  const updateDeparturePreviewInput = (field: keyof DeparturePreviewInput, value: string) => {
+    setDeparturePreviewInput((current) => ({ ...current, [field]: value }));
+    setDeparturePreviewError(null);
+  };
+
+  const submitDeparturePreview = (event: FormEvent) => {
+    event.preventDefault();
+    const value = (field: keyof DeparturePreviewInput) => departurePreviewInput[field].trim().toUpperCase();
+    const callsign = value('callsign'), origin = value('origin'), destination = value('destination');
+    if (!callsign || !/^[A-Z]{4}$/.test(origin) || !/^[A-Z]{4}$/.test(destination)) {
+      setDeparturePreviewError('Enter a callsign and valid four-letter origin and destination ICAO codes.');
+      return;
+    }
+    const times = (['tobt', 'tsat', 'ctot'] as const).map((field) => value(field).replace(/Z$/, ''));
+    if (times.some((time) => time && !/^([01]\d|2[0-3])[0-5]\d$/.test(time))) {
+      setDeparturePreviewError('TOBT, TSAT, and CTOT must be valid HHMM UTC times.');
+      return;
+    }
+    const [tobt, tsat, ctot] = times;
+    const keepAtis = arrivalPreviewRef.current && previewPhase === 'DEPARTURE' && apiFlightRef.current?.origin === origin;
+    const preview: ApiFlight = {
+      callsign,
+      aircraft_type: value('aircraftType') || null,
+      origin,
+      destination,
+      phase: 'DEPARTURE',
+      stand: value('stand') || null,
+      stand_state: value('stand') ? 'ASSIGNED' : null,
+      runway: value('runway') || null,
+      sid: value('sid') || null,
+      release_point: value('releasePoint') || null,
+      tobt: tobt || null,
+      eobt: tobt || null,
+      tsat: tsat || null,
+      ctot: ctot || null,
+      pdc_state: '',
+      pdc_requires_pilot_action: false,
+      pdc_available: false,
+      pdc_can_submit: false,
+      atis: keepAtis ? apiFlightRef.current?.atis ?? null : null,
+      capabilities: { pdc: false, tobt_update: false, stand_reassignment: false },
+    };
+
+    apiFlightRef.current = preview;
+    arrivalPreviewRef.current = true;
+    setPreviewPhase('DEPARTURE');
+    setApiFlight(preview);
+    setArrivalPreview(true);
+    setDeparturePreviewOpen(false);
+    setDeparturePreviewError(null);
+    setPreviewAtisError(null);
+    setPilotState('DEPARTURE');
+    setLoadState('READY');
+    setLoadError(null);
+    setFlightStale(false);
+    setOpenDialog(null);
+    setPdcStatus('NOREQ');
+    setAtisTextCurrent(preview.atis?.text.join('\n') ?? '');
+    setAtisLetterCurrent(preview.atis?.code ?? '');
+    setActionError(null);
+  };
 
   const updateArrivalPreviewInput = (field: keyof ArrivalPreviewInput, value: string) => {
     setArrivalPreviewInput((current) => ({ ...current, [field]: value }));
@@ -797,6 +941,9 @@ useEffect(() => {
 
   const arrivalGroundspeed = arrivalPreview ? Number(arrivalPreviewInput.groundspeed) : apiFlight?.groundspeed;
   const timingInhibited = isArrival && typeof arrivalGroundspeed === 'number' && arrivalGroundspeed > 60;
+  // Airborne above 60 kt ground speed (a departure preview is always on the ground).
+  const currentGroundspeed = arrivalPreview ? (previewPhase === 'ARRIVAL' ? Number(arrivalPreviewInput.groundspeed) : 0) : apiFlight?.groundspeed;
+  const airborne = typeof currentGroundspeed === 'number' && currentGroundspeed > 60;
 
   const updatePreviewOnGround = (onGround: boolean) => {
     setPreviewOnGround(onGround);
@@ -871,12 +1018,16 @@ useEffect(() => {
   };
 
   const handleDownloadsClick = () => {
-    if (!showFlightplanElements) return;
     setOpenDialog('D1DOWNLOADS');
     setActiveBox(null);
   };
 
-  const openAtisDialog = (box: BoxType, flight: ApiFlight) => {
+  const handleOptionsClick = () => {
+    setOpenDialog('D1OPTIONS');
+    setActiveBox(null);
+  };
+
+  const openAtisDialog =(box: BoxType, flight: ApiFlight) => {
     setAcknowledgedAtis(atisAcknowledgementKey(flight, atisSource));
     setOpenDialog('D2ATIS');
     setActiveBox(box);
@@ -894,6 +1045,11 @@ useEffect(() => {
       return;
     }
     const refreshedFlight = await refreshFlight();
+    if (refreshedFlight && usesMetarFallback(refreshedFlight)) {
+      setOpenDialog('D2ATIS');
+      setActiveBox(sourceBox);
+      return;
+    }
     if (!refreshedFlight?.atis) {
       setActionError('ATIS is currently unavailable');
       return;
@@ -1022,7 +1178,9 @@ useEffect(() => {
       ? 'bg-[#41826E]' : 'bg-[#1A475F]';
   };
 
+  const metarFallback = !arrivalPreview && usesMetarFallback(apiFlight);
   const getAtisText = () => {
+    if (metarFallback) return 'METAR';
     return atisLetterCurrent ? `ATIS ${atisLetterCurrent}${apiFlight?.atis?.stale ? ' STALE' : ''}` : 'REQ ATIS';
   };
 
@@ -1173,28 +1331,82 @@ useEffect(() => {
       )}
       {isLocalDevelopment && (
         arrivalPreview ? (
-          <div role="status" aria-label="Simulated arrival preview" className="absolute top-2 right-2 z-[50] flex max-w-[70vw] items-center gap-2 bg-black/90 p-2 font-mono text-xs text-cyan-100 sm:text-sm">
+          <div role="status" aria-label={previewPhase === 'DEPARTURE' ? 'Simulated departure preview' : 'Simulated arrival preview'} className="absolute top-2 right-2 z-[50] flex max-w-[70vw] items-center gap-2 bg-black/90 p-2 font-mono text-xs text-cyan-100 sm:text-sm">
             <div className="flex min-w-0 flex-col">
-              <span className="font-bold">SIMULATED ARRIVAL — READ ONLY</span>
-              <span>{apiFlight?.callsign} · {apiFlight?.origin}–{apiFlight?.destination}{apiFlight?.aircraft_type && ` · ${apiFlight.aircraft_type}`}{apiFlight?.cleared_altitude && ` · FL${Math.round(apiFlight.cleared_altitude / 100)}`}</span>
+              <span className="font-bold">SIMULATED {previewPhase} — READ ONLY</span>
+              <span>{apiFlight?.callsign} · {apiFlight?.origin}–{apiFlight?.destination}{apiFlight?.aircraft_type && ` · ${apiFlight.aircraft_type}`}{apiFlight?.cleared_altitude && ` · FL${Math.round(apiFlight.cleared_altitude / 100)}`}{previewPhase === 'DEPARTURE' && apiFlight?.stand && ` · STAND ${apiFlight.stand}`}{previewPhase === 'DEPARTURE' && apiFlight?.release_point && ` · RP ${apiFlight.release_point}`}</span>
               {apiFlight?.route && <span className="break-words text-[10px] text-slate-300 sm:text-xs">{apiFlight.route}</span>}
             </div>
-            <label className="flex shrink-0 items-center gap-2">
-              <input type="checkbox" checked={previewOnGround} onChange={(event) => updatePreviewOnGround(event.target.checked)} />
-              On ground
-            </label>
-            <button type="button" onClick={() => setArrivalPreviewOpen(true)} className="shrink-0 border border-cyan-300 px-2 py-1 font-bold">EDIT</button>
+            {previewPhase === 'ARRIVAL' && (
+              <label className="flex shrink-0 items-center gap-2">
+                <input type="checkbox" checked={previewOnGround} onChange={(event) => updatePreviewOnGround(event.target.checked)} />
+                On ground
+              </label>
+            )}
+            <button type="button" onClick={() => (previewPhase === 'DEPARTURE' ? setDeparturePreviewOpen(true) : setArrivalPreviewOpen(true))} className="shrink-0 border border-cyan-300 px-2 py-1 font-bold">EDIT</button>
             <button type="button" onClick={exitArrivalPreview} className="shrink-0 border border-cyan-300 px-2 py-1 font-bold">EXIT PREVIEW</button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => { setArrivalPreviewError(null); setArrivalPreviewOpen(true); }}
-            className="absolute top-2 right-2 z-[50] border border-cyan-300 bg-[#011328] px-3 py-2 font-mono font-bold text-cyan-100"
-          >
-            PREVIEW ARRIVAL
-          </button>
+          <div className="absolute top-2 right-2 z-[50] flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setDeparturePreviewError(null); setDeparturePreviewOpen(true); }}
+              className="border border-cyan-300 bg-[#011328] px-3 py-2 font-mono font-bold text-cyan-100"
+            >
+              PREVIEW DEPARTURE
+            </button>
+            <button
+              type="button"
+              onClick={() => { setArrivalPreviewError(null); setArrivalPreviewOpen(true); }}
+              className="border border-cyan-300 bg-[#011328] px-3 py-2 font-mono font-bold text-cyan-100"
+            >
+              PREVIEW ARRIVAL
+            </button>
+          </div>
         )
+      )}
+      {isLocalDevelopment && departurePreviewOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4">
+          <form
+            aria-label="Simulated departure"
+            onSubmit={submitDeparturePreview}
+            className="efb-scroll max-h-[90dvh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
+          >
+            <h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate a departure</h1>
+            <p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed. The release point stands in for the one ATC sets on the strip.</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {([
+                ['callsign', 'Callsign', true],
+                ['origin', 'Origin ICAO', true],
+                ['destination', 'Destination ICAO', true],
+                ['aircraftType', 'Aircraft type', false],
+                ['stand', 'Stand', false],
+                ['releasePoint', 'Release point (ATC)', false],
+                ['runway', 'Departure runway', false],
+                ['sid', 'SID', false],
+                ['tobt', 'TOBT (HHMM UTC)', false],
+                ['tsat', 'TSAT (HHMM UTC)', false],
+                ['ctot', 'CTOT (HHMM UTC)', false],
+              ] as const).map(([field, label, required]) => (
+                <label key={field} className="flex flex-col gap-1 text-xs font-bold text-cyan-100">
+                  {label}
+                  <input
+                    aria-label={label}
+                    required={required}
+                    value={departurePreviewInput[field]}
+                    onChange={(event) => updateDeparturePreviewInput(field, event.target.value)}
+                    className="min-w-0 border border-slate-500 bg-[#000109] px-2 py-2 text-sm text-white"
+                  />
+                </label>
+              ))}
+            </div>
+            {departurePreviewError && <p role="alert" className="mt-3 text-sm font-bold text-red-300">{departurePreviewError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeparturePreviewOpen(false)} className="border border-slate-400 px-4 py-2">CANCEL</button>
+              <button type="submit" className="border border-cyan-300 bg-[#1A475F] px-4 py-2 font-bold">SHOW DEPARTURE</button>
+            </div>
+          </form>
+        </div>
       )}
       {isLocalDevelopment && arrivalPreviewOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4">
@@ -1279,6 +1491,7 @@ useEffect(() => {
         expected={apiFlight?.arrival_guidance_expected}
       />
       <D1ChartDialog
+        airborne={airborne}
         isOpen={openDialog === 'D1CHART'}
         onClose={handleCloseDialog}
         airport={isArrival ? flightData.arrivalAirport : apiFlight?.origin || 'NIL'}
@@ -1286,10 +1499,21 @@ useEffect(() => {
         procedure={isArrival ? flightData.star : flightData.sid}
         arrival={isArrival}
         expected={isArrival && apiFlight?.arrival_guidance_expected}
+        taxiClearance={!isArrival && apiFlight?.origin?.toUpperCase() === 'EKCH'
+          ? { callsign: apiFlight.callsign, mode: 'departure', releasePoint: apiFlight.release_point ?? null, stand: apiFlight.stand ?? null, runway: flightData.assignedRunway !== 'NIL' ? flightData.assignedRunway : null }
+          : isArrival && apiFlight?.destination?.toUpperCase() === 'EKCH'
+            ? { callsign: apiFlight.callsign, mode: 'arrival', releasePoint: null, stand: apiFlight.stand ?? null, runway: flightData.arrivalRunway !== 'NIL' ? flightData.arrivalRunway : null }
+            : undefined}
       />
       <D1DownloadsDialog
         isOpen={openDialog === 'D1DOWNLOADS'}
         onClose={handleCloseDialog}
+      />
+      <D1OptionsDialog
+        isOpen={openDialog === 'D1OPTIONS'}
+        onClose={handleCloseDialog}
+        loadScenery={loadScenery}
+        saveScenery={saveScenery}
       />
       {openDialog === 'D1STAND' && (
         <D1STANDDialog
@@ -1331,7 +1555,7 @@ useEffect(() => {
         isOpen={openDialog === 'D2ATIS'}
         onClose={handleCloseDialog}
         position={tilePosition(activeBox ?? 'L2')}
-        content={`${apiFlight?.atis?.stale ? 'STALE ' : ''}ATIS for ${flightData.callsign}`}
+        content={metarFallback ? `ATIS offline - METAR for ${flightData.callsign}` : `${apiFlight?.atis?.stale ? 'STALE ' : ''}ATIS for ${flightData.callsign}`}
         atisText={atisTextCurrent}
       />
       <D2PDCDialog
@@ -1364,20 +1588,12 @@ useEffect(() => {
       ) : null}
 
       <div className="absolute top-[2.5%] left-0 h-[10%] w-full">
-        {showFlightplanElements === false && (
-          <a href="https://www.simbrief.com/home/" target="_blank" rel="noreferrer" className="absolute top-[2.5%] left-[2.5%] flex h-[84.16%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#2E343D] text-xs text-white">
-            <img src={simbriefFplImg} alt="L1 Picture" className="h-full w-full object-cover" />
-          </a>
-        )}
+        <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
+          <img src={standArrow} alt="" className="absolute left-[3%] h-[85%] w-[12%] object-contain" />
+          DOWNLOADS
+        </button>
 
-        {showFlightplanElements && (
-          <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
-            <img src={standArrow} alt="" className="absolute left-[3%] h-[85%] w-[12%] object-contain" />
-            DOWNLOADS
-          </button>
-        )}
-
-        <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,calc(5.5*var(--efb-vh)),106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
+        <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`efb-imprint absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,calc(5.5*var(--efb-vh)),106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
           {showFlightplanElements ? flightData.callsign : loadState === 'LOADING' ? 'LOADING' : loadState === 'ERROR' ? 'CLICK TO RETRY' : 'CLICK TO REFRESH'}
         </button>
 
@@ -1385,18 +1601,10 @@ useEffect(() => {
           {getM1HeaderText()}
         </div>
 
-        {showFlightplanElements === false && (
-          <a href="https://my.vatsim.net/pilots/flightplan" target="_blank" rel="noreferrer" className="absolute top-0 left-[66.66%] flex h-[86.66%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-white text-xs text-[#999]">
-            <img src={fileVatsimFplImg} alt="R1 Picture" className="h-full w-full object-cover" />
-          </a>
-        )}
-
-        {showFlightplanElements && (
-          <a href="https://flightboard.simfixr.com/?icao=EKCH" aria-label="Traffic Board" target="_blank" rel="noreferrer" className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
-            TRAFFIC BOARD
-            <img src={standArrow} alt="" className="absolute right-[3%] h-[85%] w-[12%] object-contain" />
-          </a>
-        )}
+        <button type="button" aria-label="Options" onClick={handleOptionsClick} className="efb-action-bar efb-clickspot absolute top-[2.5%] left-[66.66%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#011328] text-center text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold text-white">
+          OPTIONS
+          <img src={standArrow} alt="" className="absolute right-[3%] h-[85%] w-[12%] object-contain" />
+        </button>
       </div>
 
       <div className="contents">
@@ -1469,12 +1677,18 @@ useEffect(() => {
                   <div className="absolute top-[2%] left-0 flex h-[14%] w-[86%] items-center justify-start whitespace-nowrap border-b border-[#38536E] text-left text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     PUBLISHED HOLDING
                   </div>
-                  <img src={HOLD} alt="Holding pattern" className={`absolute top-[16%] left-[2%] h-[46%] w-[30%] object-contain ${flightData.publishedHoldingDetail.endsWith('/LEFT') ? '-scale-x-100' : ''}`} />
-                  <div className="absolute top-[16%] left-[35%] flex h-[24%] w-[63%] items-center justify-start whitespace-nowrap text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold">
-                    {flightData.publishedHoldingFix || 'NOT AVAILABLE'}
-                  </div>
-                  <div className="absolute top-[38%] left-[35%] flex h-[20%] w-[63%] items-start justify-start whitespace-nowrap text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]">
-                    {flightData.publishedHoldingDetail || 'DETAILS UNAVAILABLE'}
+                  <div className="absolute top-[16%] left-0 flex h-[46%] w-full items-start gap-[3%]">
+                    <img src={HOLD} alt="Holding pattern" className={`h-full w-auto max-w-[30%] shrink-0 object-contain object-left ${flightData.publishedHoldingDetail.endsWith('/LEFT') ? '-scale-x-100' : ''}`} />
+                    <div className="flex h-full min-w-0 flex-col justify-start">
+                      <div className="flex h-[52%] items-center whitespace-nowrap text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)] font-bold">
+                        {flightData.publishedHoldingFix || 'NIL'}
+                      </div>
+                      {flightData.publishedHoldingDetail && (
+                        <div className="flex items-start whitespace-nowrap text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)]">
+                          {flightData.publishedHoldingDetail}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1485,7 +1699,7 @@ useEffect(() => {
                     EXPECTED APP
                   </div>
                   <div className="absolute top-[40%] right-0 flex h-[60%] w-full items-start justify-end whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
-                    ILS{flightData.arrivalRunway ? ` ${flightData.arrivalRunway}` : ''}
+                    {flightData.arrivalRunway && flightData.arrivalRunway !== 'NIL' ? `ILS ${flightData.arrivalRunway}` : 'NIL'}
                   </div>
                 </div>
               )}
@@ -1498,7 +1712,7 @@ useEffect(() => {
                     <div className="flex aspect-square w-[20%] items-center justify-center">
                       <img src={RNAVLOGO} alt="Arrival procedure" className="h-full w-full object-contain" />
                     </div>
-                    <div>{flightData.terminalFix || 'STAR'}</div>
+                    <div>{flightData.terminalFix || 'NIL'}</div>
                   </div>
                   <div className="absolute top-[38%] right-0 flex h-[20%] w-full flex-col items-end justify-start text-right text-[clamp(14px,calc(1.5*var(--efb-vh)),36px)] text-white">
                     {flightData.arrivalHeading && <div className="text-[clamp(14px,calc(2.5*var(--efb-vh)),53px)] underline underline-offset-4">Maintain {flightData.arrivalHeading}</div>}
@@ -1507,9 +1721,9 @@ useEffect(() => {
 
               {isArrival && (
                 <div role="group" aria-label="Expected STAR" className="absolute top-[66%] left-[2%] h-[34%] w-[46%] text-left text-white">
-                  <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
+                  <div className="absolute top-0 left-0 flex h-[40%] w-[86%] items-center justify-start whitespace-nowrap border-b border-[#38536E] text-[clamp(10px,calc(1.7*var(--efb-vh)),30px)] font-bold tracking-[0.08em] text-[#B8D9F0]">
                     EXPECTED STAR
-                    {apiFlight?.arrival_guidance_expected && <span className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(ROUTE / ATIS)</span>}
+                    {apiFlight?.arrival_guidance_expected && <span title="Estimated from filed route, ATIS or wind - not an ATC clearance" className="ml-1 text-[clamp(9px,calc(1.1*var(--efb-vh)),14px)]">(EST)</span>}
                   </div>
                   <div className="absolute top-[40%] left-0 flex h-[60%] w-full items-start justify-start whitespace-nowrap pt-[2%] text-[clamp(14px,calc(3.5*var(--efb-vh)),53px)]">
                     {flightData.star}
@@ -1584,7 +1798,7 @@ useEffect(() => {
               <button type="button" aria-label="Open ATIS" onClick={(event) => { event.stopPropagation(); handleBoxClick('M3'); }} className="efb-atis-control relative block h-full w-full cursor-pointer border-0 border-[#000109] bg-[#000109]">
                 <div role="group" aria-label="ATIS identifier" className={`efb-action-bar efb-clickspot absolute top-0 left-0 flex h-1/2 w-full flex-col items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getAtisColor()}`}>
                   <div className="flex h-[52%] w-full items-center justify-center text-center text-[clamp(14px,calc(5.5*var(--efb-vh)),88px)] leading-none font-bold text-white">
-                    {apiFlight?.atis?.code ? `ATIS ${apiFlight.atis.code}${apiFlight.atis.stale ? ' STALE' : ''}` : getAtisText()}
+                    {!metarFallback && apiFlight?.atis?.code ? `ATIS ${apiFlight.atis.code}${apiFlight.atis.stale ? ' STALE' : ''}` : getAtisText()}
                   </div>
                   <div className="flex h-[44%] w-full items-center justify-center">
                     <img src={ATISPicture} alt="ATIS icon" className="h-full w-auto max-w-[30%] object-contain" />

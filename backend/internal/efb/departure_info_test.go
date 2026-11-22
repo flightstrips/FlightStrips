@@ -11,43 +11,52 @@ import (
 )
 
 func TestDepartureInfoPrefersMatchingStrip(t *testing.T) {
-	for _, matched := range []bool{true, false} {
-		sid, runway, altitude := "GOLGA1F", "04R", int32(7000)
-		cfg := WebAPIConfig{
-			Auth: authStub{}, Network: networkTestSource(t, true, time.Now()),
-			ATIS: &atisLookupStub{}, Viff: &networkTimingStub{},
-			Departures: departureFrequencyStub{frequency: "124.980"},
-		}
-		if matched {
-			cfg.Flights = &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{
-				Callsign: "SAS99X", Origin: "EKCH", Destination: "EKYT",
-				Sid: &sid, Runway: &runway, ClearedAltitude: &altitude,
-			}}}
-		} else {
-			cfg.Flights = &finderStub{err: pdc.ErrWebStripNotFound}
-		}
-		api := NewWebAPI(cfg)
-		req := httptest.NewRequest(http.MethodGet, "/efb/flight", nil)
-		req.Header.Set("Authorization", "Bearer test")
-		rec := httptest.NewRecorder()
-		api.handleFlight(rec, req)
-		var got snapshot
-		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
-			t.Fatalf("flight lookup failed: %d %s", rec.Code, rec.Body.String())
-		}
-		if matched {
-			if got.SID == nil || *got.SID != sid || got.Runway == nil || *got.Runway != runway || got.ClearedAltitude == nil || *got.ClearedAltitude != altitude {
-				t.Fatalf("expected strip departure information: %s", rec.Body.String())
+	for _, tc := range []struct {
+		name, sid, runway, wantSID, wantRunway string
+		matched                                bool
+	}{
+		{"versioned strip SID", "GOLGA1F", "04R", "GOLGA1F", "04R", true},
+		{"bare strip SID", "GOLGA", "22R", "GOLGA", "22R", true},
+		{"strip runway with filed SID", "", "04R", "GOLGA3A", "04R", true},
+		{"filed SID with ATIS runway", "", "", "GOLGA2C", "22R", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			altitude := int32(7000)
+			cfg := WebAPIConfig{
+				Auth: authStub{}, Network: networkTestSource(t, true, time.Now()),
+				ATIS: &atisLookupStub{}, Viff: &networkTimingStub{},
+				Departures: departureFrequencyStub{frequency: "124.980"},
 			}
-		} else if got.SID == nil || *got.SID != "GOLGA" || got.Runway == nil || *got.Runway != "22R" || got.ClearedAltitude != nil {
-			t.Fatalf("expected filed waypoint/ATIS fallback without invented clearance: %s", rec.Body.String())
-		}
-		if got.InitialClimb == nil || *got.InitialClimb != "FL70" || got.DepartureFrequency == nil || *got.DepartureFrequency != "120.255" {
-			t.Fatalf("expected EKCH runway/SID rules with or without a strip: %s", rec.Body.String())
-		}
-		if got.CTOT == nil || *got.CTOT != "1950" {
-			t.Fatal("CTOT must remain sourced from vIFF")
-		}
+			if tc.matched {
+				cfg.Flights = &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{
+					Callsign: "SAS99X", Origin: "EKCH", Destination: "EKYT",
+					Sid: &tc.sid, Runway: &tc.runway, ClearedAltitude: &altitude,
+				}}}
+			} else {
+				cfg.Flights = &finderStub{err: pdc.ErrWebStripNotFound}
+			}
+			api := NewWebAPI(cfg)
+			req := httptest.NewRequest(http.MethodGet, "/efb/flight", nil)
+			req.Header.Set("Authorization", "Bearer test")
+			rec := httptest.NewRecorder()
+			api.handleFlight(rec, req)
+			var got snapshot
+			if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+				t.Fatalf("flight lookup failed: %d %s", rec.Code, rec.Body.String())
+			}
+			if got.SID == nil || *got.SID != tc.wantSID || got.Runway == nil || *got.Runway != tc.wantRunway {
+				t.Fatalf("want SID %s and runway %s: %s", tc.wantSID, tc.wantRunway, rec.Body.String())
+			}
+			if tc.matched && (got.ClearedAltitude == nil || *got.ClearedAltitude != altitude) || !tc.matched && got.ClearedAltitude != nil {
+				t.Fatalf("cleared altitude must come from a matching strip: %s", rec.Body.String())
+			}
+			if got.InitialClimb == nil || *got.InitialClimb != "FL70" || got.DepartureFrequency == nil || *got.DepartureFrequency != "120.255" {
+				t.Fatalf("expected EKCH runway/SID rules with or without a strip: %s", rec.Body.String())
+			}
+			if got.CTOT == nil || *got.CTOT != "1950" {
+				t.Fatal("CTOT must remain sourced from vIFF")
+			}
+		})
 	}
 }
 

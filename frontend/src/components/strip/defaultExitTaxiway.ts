@@ -1,4 +1,6 @@
 ﻿const K3 = new Set(["A17", "A4", "A6", "A8", "A18", "A19", "A20", "A21", "A22", "A23"]);
+/** Stands whose arrivals leave via K3; also used for the EFB's standard arrival taxi routing. */
+export const K3_EXIT_STANDS: ReadonlySet<string> = K3;
 const K2 = new Set(["A25", "A26", "A27", "A28", "A29", "A30", "A31", "A32", "A33", "A34"]);
 const NONE = new Set(["RI", "RII", "RIII", "W1"]);
 const A_04L = new Set(["A7", "A9", "A11", "A12", "A14", "A15", "B19", "B4", "B6", "B8"]);

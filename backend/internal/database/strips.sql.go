@@ -1925,6 +1925,42 @@ func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg Upda
 	return result.RowsAffected(), nil
 }
 
+const updateStripFallbackArrivalETA = `-- name: UpdateStripFallbackArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = $1
+WHERE callsign = $2 AND session = $3
+    AND NOT COALESCE(
+        arrival_eta->>'source' = $4::text
+        AND NULLIF(arrival_eta->>'time', '')::timestamptz <> '0001-01-01T00:00:00Z'::timestamptz
+        AND NULLIF(arrival_eta->>'calculated_at', '')::timestamptz >= $5::timestamptz,
+        false
+    )
+`
+
+type UpdateStripFallbackArrivalETAParams struct {
+	ArrivalEta      []byte
+	Callsign        string
+	Session         int32
+	ProtectedSource string
+	FreshSince      pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateStripFallbackArrivalETA(ctx context.Context, arg UpdateStripFallbackArrivalETAParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripFallbackArrivalETA,
+		arg.ArrivalEta,
+		arg.Callsign,
+		arg.Session,
+		arg.ProtectedSource,
+		arg.FreshSince,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStripFsScratchPad = `-- name: UpdateStripFsScratchPad :execrows
 UPDATE strips SET fs_scratch_pad = $1, version = version + 1
 WHERE session = $2 AND callsign = $3

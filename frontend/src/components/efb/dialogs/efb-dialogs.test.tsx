@@ -1,12 +1,14 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import D1ArrivalBrief from './D1ArrivalBrief';
 import D1Brief from './D1Brief';
 import D1Chart from './D1Chart';
+import D1OptionsDialog from './D1OptionsDialog';
 import D1Stand from './D1Stand';
 import D2ATISDialog from './D2ATISDialog';
 import D2CDMDialog from './D2CDMDialog';
 import D2PDCDialog from './D2PDCDialog';
+import { computeTaxiRoute } from '../taxi/taxiRoute';
 
 describe('EFB operational dialogs', () => {
   it.each([
@@ -31,7 +33,7 @@ describe('EFB operational dialogs', () => {
 
   it('labels fallback guidance as expected and does not invent taxi routing to an unassigned stand', () => {
     render(<D1ArrivalBrief isOpen onClose={vi.fn()} expected stand="TBA" star="TUDLO" runway="22L" holdingFix="LUGAS" holdingDetail="077/LEFT" terminalFix="ABEGI" arrivalHeading="HDG037" />);
-    expect(screen.getByText(/EXPECTED FROM ROUTE \/ ATIS - NOT AN ATC CLEARANCE/)).toBeInTheDocument();
+    expect(screen.getByText(/EXPECTED FROM ROUTE \/ ATIS \/ WIND - NOT AN ATC CLEARANCE/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to STAR and holding: TUDLO' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Go to Taxi to stand/ })).not.toBeInTheDocument();
   });
@@ -41,6 +43,209 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByRole('button', { name: 'EXPECTED STAR 0' })).toBeInTheDocument();
     expect(screen.getByText(/not an ATC clearance. Confirm the procedure and version with ATC/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ASSIGNED STAR/ })).not.toBeInTheDocument();
+  });
+
+  it('offers the taxi clearance only for departures with a taxi network', () => {
+    const { rerender } = render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
+    expect(screen.queryByRole('button', { name: 'TAXI CLEARANCE' })).not.toBeInTheDocument();
+    rerender(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} taxiClearance={{ callsign: 'SAS123', releasePoint: null }} />);
+    expect(screen.getByRole('button', { name: 'TAXI CLEARANCE' })).toBeInTheDocument();
+  });
+
+  it('starts the taxi route from the ATC release point and draws the typed clearance', () => {
+    const props = { isOpen: true, onClose: vi.fn(), airport: 'EKCH', runway: '22R', procedure: 'ODON1C', arrival: false } as const;
+    const { rerender } = render(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'z3' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z3');
+    expect(screen.getByText('ATC', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('No runway assigned')).toBeInTheDocument();
+    // The help table explains the syntax without offering "," (still accepted as hold short).
+    const help = screen.getByRole('table');
+    expect(within(help).getByText('Hold short of')).toBeInTheDocument();
+    expect(help).not.toHaveTextContent(',');
+    expect(screen.getByRole('img', { name: 'Taxi route' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KZAx30A4.22R' } });
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('Z3›K›Z›A›X 30›A4›HS 22R');
+    expect(screen.queryByRole('button', { name: /FLIP/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Route OK.')).toBeInTheDocument();
+    // No runway on the flight: the hold short of 22R in the clearance gives the departure runway.
+    expect(screen.getByLabelText('DEP RWY')).toHaveValue('');
+    expect(screen.getByText('CLEARANCE', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('No common routes for runway 22R yet.')).toBeInTheDocument();
+    expect(within(screen.getByRole('img', { name: 'Taxi route' })).getByText('RWY 22R')).toBeInTheDocument();
+    const map = within(screen.getByRole('img', { name: 'Taxi route' }));
+    expect(map.getByText('HOLD SHORT 22R')).toBeInTheDocument();
+    expect(map.getByText('CROSS 30')).toBeInTheDocument();
+
+    // "/" starts an onward clearance: what came before turns grey.
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KZ.A/Ax30A4.22R' } });
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('Z3›K›Z›HS A/A›X 30›A4›HS 22R');
+    expect(screen.getByRole('img', { name: 'Taxi route' }).querySelectorAll('polyline[stroke="#d3d8df"]').length).toBeGreaterThan(0);
+    // Taxiway names are yellow signs that never overlap each other.
+    const signs = Array.from(screen.getByRole('img', { name: 'Taxi route' }).querySelectorAll('rect[fill="#e9e814"], rect[fill="#d3d8df"]'), (rect) => {
+      const [x, y, w, hgt] = ['x', 'y', 'width', 'height'].map((key) => Number(rect.getAttribute(key)));
+      return { x0: x, y0: y, x1: x + w, y1: y + hgt };
+    });
+    expect(signs.length).toBe(4);
+    for (const [i, p] of signs.entries()) for (const q of signs.slice(i + 1)) expect(p.x0 < q.x1 && q.x0 < p.x1 && p.y0 < q.y1 && q.y0 < p.y1).toBe(false);
+
+    // The aircraft moves to where the active (magenta) part begins.
+    const activeStart = computeTaxiRoute('Z3', 'KZ.A/Ax30A4.22R').legs.find((leg) => !leg.past)!.pts[0];
+    const aircraft = screen.getByRole('img', { name: 'Taxi route' }).querySelector('g[transform*="rotate"]')!;
+    expect(aircraft.getAttribute('transform')).toContain(`translate(${activeStart[0]} ${activeStart[1]})`);
+
+    // A clearance that does not connect is reported, not thrown.
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KBx30ZA4.22R' } });
+    expect(screen.getByText('K does not connect to B')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'KZAx30A4.22R' } });
+
+    // ATC moves the release point: followed while the pilot has not typed their own.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'Z4' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z4');
+
+    // Once the pilot types their own, an ATC change is offered instead of overwriting it.
+    fireEvent.change(screen.getByLabelText('RELEASE POINT'), { target: { value: 'z2' } });
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'Z5' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z2');
+    fireEvent.click(screen.getByRole('button', { name: 'USE Z5' }));
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z5');
+
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: null }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
+    expect(screen.queryByText('ATC', { selector: 'span' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('KZAx30A4.22R');
+
+    // A new flight starts over.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS456', releasePoint: null }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('');
+  });
+
+  it('uses the pilot runway override for common taxi routes and offers button zoom', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false}
+      taxiClearance={{ callsign: 'SAS123', releasePoint: 'Z3', runway: '22R' }} />);
+
+    expect(screen.getByText('No common routes for runway 22R yet.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('DEP RWY'), { target: { value: '04R' } });
+    expect(screen.getByText('No common routes for runway 04R yet.')).toBeInTheDocument();
+
+    const map = screen.getByRole('img', { name: 'Taxi route' });
+    const width = () => Number(map.getAttribute('viewBox')?.split(' ')[2]);
+    const initialWidth = width();
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in on taxi map' }));
+    expect(width()).toBeLessThan(initialWidth);
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out on taxi map' }));
+    expect(width()).toBeCloseTo(initialWidth);
+
+    fireEvent.change(screen.getByLabelText('DEP RWY'), { target: { value: 'NIL' } });
+    expect(screen.getByText('No runway assigned')).toBeInTheDocument();
+  });
+
+  it('uses the stand release point only when the strip has none', () => {
+    const props = { isOpen: true, onClose: vi.fn(), airport: 'EKCH', runway: '22L', procedure: 'ODON1C', arrival: false } as const;
+    const { rerender } = render(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: 'T3', stand: 'G112' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('T3');
+    expect(screen.getByText('ATC', { selector: 'span' })).toBeInTheDocument();
+
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: ' z3 ', stand: 'G120' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('Z3');
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: null, stand: 'G120' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('G6');
+    expect(screen.getByText('STAND', { selector: 'span' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('RELEASE POINT'), { target: { value: 'G' } });
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: null, stand: 'G111' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('G');
+    expect(screen.getByText('Default for stand G111')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'USE I' }));
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('I');
+
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS123', releasePoint: null, stand: 'C30' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('');
+    expect(screen.queryByText('STAND', { selector: 'span' })).not.toBeInTheDocument();
+
+    // Other stands fall back to ATC's release point.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS456', releasePoint: 'T3', stand: 'C30' }} />);
+    expect(screen.getByLabelText('RELEASE POINT')).toHaveValue('T3');
+    expect(screen.getByText('ATC', { selector: 'span' })).toBeInTheDocument();
+  });
+
+  it('shows warnings and hides confirmations for a preliminary arrival route', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22L" procedure="TUDLO" arrival
+      taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'XX1', runway: '22L' }} />);
+    expect(screen.getByText('Preliminary route in cyan')).toBeInTheDocument();
+    expect(screen.getByText('Stand XX1 is not on the taxi map')).toBeInTheDocument();
+    expect(screen.queryByText(/Route OK/)).not.toBeInTheDocument();
+  });
+
+  it('draws a hold instead of an onward arrow for an uncleared stub crossing', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="NIL" procedure="NIL" arrival={false}
+      taxiClearance={{ callsign: 'SAS123', releasePoint: 'Y3' }} />);
+    const input = screen.getByRole('textbox', { name: 'TAXI CLEARANCE' });
+    const map = screen.getByRole('img', { name: 'Taxi route' });
+    fireEvent.change(input, { target: { value: 'YAF2' } });
+    expect(within(map).getByText('HOLD SHORT 12/30')).toBeInTheDocument();
+    expect(map.querySelector('polyline[marker-end]')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'YAF2x30' } });
+    expect(within(map).getByText('CROSS 30')).toBeInTheDocument();
+    expect(map.querySelector('polyline[marker-end]')).not.toBeNull();
+  });
+
+  it('marks the departure runway in yellow as the destination', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} taxiClearance={{ callsign: 'SAS123', mode: 'departure', releasePoint: 'Z3', stand: 'A30', runway: '22R' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+    const map = screen.getByRole('img', { name: 'Taxi route' });
+    expect(map.querySelectorAll('polyline[stroke="#ffd84a"]').length).toBeGreaterThan(0);
+    expect(within(map).getByText('RWY 22R')).toBeInTheDocument();
+    expect(screen.getByLabelText('DEP RWY')).toHaveValue('22R');
+    expect(screen.getByText('FLIGHT', { selector: 'span' })).toBeInTheDocument();
+    // The view frames the release point and runway once, and keeps that zoom while the clearance grows.
+    const viewBox = () => screen.getByRole('img', { name: 'Taxi route' }).getAttribute('viewBox');
+    const framed = viewBox();
+    for (const value of ['K', 'KZ', 'KZA', 'KZAx30A4']) {
+      fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value } });
+      expect(viewBox()).toBe(framed);
+    }
+
+    // The assigned runway written first is the destination, not the start of the taxi route.
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: '22RKZAx30A4' } });
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('Z3›K›Z›A›X 30›A4›HS 22R');
+    expect(screen.getByText('Route OK.')).toBeInTheDocument();
+  });
+
+  it('draws arrivals from the runway exit to the assigned stand', () => {
+    const props = { isOpen: true, onClose: vi.fn(), airport: 'EKCH', runway: '22L', procedure: 'TUDLO', arrival: true } as const;
+    const { rerender } = render(<D1Chart {...props} taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F98', runway: '22L' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'TAXI CLEARANCE' }));
+
+    expect(screen.queryByLabelText('RELEASE POINT')).not.toBeInTheDocument();
+    expect(screen.queryByText('COMMON ROUTES')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('LDG RWY')).toHaveValue('22L');
+    expect(screen.getByLabelText('STAND')).toHaveValue('F98');
+    // The standard routing for 22L is drawn as a cyan preliminary route, not written in the field.
+    const cyanPieces = () => screen.getByRole('img', { name: 'Taxi route' }).querySelectorAll('polyline[stroke="#22d3ee"]').length;
+    expect(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' })).toHaveValue('');
+    expect(screen.getByText('PRELIMINARY')).toBeInTheDocument();
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('RWY 22L›STAND F98');
+    expect(cyanPieces()).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'TAXI CLEARANCE' }), { target: { value: 'V1V' } });
+    expect(screen.queryByText('PRELIMINARY')).not.toBeInTheDocument();
+    expect(cyanPieces()).toBe(0);
+    expect(screen.getByText('Route OK. Taxi to stand F98.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Clearance parts')).toHaveTextContent('RWY 22L›V1›V›STAND F98');
+    expect(within(screen.getByRole('img', { name: 'Taxi route' })).getByText('STAND F98')).toBeInTheDocument();
+
+    // The flight's stand changes: followed until the pilot edits it.
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F96', runway: '22L' }} />);
+    expect(screen.getByLabelText('STAND')).toHaveValue('F96');
+    fireEvent.change(screen.getByLabelText('STAND'), { target: { value: 'f94' } });
+    rerender(<D1Chart {...props} taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F92', runway: '22L' }} />);
+    expect(screen.getByLabelText('STAND')).toHaveValue('F94');
   });
 
   it('loads and displays the ChartFox chart matching the assigned SID', async () => {
@@ -87,7 +292,7 @@ describe('EFB operational dialogs', () => {
     expect(fetchMock.mock.calls).toHaveLength(3);
   });
 
-  it('shows only taxi, assigned arrival, and runway-matched approach charts', async () => {
+  it('shows airport, assigned arrival and runway-matched approach charts', async () => {
     const charts = [
       { id: 'taxi-chart', name: 'Ground movement chart', type_key: 'GND' },
       { id: 'star-chart', name: 'TUDLO 4C', type_key: 'STAR', meta: [{ type_key: 'ProcedureIdent', value: ['TUDLO4C'] }] },
@@ -116,7 +321,32 @@ describe('EFB operational dialogs', () => {
     expect(await screen.findByTitle('ILS Z RWY 22L - 2')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'AIRPORT / TAXI 1' }));
-    expect(await screen.findByTitle('Ground movement chart')).toBeInTheDocument();
+    expect(await screen.findByTitle('Ground movement chart')).toHaveAttribute('src', 'https://charts.example.test/taxi-chart.pdf');
+  });
+
+  it('opens on the taxi clearance on the ground and on the procedure when airborne', () => {
+    const props = { onClose: vi.fn(), airport: 'EKCH', runway: '22L', procedure: 'TUDLO', arrival: true, taxiClearance: { callsign: 'SAS676', mode: 'arrival' as const, releasePoint: null, stand: 'F98', runway: '22L' } };
+    const pressed = () => screen.getAllByRole('button', { pressed: true }).map((button) => button.getAttribute('aria-label'));
+    const { rerender } = render(<D1Chart isOpen {...props} airborne={false} />);
+    expect(pressed()).toEqual(['TAXI CLEARANCE']);
+    expect(screen.getByRole('img', { name: 'Taxi route' })).toBeInTheDocument();
+
+    // Reopened while airborne: back to the procedure charts.
+    rerender(<D1Chart isOpen={false} {...props} airborne />);
+    rerender(<D1Chart isOpen {...props} airborne />);
+    expect(pressed()).toEqual(['ASSIGNED STAR 0']);
+    expect(screen.queryByRole('img', { name: 'Taxi route' })).not.toBeInTheDocument();
+
+    // Without a taxi clearance (other airports) the procedure stays the default.
+    rerender(<D1Chart isOpen={false} {...props} taxiClearance={undefined} />);
+    rerender(<D1Chart isOpen {...props} taxiClearance={undefined} />);
+    expect(pressed()).toEqual(['ASSIGNED STAR 0']);
+  });
+
+  it('lists the taxi clearance after the chart sections', () => {
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKCH" runway="22L" procedure="TUDLO" arrival taxiClearance={{ callsign: 'SAS676', mode: 'arrival', releasePoint: null, stand: 'F98', runway: '22L' }} />);
+    const sections = Array.from(document.querySelectorAll('button[aria-pressed]'), (button) => button.getAttribute('aria-label'));
+    expect(sections).toEqual(['AIRPORT / TAXI 0', 'ASSIGNED STAR 0', 'APPROACH 0', 'TAXI CLEARANCE']);
   });
 
   it('uses the selected stand, runway, and SID briefing assets', () => {
@@ -130,7 +360,7 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByText(/A12: expect Y1/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to Initial taxi: 22R' }));
-    expect(screen.getByAltText('Initial taxi guidance for runway 22R').getAttribute('src')).toContain('TAXIINIT22R');
+    expect(screen.getByAltText('Initial taxi guidance for runway 22R').getAttribute('src')).toContain('TAXI-CLEARANCE');
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to SID: NEXEN2A' }));
     expect(screen.getByAltText('22R SID chart for NEXEN2A').getAttribute('src')).toContain('NEX-KOP-LAN-22');
@@ -153,6 +383,34 @@ describe('EFB operational dialogs', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to Taxi to stand A12' }));
     expect(screen.getByAltText('Taxi-in guidance for Bravo stands on runway 22L').getAttribute('src')).toContain('taxiin-22bravo');
+  });
+
+  it.each([['22L', 'A12'], ['04L', 'F98'], ['22L', 'TBA']])('adds the taxi clearance slide before On stand for runway %s, stand %s', (runway, stand) => {
+    render(<D1ArrivalBrief isOpen onClose={vi.fn()} stand={stand} star="TUDLO4C" runway={runway} holdingFix="" holdingDetail="" terminalFix="" arrivalHeading="" />);
+    const slides = screen.getAllByRole('button', { name: /^Go to / }).map((button) => button.getAttribute('aria-label') ?? button.textContent);
+    const at = slides.findIndex((name) => name?.includes('Follow your taxi route progressively!'));
+    expect(at).toBeGreaterThan(-1);
+    expect(slides[at + 1]).toContain('On stand');
+    expect(slides[at - 1]).toMatch(/Taxi to stand|Landing and runway vacation/);
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Follow your taxi route progressively!' }));
+    expect(screen.getByAltText('Taxi clearance in the EFB charts').getAttribute('src')).toContain('taxi-clearance');
+    expect(screen.getByText(/navigate to "Taxi Clearance"/)).toBeInTheDocument();
+  });
+
+  it.each(['22R', '04R'])('shows the taxi clearance image and hint on the initial taxi slide for %s', (runway) => {
+    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" runway={runway} />);
+    fireEvent.click(screen.getByRole('button', { name: `Go to Initial taxi: ${runway}` }));
+    expect(screen.getByAltText(`Initial taxi guidance for runway ${runway}`).getAttribute('src')).toContain('TAXI-CLEARANCE');
+    expect(screen.getByText(/you will see the pane of "Taxi Clearance"/)).toBeInTheDocument();
+  });
+
+  it('reminds pilots about the GSX profile and the B3 departure on 04R', () => {
+    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" runway="04R" />);
+    expect(screen.getByText('Make sure you have latest GSX Profile for EKCH!! See Options in your EFB for more')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Taxi with EKCH_TWR: 04R' }));
+    const paragraphs = screen.getByRole('dialog').querySelectorAll('.efb-briefing-page p');
+    expect(paragraphs[0]).toHaveTextContent('All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!');
+    expect(paragraphs[1]).toHaveTextContent('holding point B1-B3');
   });
 
   it.each([false, true])('supports briefing keyboard navigation, page transitions, wraparound, and closing (arrival: %s)', (arrival) => {
@@ -523,5 +781,116 @@ describe('EFB operational dialogs', () => {
     await waitFor(() => expect(onUpdate).toHaveBeenCalledWith('1430Z'));
     expect(await screen.findByRole('alert')).toHaveTextContent('CDM unavailable');
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('EFB options', () => {
+  it('moves focus into the modal, contains Tab, and restores focus after Escape', async () => {
+    const onClose = vi.fn();
+    const view = (open: boolean) => <><button type="button">Open options</button><D1OptionsDialog isOpen={open} onClose={onClose} /></>;
+    const { rerender } = render(view(false));
+    const trigger = screen.getByRole('button', { name: 'Open options' });
+    trigger.focus();
+    rerender(view(true));
+
+    const dialog = screen.getByRole('dialog', { name: 'Options' });
+    const close = within(dialog).getByRole('button', { name: 'Close options' });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+    rerender(view(false));
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('loads the declared scenery, saves a new tick and keeps exactly one ticked', async () => {
+    const saveScenery = vi.fn().mockResolvedValue({});
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={vi.fn().mockResolvedValue('simnord')} saveScenery={saveScenery} />);
+    const sceneries = within(screen.getByRole('radiogroup', { name: 'AIRPORT SCENERY' })).getAllByRole('radio');
+    for (const [index, name] of ['FlyTampa Copenhagen', 'SimNord Copenhagen', 'Default'].entries()) {
+      expect(sceneries[index]).toHaveAccessibleName(name);
+      expect(sceneries[index]).toHaveAttribute('type', 'radio');
+      expect(sceneries[index].getAttribute('name')).toBe(sceneries[0].getAttribute('name'));
+    }
+    await waitFor(() => expect(screen.getByRole('radio', { name: /SimNord Copenhagen/ })).toBeChecked());
+
+    fireEvent.click(screen.getByRole('radio', { name: /FlyTampa Copenhagen/ }));
+    expect(saveScenery).toHaveBeenCalledWith('flytampa');
+    expect(screen.getByRole('radio', { name: /FlyTampa Copenhagen/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /SimNord Copenhagen/ })).not.toBeChecked();
+  });
+
+  it('reverts the tick and says so when saving fails', async () => {
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={vi.fn().mockResolvedValue(null)} saveScenery={vi.fn().mockRejectedValue(new Error('down'))} />);
+    const defaultScenery = screen.getByRole('radio', { name: /Default/ });
+    await waitFor(() => expect(defaultScenery).toBeEnabled());
+    fireEvent.click(defaultScenery);
+    expect(await screen.findByText('Could not save your scenery choice. Try again.')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Default/ })).not.toBeChecked();
+  });
+
+  it('waits for the initial scenery choice and serializes saves with rollback', async () => {
+    let finishLoading!: (scenery: string) => void;
+    const load = new Promise<string>((resolve) => { finishLoading = resolve; });
+    let rejectFirstSave!: (error: Error) => void;
+    const firstSave = new Promise<void>((_, reject) => { rejectFirstSave = reject; });
+    const saveScenery = vi.fn().mockReturnValueOnce(firstSave).mockResolvedValueOnce(undefined);
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} loadScenery={() => load} saveScenery={saveScenery} />);
+    const defaultScenery = screen.getByRole('radio', { name: /Default/ });
+    const simNord = screen.getByRole('radio', { name: /SimNord Copenhagen/ });
+    const flyTampa = screen.getByRole('radio', { name: /FlyTampa Copenhagen/ });
+
+    expect(flyTampa).toBeDisabled();
+    fireEvent.click(flyTampa);
+    expect(saveScenery).not.toHaveBeenCalled();
+    await act(async () => finishLoading('default'));
+    expect(defaultScenery).toBeChecked();
+
+    fireEvent.click(simNord);
+    expect(simNord).toBeChecked();
+    expect(flyTampa).toBeDisabled();
+    fireEvent.click(flyTampa);
+    expect(saveScenery.mock.calls).toEqual([['simnord']]);
+    await act(async () => rejectFirstSave(new Error('down')));
+    expect(defaultScenery).toBeChecked();
+
+    fireEvent.click(flyTampa);
+    await waitFor(() => expect(flyTampa).toBeEnabled());
+    expect(flyTampa).toBeChecked();
+    expect(saveScenery.mock.calls).toEqual([['simnord'], ['flytampa']]);
+  });
+
+  it('waits for a pending scenery save before reloading on reopen', async () => {
+    let finishSave!: () => void;
+    const save = new Promise<void>((resolve) => { finishSave = resolve; });
+    const props = {
+      onClose: vi.fn(),
+      loadScenery: vi.fn().mockResolvedValueOnce('default').mockResolvedValueOnce('flytampa'),
+      saveScenery: vi.fn().mockReturnValue(save),
+    };
+    const { rerender } = render(<D1OptionsDialog {...props} isOpen />);
+    const flyTampa = () => screen.getByRole('radio', { name: /FlyTampa Copenhagen/ });
+    await waitFor(() => expect(flyTampa()).toBeEnabled());
+    fireEvent.click(flyTampa());
+    rerender(<D1OptionsDialog {...props} isOpen={false} />);
+    rerender(<D1OptionsDialog {...props} isOpen />);
+    expect(flyTampa()).toBeDisabled();
+    expect(props.loadScenery).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishSave());
+    expect(props.loadScenery).toHaveBeenCalledTimes(2);
+    expect(flyTampa()).toBeEnabled();
+    expect(flyTampa()).toBeChecked();
+  });
+
+  it('links each scenery to its product page and GSX profile', () => {
+    render(<D1OptionsDialog isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('link', { name: 'Buy FlyTampa Copenhagen' })).toHaveAttribute('href', 'https://www.flytampa.org/ekch.html');
+    expect(screen.getByRole('link', { name: 'Buy SimNord Copenhagen' })).toHaveAttribute('href', 'https://www.simnord.com/en/product/ekch-copenhagen-airport-msfs-2020-2024/');
+    expect(screen.getByRole('link', { name: 'GSX profile for FlyTampa Copenhagen' })).toHaveAttribute('href', 'https://flightsim.to/addon/97152/flytampa-ekch-gsx-profile-official-vatsca-publication');
+    expect(screen.getByRole('link', { name: 'GSX profile for SimNord Copenhagen' })).toHaveAttribute('href', 'https://flightsim.to/addon/114611/simnord-ekch-gsx-profile-official-vatsca-publication');
+    expect(screen.queryByRole('link', { name: /Default/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Traffic Board' })).not.toBeInTheDocument();
   });
 });

@@ -161,6 +161,19 @@ SET
     arrival_eta = sqlc.arg(arrival_eta)
 WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
 
+-- name: UpdateStripFallbackArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = sqlc.arg(arrival_eta)
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session)
+    AND NOT COALESCE(
+        arrival_eta->>'source' = sqlc.arg(protected_source)::text
+        AND NULLIF(arrival_eta->>'time', '')::timestamptz <> '0001-01-01T00:00:00Z'::timestamptz
+        AND NULLIF(arrival_eta->>'calculated_at', '')::timestamptz >= sqlc.arg(fresh_since)::timestamptz,
+        false
+    );
+
 -- name: ClearStripArrivalETA :execrows
 UPDATE strips
 SET

@@ -111,6 +111,12 @@ type StandAllocationRequest struct {
 	// an improvement regardless of tier; another fallback selection is churn
 	// and is rejected.
 	ImproveFromFallback bool
+	// SceneryExcludedStands are stands missing from the pilot's declared
+	// scenery. They are never chosen automatically or by a compatible manual
+	// selection; an observed position or a controller override still wins.
+	// Resolved by the allocation service from VatsimCID when left nil.
+	SceneryExcludedStands map[string]struct{}
+	SceneryName           string
 }
 
 // StandAllocationResult is complete only after the transaction commits. The
@@ -210,8 +216,9 @@ type StandAllocationService struct {
 	now                    func() time.Time
 	failures               *standdiagnostics.AllocationFailureLog
 	departureReleaseBuffer time.Duration
+	sceneries              PilotSceneryLookup
 
-	automaticFailureMu        sync.Mutex
+	automaticFailureMu       sync.Mutex
 	automaticTerminalFailures map[string]automaticTerminalFailure
 }
 
@@ -965,6 +972,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		}
 		return nil, err
 	}
+	request = s.withPilotScenery(ctx, request)
 	ctx = beginRelocationChain(ctx, request.Callsign)
 	previousAutomaticOutcome := ""
 	if isAutomaticStandAllocation(command) {
@@ -1432,6 +1440,9 @@ func (s *StandAllocationService) standAvailable(ctx context.Context, request Sta
 	if target == "" {
 		return false, errors.New("stand availability requires a stand")
 	}
+	if request = s.withPilotScenery(ctx, request); request.sceneryExcludes(target) {
+		return false, nil
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return false, err
@@ -1492,6 +1503,7 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
 		return nil, err
 	}
+	request = s.withPilotScenery(ctx, request)
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return nil, err
@@ -1542,6 +1554,11 @@ func (s *StandAllocationService) AvailableStands(ctx context.Context, request St
 		slices.Sort(entry.ReservedBy)
 		_, compatible := matches[name]
 		entry.Unsuitable = !compatible
+		if request.sceneryExcludes(name) {
+			entry.Reason = request.sceneryExclusionReason(name)
+			result = append(result, entry)
+			continue
+		}
 		if request.Direction == sat.AssignmentDirectionArrival && stand.ArrivalRestrictionReason != "" {
 			entry.Reason = stand.ArrivalRestrictionReason
 			result = append(result, entry)
@@ -1589,11 +1606,13 @@ func (s *StandAllocationService) Preview(ctx context.Context, request StandAlloc
 	}
 	activeBlocks := activeManualStandBlocks(blocks, s.now())
 
+	request = s.withPilotScenery(ctx, request)
 	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
 	}
+	removeSceneryExcluded(request, matches)
 	available, selection, err := s.automaticStandPool(request, assignments, activeBlocks, matches, nil)
 	if err != nil {
 		return StandAllocationPreview{}, err
@@ -1616,6 +1635,12 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 			return request.Stand, nil, nil, nil, "", fmt.Errorf("%w: %s: %s", ErrArrivalStandRestricted, request.Stand, stand.ArrivalRestrictionReason)
 		}
 	}
+	if command == CompatibleManualStand && request.sceneryExcludes(request.Stand) {
+		return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: request.sceneryExclusionReason(request.Stand)}
+	}
+	if command != observedStandAllocation && command != pilotObservedStandAllocation && command != IncompatibleManualOverride {
+		removeSceneryExcluded(request, matches)
+	}
 	if request.Direction == sat.AssignmentDirectionArrival &&
 		command != observedStandAllocation && command != pilotObservedStandAllocation {
 		for name, match := range matches {
@@ -1623,9 +1648,9 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 				delete(matches, name)
 			}
 		}
-		if len(matches) == 0 && len(evaluation.Matches) > 0 {
-			return "", nil, nil, nil, "", ErrNoAvailableStand
-		}
+	}
+	if isAutomaticStandAllocation(command) && len(matches) == 0 && len(evaluation.Matches) > 0 {
+		return "", nil, nil, nil, "", ErrNoAvailableStand
 	}
 	if command == observedStandAllocation || command == pilotObservedStandAllocation {
 		target := standName(request.Stand)
@@ -2018,25 +2043,20 @@ func estimatedReservationCanYield(request StandAllocationRequest, assignment *mo
 
 // estimatedSoftSharingAllowed reports whether an occupancy overlap between the
 // two assignments is a legitimate deferred state: an ESTIMATED arrival keeps
-// its soft reservation while a later-stage arrival holds the stand, and the
-// estimate's own promotion resolves the overlap. Estimates already marked with
-// a promotion conflict stay visible to reconciliation.
+// its soft reservation whatever else holds the stand, and the estimate's own
+// promotion to ASSIGNED resolves the overlap. Estimates are never moved before
+// that boundary. Estimates already marked with a promotion conflict stay
+// visible to reconciliation.
 func estimatedSoftSharingAllowed(left, right *models.StandAssignment) bool {
-	return estimatedSharingSide(left, right) || estimatedSharingSide(right, left)
+	if left == nil || right == nil || valueString(left.ConflictReason) == arrivalPromotionConflictReason ||
+		valueString(right.ConflictReason) == arrivalPromotionConflictReason {
+		return false
+	}
+	return isEstimatedArrival(left) || isEstimatedArrival(right)
 }
 
-func estimatedSharingSide(estimate, holder *models.StandAssignment) bool {
-	if estimate == nil || holder == nil {
-		return false
-	}
-	if estimate.Direction != string(sat.AssignmentDirectionArrival) || estimate.Stage != StageEstimated {
-		return false
-	}
-	if estimate.ConflictReason != nil && *estimate.ConflictReason == arrivalPromotionConflictReason {
-		return false
-	}
-	return holder.Direction == string(sat.AssignmentDirectionArrival) &&
-		(holder.Stage == StageAssigned || holder.Stage == StageConfirmed)
+func isEstimatedArrival(assignment *models.StandAssignment) bool {
+	return assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == StageEstimated
 }
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its

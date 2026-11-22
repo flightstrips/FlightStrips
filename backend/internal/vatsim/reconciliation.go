@@ -1,6 +1,7 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
@@ -39,6 +40,8 @@ type reconciliationStripStore interface {
 	Create(context.Context, *models.Strip) error
 	UpdateVatsimSource(context.Context, int32, string, models.VatsimStripSource) (int64, error)
 	UpdateArrivalETA(context.Context, int32, string, models.ArrivalETA) (int64, error)
+	UpdateFallbackArrivalETA(context.Context, int32, string, models.ArrivalETA, time.Time) (int64, error)
+	GetByCallsign(context.Context, int32, string) (*models.Strip, error)
 	UpdateBayAndSequence(context.Context, int32, string, string, int32) (int64, error)
 	Delete(context.Context, int32, string) error
 }
@@ -348,13 +351,16 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			if r.legacyETAForAirport != nil {
 				writeLegacyETA = r.legacyETAForAirport(session.Airport)
 			}
-			if writeLegacyETA {
-				etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
-				if err != nil {
-					return err
-				}
-				changed = etaChanged || changed
+			etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight, writeLegacyETA)
+			if errors.Is(err, pgx.ErrNoRows) {
+				// The strip disappeared during the ETA update. Skip it for this snapshot.
+				delete(existing, flight.Callsign)
+				continue
 			}
+			if err != nil {
+				return err
+			}
+			changed = etaChanged || changed
 		}
 		if changed {
 			changedCount++
@@ -392,8 +398,15 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	// callsign's physical departure block is only visible to an earlier arrival
 	// on the next pass over the identical snapshot, causing one-cycle churn.
 	var retainedLookupErr error
+	arrivalFlights := make([]Flight, 0, len(relevantFlights))
 	for _, flight := range relevantFlights {
 		strip := existing[flight.Callsign]
+		if strip == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
+			arrivalFlights = append(arrivalFlights, flight)
+		}
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 			if pilotLifecycle, ok := r.lifecycle.(pilotDepartureLifecycle); ok {
 				managed, err := pilotLifecycle.ReconcilePilotDeparture(ctx, session.ID, strip, departureFlightInfo(flight, snapshot.Timestamp))
@@ -436,12 +449,6 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	}
 	if retainedLookupErr != nil {
 		return retainedLookupErr
-	}
-	arrivalFlights := make([]Flight, 0, len(relevantFlights))
-	for _, flight := range relevantFlights {
-		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
-			arrivalFlights = append(arrivalFlights, flight)
-		}
 	}
 	orderer, orderedLifecycle := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
 	if orderedLifecycle {
@@ -657,8 +664,11 @@ func timeOrEmpty(value *time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
 }
 
-func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight) (bool, error) {
+func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight, writeLegacyETA bool) (bool, error) {
 	now := r.now()
+	if !writeLegacyETA && compatibility.IsFresh(strip.ArrivalETA, now) {
+		return false, nil
+	}
 	coordinates := r.airportCoordinates
 	if r.coordinatesForAirport != nil {
 		coordinates = r.coordinatesForAirport(flight.FlightPlan.Destination)
@@ -673,8 +683,27 @@ func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip 
 	if !changed {
 		return false, nil
 	}
-	if _, err := r.strips.UpdateArrivalETA(ctx, session, strip.Callsign, accepted); err != nil {
+	var rows int64
+	var err error
+	if writeLegacyETA {
+		rows, err = r.strips.UpdateArrivalETA(ctx, session, strip.Callsign, accepted)
+	} else {
+		rows, err = r.strips.UpdateFallbackArrivalETA(ctx, session, strip.Callsign, accepted, now)
+	}
+	if err != nil {
 		return false, err
+	}
+	if rows == 0 {
+		if !writeLegacyETA {
+			// AMAN may have refreshed the ETA since the initial list. Use the
+			// persisted estimate for stand lifecycle processing in this pass.
+			current, err := r.strips.GetByCallsign(ctx, session, strip.Callsign)
+			if err != nil {
+				return false, err
+			}
+			strip.ArrivalETA = current.ArrivalETA
+		}
+		return false, nil
 	}
 	strip.ArrivalETA = &accepted
 	return true, nil

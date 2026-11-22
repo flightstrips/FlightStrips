@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
@@ -1152,6 +1153,22 @@ func (r *stripRepository) UpdateArrivalETA(ctx context.Context, session int32, c
 		ArrivalEta: payload,
 		Callsign:   callsign,
 		Session:    session,
+	})
+}
+
+// UpdateFallbackArrivalETA only writes when AMAN has no fresh ETA on the row.
+func (r *stripRepository) UpdateFallbackArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA, now time.Time) (int64, error) {
+	payload, err := json.Marshal(eta)
+	if err != nil {
+		return 0, err
+	}
+	freshSince := now.Add(-compatibility.FreshFor)
+	return r.queries.UpdateStripFallbackArrivalETA(ctx, database.UpdateStripFallbackArrivalETAParams{
+		ArrivalEta:      payload,
+		Callsign:        callsign,
+		Session:         session,
+		ProtectedSource: compatibility.ArrivalETASource,
+		FreshSince:      TimeToPgTimestamptz(&freshSince),
 	})
 }
 

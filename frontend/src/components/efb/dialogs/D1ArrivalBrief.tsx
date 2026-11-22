@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import BriefingDialog from './BriefingDialog';
 
-const briefingImages = import.meta.glob<string>('../../../assets/efb/arrival-briefing/*.webp', {
+const briefingImages = import.meta.glob<string>('../../../assets/efb/arrival-briefing/*.{webp,jpg}', {
   eager: true,
   import: 'default',
 });
 
 const image = (filename: string) => {
-  const source = briefingImages[`../../../assets/efb/arrival-briefing/${filename}.webp`];
+  const source = briefingImages[`../../../assets/efb/arrival-briefing/${filename}.webp`] ?? briefingImages[`../../../assets/efb/arrival-briefing/${filename}.jpg`];
   if (!source) throw new Error(`Missing arrival briefing asset: ${filename}`);
   return source;
 };
@@ -139,6 +139,11 @@ const briefingPages = ({ stand, star, runway, holdingFix, holdingDetail, termina
       id: 'taxi-in', image: taxi.image, imageAlt: taxi.imageAlt, title: `Taxi to stand ${normalize(stand) || 'unassigned'}`, description: taxi.description,
     },
     {
+      // Same for every runway configuration.
+      id: 'taxi-clearance', image: image('taxi-clearance'), imageAlt: 'Taxi clearance in the EFB charts', title: 'Follow your taxi route progressively!',
+      description: ['Click on Charts and navigate to "Taxi Clearance". Here you can write your clearance, and it is drawn for you.'],
+    },
+    {
       id: 'complete', image: image(`complete-variation-${completeVariation}`), imageAlt: 'Arrival briefing complete', title: 'On stand',
       description: ['Follow ATC instructions. These routes are standard guidance, but you may be given a different routing. Keep the apron taxi charts available and ask for clarification if in doubt.', 'Thanks for flying into Copenhagen Airport. We hope to see you again soon.'],
     },
@@ -153,7 +158,7 @@ function D1ArrivalBriefContent({ isOpen, onClose, ...briefing }: ArrivalBriefPro
   if (!isOpen) return null;
 
   return (
-    <BriefingDialog title="Arrival briefing" context={`${briefing.expected ? 'EXPECTED FROM ROUTE / ATIS - NOT AN ATC CLEARANCE  /  ' : ''}STAR ${briefing.star}  /  RWY ${briefing.runway}  /  STAND ${briefing.stand}`} pages={pages} currentPage={currentPage} onPageChange={setCurrentPage} onClose={onClose} />
+    <BriefingDialog title="Arrival briefing" context={`${briefing.expected ? 'EXPECTED FROM ROUTE / ATIS / WIND - NOT AN ATC CLEARANCE  /  ' : ''}STAR ${briefing.star}  /  RWY ${briefing.runway}  /  STAND ${briefing.stand}`} pages={pages} currentPage={currentPage} onPageChange={setCurrentPage} onClose={onClose} />
   );
 }
 

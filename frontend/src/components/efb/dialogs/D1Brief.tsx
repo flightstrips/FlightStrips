@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import BriefingDialog from './BriefingDialog';
 
-const briefingImages = import.meta.glob<string>('../../../assets/efb/departure-briefing/*.webp', {
+const briefingImages = import.meta.glob<string>('../../../assets/efb/departure-briefing/*.{webp,jpg}', {
   eager: true,
   import: 'default',
 });
 
 const image = (filename: string) => {
-  const source = briefingImages[`../../../assets/efb/departure-briefing/${filename}.webp`];
+  const source = briefingImages[`../../../assets/efb/departure-briefing/${filename}.webp`] ?? briefingImages[`../../../assets/efb/departure-briefing/${filename}.jpg`];
   if (!source) throw new Error(`Missing departure briefing asset: ${filename}`);
   return source;
 };
+
+/** Points pilots to the EFB taxi clearance (Charts > Taxi Clearance); same for every runway. */
+const TAXI_CLEARANCE_HINT = 'Click on "CHARTS" and you will see the pane of "Taxi Clearance". Here you can write your instruction, and the route is drawn for you with all you need!';
 
 type RunwayVariant = '04R' | '22R';
 
@@ -274,21 +277,21 @@ const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[
 
   const taxiInitial = runwayForBriefing === '22R'
     ? {
-        image: image('TAXIINIT22R'),
-        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway A or F. Taxiway D may be used when traffic demands.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.'],
+        image: image('TAXI-CLEARANCE'),
+        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway A or F. Taxiway D may be used when traffic demands.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.', TAXI_CLEARANCE_HINT],
       }
     : {
-        image: image('TAXIINIT04R'),
-        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway D or B, depending on the stand.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.'],
+        image: image('TAXI-CLEARANCE'),
+        description: ['Via the standard taxi routes, expect to hold short of runway 30 via taxiway D or B, depending on the stand.', 'Some stands permit departure taxi via K2/K3 and runway 12. Be especially careful when joining taxiway F; it is a hotspot for wrong taxi. Clarify the instruction if in doubt.', TAXI_CLEARANCE_HINT],
       };
   const taxiNext = runwayForBriefing === '22R'
     ? {
         image: image('TAXINEXT22R'),
-        description: ['TWR will clear you to cross runway 30 and assign holding point B1-B3 as required for traffic sequencing. Medium and smaller aircraft are expected to be able to depart from B3. Heavy aircraft may depart from B1, or on request.', 'When cleared for take-off, do not linger. During busy periods, sharp separation is required, so begin the take-off roll without delay.'],
+        description: ['TWR will clear you to cross runway 30 and assign holding point A1-A4 as required for traffic sequencing. Plan take-off performance for the assigned holding point.', 'When cleared for take-off, do not linger. During busy periods, sharp separation is required, so begin the take-off roll without delay.'],
       }
     : {
         image: image('TAXINEXT04R'),
-        description: ['TWR will clear you to cross runway 30 and assign holding point A1-A4 as required for traffic sequencing. Plan take-off performance for every holding point.', 'Be ready for departure when reaching the holding point. Advise ATC in advance if you are not ready so that an alternative holding point can be assigned. When cleared for take-off, do not linger.'],
+        description: ['All WTC/M or smaller are expected to depart from B3 unless otherwise instructed!', 'TWR will clear you to cross runway 30 and assign holding point B1-B3 as required for traffic sequencing. Plan take-off performance for every holding point.', 'Be ready for departure when reaching the holding point. Advise ATC in advance if you are not ready so that an alternative holding point can be assigned. When cleared for take-off, do not linger.'],
       };
 
   return [
@@ -297,7 +300,7 @@ const briefingPages = (stand: string, sid: string, runway: string): D1BriefPage[
       image: image('PUSHBACK READY'),
       imageAlt: 'Pushback readiness',
       title: 'Pushback ready',
-      description: ['Confirm the stand position, SID, and runway in use before continuing.', 'Your tug must be connected, GSX ready for pushback, and TOBT within +/- 5 minutes of the current time. Read the Pushback Manual and be ready for any assigned release point.'],
+      description: ['Confirm the stand position, SID, and runway in use before continuing.', 'Your tug must be connected, GSX ready for pushback, and TOBT within +/- 5 minutes of the current time. Read the Pushback Manual and be ready for any assigned release point.', 'Make sure you have latest GSX Profile for EKCH!! See Options in your EFB for more'],
     },
     {
       id: 'pushback-next',

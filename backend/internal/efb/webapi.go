@@ -53,6 +53,12 @@ type ATISLookup interface {
 	GetATIS(airport string, departure bool) *metar.ATIS
 }
 
+// METARLookup returns the current raw METAR for an airport, or "" when no
+// fresh observation is available.
+type METARLookup interface {
+	GetMETAR(ctx context.Context, airport string) string
+}
+
 type DepartureFrequencyLookup interface {
 	ComputeDepartureFrequencyForStripContext(context.Context, *models.Strip, int32) (*string, error)
 }
@@ -69,6 +75,7 @@ type WebAPIConfig struct {
 	Viff                  ViffClient
 	Stands                StandActions
 	ATIS                  ATISLookup
+	METAR                 METARLookup
 	Departures            DepartureFrequencyLookup
 	PDCReady              bool
 	Live                  bool
@@ -79,6 +86,7 @@ type WebAPIConfig struct {
 	Training              bool
 	TrainingStrips        repository.StripRepository
 	PilotStands           PilotStandActions
+	Sceneries             PilotSceneryStore
 }
 
 type WebAPI struct {
@@ -93,6 +101,7 @@ type WebAPI struct {
 	viff                  ViffClient
 	stands                StandActions
 	atis                  ATISLookup
+	metar                 METARLookup
 	departures            DepartureFrequencyLookup
 	pdcReady              bool
 	live                  bool
@@ -103,10 +112,11 @@ type WebAPI struct {
 	training              bool
 	trainingStrips        repository.StripRepository
 	pilotStands           PilotStandActions
+	sceneries             PilotSceneryStore
 }
 
 func NewWebAPI(cfg WebAPIConfig) *WebAPI {
-	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands}
+	return &WebAPI{airportServiceEnabled: cfg.AirportServiceEnabled, auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, viff: cfg.Viff, stands: cfg.Stands, atis: cfg.ATIS, metar: cfg.METAR, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation, network: cfg.Network, callsignLookup: cfg.CallsignLookup && !cfg.Live, training: cfg.Training && !cfg.Live, trainingStrips: cfg.TrainingStrips, pilotStands: cfg.PilotStands, sceneries: cfg.Sceneries}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -117,6 +127,7 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/efb/stand/open", a.handleStandOpen)
 	mux.HandleFunc("/efb/stands", a.handleStandAvailability)
 	mux.HandleFunc("/efb/training-sessions", a.handleTrainingSessions)
+	mux.HandleFunc("/efb/scenery", a.handleScenery)
 }
 
 func (a *WebAPI) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +177,8 @@ type snapshot struct {
 	DepartureFrequency            *string            `json:"departure_frequency"`
 	Stand                         *string            `json:"stand"`
 	StandVersion                  *int32             `json:"stand_version"`
+	// ReleasePoint is the pushback release point ATC assigned on the strip (departures only).
+	ReleasePoint                  *string            `json:"release_point"`
 	StandState                    *string            `json:"stand_state"`
 	StandExpiresAt                *time.Time         `json:"stand_expires_at,omitempty"`
 	StandRequestUnavailableReason string             `json:"stand_request_unavailable_reason,omitempty"`
@@ -182,6 +195,9 @@ type snapshot struct {
 	PDCClearanceText              *string            `json:"pdc_clearance_text"`
 	PDCRetryAfterMS               int64              `json:"pdc_retry_after_ms,omitempty"`
 	ATIS                          *metar.ATIS        `json:"atis"`
+	// METAR is the current raw METAR for the ATIS airport, sent only when no
+	// fresh ATIS is online so the EFB can show weather instead.
+	METAR *string `json:"metar,omitempty"`
 	Capabilities                  capabilities       `json:"capabilities"`
 }
 
@@ -208,6 +224,15 @@ func (a *WebAPI) handleFlight(w http.ResponseWriter, r *http.Request) {
 	a.handleNetworkFlight(w, r, user)
 }
 
+// releasePoint normalises the strip release point for the EFB; blank means none assigned.
+func releasePoint(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	v := strings.ToUpper(strings.TrimSpace(*value))
+	return nonEmptyString(&v)
+}
+
 func viffClock(values ...string) *string {
 	for _, value := range values {
 		if value = strings.TrimSuffix(strings.TrimSpace(value), "Z"); value != "" {
@@ -231,6 +256,9 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	pdcReady := a.pdcReady && a.serviceEnabled(s.Origin, "pdc")
 	publishedHeading, publishedHoldingFix, publishedHoldingDetail := publishedArrivalData(ctx, a.navigation, a.terminal, s.Destination, s.Runway, s.Star)
 	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ArrivalETA: arrivalETA(s.ArrivalETA), TerminalFix: terminalFix(a.terminal, s.Destination, s.Runway, s.Star), PublishedHeading: publishedHeading, PublishedHoldingFix: publishedHoldingFix, PublishedHoldingDetail: publishedHoldingDetail, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: pdcReady && departure && !s.Cleared, PDCCanSubmit: pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: pdcReady && state == "CLEARED", Capabilities: capabilities{PDC: pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
+	if departure {
+		result.ReleasePoint = releasePoint(s.ReleasePoint)
+	}
 	if !departure {
 		result.Stand = nil
 	} else if result.Stand != nil {
@@ -250,13 +278,14 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	}
 	applyPDCDeliveryDelay(&result, s.PdcData, time.Now())
 	applyArrivalStandRestriction(&result, s, session.Airport, time.Now())
+	airport := s.Destination
+	if departure {
+		airport = s.Origin
+	}
 	if a.atis != nil {
-		airport := s.Destination
-		if departure {
-			airport = s.Origin
-		}
 		result.ATIS = a.atis.GetATIS(airport, departure)
 	}
+	a.addMETARFallback(ctx, &result, airport)
 	return result
 }
 

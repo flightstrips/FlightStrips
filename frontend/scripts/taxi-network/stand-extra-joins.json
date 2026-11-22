@@ -1,0 +1,13 @@
+{
+ "_comment": "Stands that can also be reached from other taxiways than the one they were placed next to. Each extra join is the nearest point on that taxiway to the stand.",
+ "joins": {
+  "C27": ["S"],
+  "D1": ["S"],
+  "D2": ["S"],
+  "D3": ["R"],
+  "D4": ["R"],
+  "B10": ["Y"],
+  "A21": ["L"],
+  "A30": ["K"]
+ }
+}

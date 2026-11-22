@@ -40,14 +40,20 @@ func TestDepartureReleaseRecheckDoesNotStarveThePool(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Two connections: the release transaction and one more. Before the fix,
-	// a sighting writer queued on the strip lock took that second connection,
-	// and the locked heartbeat recheck then waited forever for a third.
+	// Three connections and two sighting writers. With the old order the
+	// release transaction and both writers, queued on the strip lock, hold all
+	// three, and the locked heartbeat recheck waits forever for a fourth. With
+	// the new order the reader and the transaction hold two, and one writer
+	// takes the third and really queues on the strip lock during the recheck.
+	const maxConns, writers = 3, 2
 	config := shared.Config()
-	config.MaxConns, config.MinConns = 2, 0
+	config.MaxConns, config.MinConns = maxConns, 0
 	small, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
 	defer small.Close()
+	// Close waits for every acquired connection. Cancel first, so a stalled
+	// release unwinds immediately when the test fails.
+	defer cancel()
 
 	lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, small, queries, "", "", nil)
 	const callsign = "SASOBSPOOL"
@@ -55,23 +61,33 @@ func TestDepartureReleaseRecheckDoesNotStarveThePool(t *testing.T) {
 	require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, callsign), onlineFlightSeenAt(callsign, 1, clock.current())))
 	clock.advance(11 * time.Minute)
 
-	writerDone := make(chan error, 1)
+	lockWaiters := func() int {
+		var waiting int
+		if err := shared.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity
+			WHERE datname = current_database() AND wait_event_type = 'Lock'
+			AND query LIKE 'INSERT INTO departure_online_sightings%'`).Scan(&waiting); err != nil {
+			return -1
+		}
+		return waiting
+	}
+	writerDone := make(chan error, writers)
 	allocations.strips = &lockHookStripRepository{
 		StripRepository: allocations.strips,
 		once:            &sync.Once{},
 		afterLock: func(context.Context) {
-			go func() {
-				writerDone <- lifecycle.recordOnlineSighting(ctx, session, callsign, onlineFlightSeenAt(callsign, 1, clock.current()))
-			}()
-			// Do not run the heartbeat recheck until both connections are in use.
-			// With the old order this needs the writer to hold the second one
-			// while it queues on the strip lock; with the new order the reader
-			// and the release transaction already hold both. The hook runs on
-			// the release goroutine, so report with Errorf rather than require.
+			for range writers {
+				go func() {
+					writerDone <- lifecycle.recordOnlineSighting(ctx, session, callsign, onlineFlightSeenAt(callsign, 1, clock.current()))
+				}()
+			}
+			// Do not run the heartbeat recheck until every connection is in use
+			// and a writer is queued on the strip lock this release holds. The
+			// hook runs on the release goroutine, so report with Errorf.
 			deadline := time.Now().Add(5 * time.Second)
-			for small.Stat().AcquiredConns() < 2 {
+			for small.Stat().AcquiredConns() < maxConns || lockWaiters() < 1 {
 				if time.Now().After(deadline) {
-					t.Errorf("the pool never reached two acquired connections (have %d)", small.Stat().AcquiredConns())
+					t.Errorf("want %d acquired connections and a writer queued on the strip lock, have %d and %d",
+						maxConns, small.Stat().AcquiredConns(), lockWaiters())
 					return
 				}
 				time.Sleep(5 * time.Millisecond)
@@ -90,10 +106,12 @@ func TestDepartureReleaseRecheckDoesNotStarveThePool(t *testing.T) {
 	_, err = assignments.GetAssignment(ctx, session, callsign)
 	require.Error(t, err, "the recheck read the committed sighting from 11 minutes ago and released")
 
-	select {
-	case err := <-writerDone:
-		require.NoError(t, err, "the queued sighting is written once the release commits")
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
+	for range writers {
+		select {
+		case err := <-writerDone:
+			require.NoError(t, err, "queued sightings are written once the release commits")
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
 	}
 }

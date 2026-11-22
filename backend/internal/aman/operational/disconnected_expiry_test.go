@@ -173,6 +173,52 @@ func TestLegacyPausedDisappearanceStillExpiresAtOriginalDeadline(t *testing.T) {
 	require.Nil(t, flight.FrozenSlot)
 }
 
+func TestDisconnectedArrivalStartsNewEpisodeWithNewLegEvidence(t *testing.T) {
+	now := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC)
+	service, _, observation := fallbackFixture(t, now)
+	previous := aman.DisconnectedArrival{
+		EpisodeID: "old-episode", Origin: observation.Origin, GoAroundCommandID: "report-go-around",
+		VATSIMConnection: &aman.VATSIMConnection{PilotFingerprint: "pilot-a", LogonAt: now.Add(-time.Hour)},
+		MissingSince:     now.Add(-6 * time.Minute), RemovedAt: now.Add(-time.Minute),
+	}
+	for _, reason := range []string{"ground report", "different departure", "different pilot on same route", "new same-pilot prefile"} {
+		t.Run(reason, func(t *testing.T) {
+			current := observation
+			switch reason {
+			case "ground report":
+				position := *current.Surveillance
+				altitude, speed := 20, 0.0
+				position.AltitudeFeet, position.GroundspeedKnots = &altitude, &speed
+				current.Surveillance = &position
+			case "different departure":
+				current.Origin = "EDDF"
+			case "different pilot on same route":
+				current.VATSIMFlight = &aman.VATSIMFlightFact{Connection: &aman.VATSIMConnection{PilotFingerprint: "pilot-b", LogonAt: now}}
+			case "new same-pilot prefile":
+				current.Surveillance, current.TakeoffDetected = nil, nil
+				current.VATSIMFlight = &aman.VATSIMFlightFact{
+					Prefiled: true, PrefiledDepartureAt: timePointer(now.Add(time.Hour)),
+				}
+			}
+			flight := newFlight(current, now)
+			require.True(t, service.resolveDisconnectedArrival(&flight, previous, current, now))
+			require.NotEqual(t, previous.EpisodeID, flight.ArrivalEpisodeID)
+			require.Nil(t, flight.GoAroundDetection)
+		})
+	}
+}
+
+func TestPrefileStartsNextLegWhenCachedAirborneSurveillanceExpires(t *testing.T) {
+	now := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC)
+	_, _, observation := fallbackFixture(t, now)
+	flight := newFlight(observation, now)
+	departure := now.Add(time.Hour)
+	observation.VATSIMFlight = &aman.VATSIMFlightFact{Prefiled: true, PrefiledDepartureAt: &departure}
+	require.Equal(t, aman.StateAirborne, flight.State)
+	require.False(t, prefileStartsNextLeg(flight, observation, now))
+	require.True(t, prefileStartsNextLeg(flight, observation, now.Add(aman.ArrivalSurveillanceFreshness+time.Second)))
+}
+
 func TestMissingAndExpiredObservationsCannotCreatePhantomAircraft(t *testing.T) {
 	base := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC)
 	now := base.Add(5 * time.Minute)

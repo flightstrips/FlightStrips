@@ -118,6 +118,32 @@ type amanTransport struct {
 	// lastHoldingEAT tracks the last complete authoritative projection so a
 	// later publication can explicitly withdraw values that disappeared.
 	lastHoldingEAT map[string]map[string]holdingEATProjection
+	// arrivalInfo receives each published state for automatic pilot telex.
+	arrivalInfo amanStateObserver
+}
+
+type amanStateObserver interface {
+	ObserveAMANState(aman.AirportState)
+}
+
+func (p *amanTransport) setArrivalInfo(observer amanStateObserver) {
+	p.mu.Lock()
+	p.arrivalInfo = observer
+	p.mu.Unlock()
+}
+
+func (p *amanTransport) observeArrivalInfo(state aman.AirportState, health aman.TechnicalHealth) {
+	p.mu.RLock()
+	observer := p.arrivalInfo
+	p.mu.RUnlock()
+	if observer != nil {
+		state.Authoritative = state.Authoritative && p.mode == aman.ModeAuthoritative && health.AuthorityAllowed
+		observer.ObserveAMANState(state)
+	}
+}
+
+func (p *amanTransport) arrivalInfoAuthorityAllowed(ctx context.Context) bool {
+	return p.mode == aman.ModeAuthoritative && p.currentTechnicalHealth(ctx).AuthorityAllowed
 }
 
 func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
@@ -355,12 +381,14 @@ func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportSt
 }
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
+	ctx = aman.WithSession(ctx, state.SessionID)
 	if p.scope != nil {
-		if err := p.scope(aman.WithSession(ctx, state.SessionID), state.Airport); err != nil {
+		if err := p.scope(ctx, state.Airport); err != nil {
 			return err
 		}
 	}
 	health := p.currentTechnicalHealth(ctx)
+	p.observeArrivalInfo(state, health)
 	// Both projections must use the same manifest, without loading all geometry
 	// twice. Keep the cache scoped to this publication so activation stays fresh.
 	geometry := sync.OnceValues(func() (navdata.ActiveGeometrySnapshot, error) {
@@ -404,11 +432,14 @@ func (p *amanTransport) rememberGainLossAuthority(ctx context.Context, event eur
 // It refreshes frontend projections, ensures EuroScope has received the
 // authoritative marker, and reevaluates holding EAT without a state mutation.
 func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.AirportState) error {
+	ctx = aman.WithSession(ctx, state.SessionID)
 	if p.scope != nil {
-		if err := p.scope(aman.WithSession(ctx, state.SessionID), state.Airport); err != nil {
+		if err := p.scope(ctx, state.Airport); err != nil {
 			return err
 		}
 	}
+	health := p.currentTechnicalHealth(ctx)
+	p.observeArrivalInfo(state, health)
 	p.mu.RLock()
 	hub := p.euroscopeHub
 	frontendHub := p.frontendHub
@@ -421,7 +452,7 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 		if p.now != nil {
 			view.GeneratedAt = p.now().UTC()
 		}
-		event, err := p.newStateEvent(ctx, view, p.currentTechnicalHealth(ctx))
+		event, err := p.newStateEvent(ctx, view, health)
 		if err != nil {
 			return err
 		}

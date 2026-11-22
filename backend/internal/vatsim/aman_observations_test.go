@@ -75,6 +75,8 @@ func TestObservationWorkerMapsPrefileAndOnlineFlightsForLiveSession(t *testing.T
 	require.Equal(t, time.Date(2026, time.July, 18, 11, 30, 0, 0, time.UTC), *prefile.PlannedTiming.EstimatedOffBlockTime)
 	require.Equal(t, time.Hour+45*time.Minute, *prefile.PlannedTiming.EstimatedEnrouteTime)
 	require.Nil(t, prefile.Surveillance)
+	require.Nil(t, prefile.VATSIMFlight.Connection)
+	require.Equal(t, prefile.PlannedTiming.EstimatedOffBlockTime, prefile.VATSIMFlight.PrefiledDepartureAt)
 
 	require.NotNil(t, online.Surveillance)
 	require.Equal(t, 55.1, online.Surveillance.LatitudeDegrees)
@@ -86,6 +88,70 @@ func TestObservationWorkerMapsPrefileAndOnlineFlightsForLiveSession(t *testing.T
 	require.Equal(t, now, *online.TakeoffDetected)
 	require.Equal(t, "H", *online.WakeCategory)
 	require.Equal(t, 34000, *online.RequestedLevel)
+	require.Nil(t, online.VATSIMFlight.Connection, "a missing logon time provides no connection identity")
+	require.Nil(t, online.VATSIMFlight.PrefiledDepartureAt)
+}
+
+func TestObservationWorkerKeepsNewPrefileAfterOnlineFlight(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LogonTime: now.Add(-time.Hour),
+		Latitude: 55, Longitude: 12, Altitude: 18000, Groundspeed: 420, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", EOBT: "1100", Revision: 8}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(t.Context()))
+	require.NotNil(t, sink.observations[0].TakeoffDetected)
+	require.Equal(t, flight.LogonTime, sink.observations[0].VATSIMFlight.Connection.LogonAt)
+
+	now = now.Add(15 * time.Minute)
+	flight.State, flight.LastUpdated, flight.LogonTime = FlightStatePrefile, now, time.Time{}
+	flight.FlightPlan.EOBT, flight.FlightPlan.Revision = "1300", 1
+	cache.snapshot = preserveNewerFlightPlans(cache.snapshot, newReconciliationTestCache(now, flight).snapshot)
+	require.NoError(t, worker.Publish(t.Context()))
+	require.Len(t, sink.observations, 2)
+	prefile := sink.observations[1]
+	require.Nil(t, prefile.Surveillance)
+	require.Nil(t, prefile.TakeoffDetected)
+	require.EqualValues(t, 1, *prefile.FlightPlan.Revision)
+	require.Equal(t, now.Add(45*time.Minute), *prefile.VATSIMFlight.PrefiledDepartureAt)
+}
+
+func TestPrefileRevisionProtectionKeepsTheRetainedFilingTime(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", EOBT: "1300", Revision: 8}}
+	current := newReconciliationTestCache(now, flight).snapshot
+	stale := flight
+	stale.LastUpdated, stale.FlightPlan.EOBT, stale.FlightPlan.Revision = now.Add(-5*time.Minute), "1200", 7
+	current = preserveNewerFlightPlans(current, newReconciliationTestCache(now.Add(time.Minute), stale).snapshot)
+	require.Equal(t, flight, current.flightsByCallsign[flight.Callsign])
+
+	stale.LastUpdated, stale.FlightPlan.EOBT, stale.FlightPlan.Revision = now.Add(-2*time.Minute), "1400", 1
+	current = preserveNewerFlightPlans(current, newReconciliationTestCache(now.Add(2*time.Minute), stale).snapshot)
+	require.Equal(t, flight, current.flightsByCallsign[flight.Callsign])
+}
+
+func TestObservationWorkerPublishesNewPilotAndLogonForSameCallsign(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LogonTime: now.Add(-time.Hour),
+		Latitude: 55, Longitude: 12, Altitude: 18000, Groundspeed: 420, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 8}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(t.Context()))
+	previous := sink.observations[0].VATSIMFlight.Connection
+
+	now = now.Add(time.Hour)
+	flight.CID, flight.LogonTime, flight.LastUpdated, flight.FlightPlan.Revision = "202", now.Add(-15*time.Minute), now, 1
+	setObservationCacheSnapshot(cache, now, nil, flight)
+	require.NoError(t, worker.Publish(t.Context()))
+	require.Len(t, sink.observations, 2)
+	current := sink.observations[1]
+	require.True(t, previous.ReplacedBy(current.VATSIMFlight.Connection))
+	require.EqualValues(t, 1, *current.FlightPlan.Revision)
+	require.Equal(t, now, *current.TakeoffDetected)
 }
 
 func TestObservationWorkerUsesSourceObservedTimeForPlannedTimingAcrossRetry(t *testing.T) {

@@ -58,14 +58,19 @@ func TestPersistedLandedFlightRecoversOnFreshAirborneObservation(t *testing.T) {
 			altitude, speed := 478, 0.0
 			ground.Surveillance = &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &speed, ObservedAt: &landedAt}
 			flight := applyGroundedObservation(newFlight(observation, landedAt), ground, landedAt)
+			previousEpisode := flight.ArrivalEpisodeID
+			require.NotEmpty(t, previousEpisode)
 			flight.LatestObservation = &ground
 			require.Equal(t, aman.StateLanded, flight.State)
 			flight.ArrivalBaseline = &aman.BaselineState{ArrivalAt: now, AirborneSensedAt: *observation.TakeoffDetected}
 			// Reproduce a restart with the already-landed aggregate on disk.
 			state.Flights = []aman.AMANFlight{flight}
 			flight = cloneGapState(t, state).Flights[0]
+			require.Equal(t, previousEpisode, flight.ArrivalEpisodeID)
 			flight, err := service.reconcileFlight(t.Context(), state, flight, observation, now)
 			require.NoError(t, err)
+			require.NotEmpty(t, flight.ArrivalEpisodeID)
+			require.NotEqual(t, previousEpisode, flight.ArrivalEpisodeID)
 			state.Flights = []aman.AMANFlight{flight}
 			service.resequence(&state, now)
 			require.Contains(t, []aman.FlightState{aman.StateAirborne, aman.StateUnstable, aman.StateStable}, state.Flights[0].State)

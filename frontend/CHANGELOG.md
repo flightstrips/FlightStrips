@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.9.2...frontend/v2.10.0) (2026-11-22)
+
+
+### Features
+
+* **aman:** refine timeline scrolling, flight menus and cleared flight levels ([#1198](https://github.com/flightstrips/FlightStrips/issues/1198)) ([2de7ef4](https://github.com/flightstrips/FlightStrips/commit/2de7ef46b6e753630a592a5d3e5dcdb1f7b7e730))
+
+
+### Bug Fixes
+
+* **aman:** give stand assignments an arrival ETA and keep estimated stands stable ([#1200](https://github.com/flightstrips/FlightStrips/issues/1200)) ([daf6639](https://github.com/flightstrips/FlightStrips/commit/daf66397398f1947bf2d584097836cc1ece2d872))
+
 ## [2.9.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.9.1...frontend/v2.9.2) (2026-11-19)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.9.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.9.1...frontend/v2.9.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **aman:** clarify unavailable holding sequence times ([#1176](https://github.com/flightstrips/FlightStrips/issues/1176)) ([e69e6f7](https://github.com/flightstrips/FlightStrips/commit/e69e6f745e868056dfd37b883b00b38b40e21df1))
+* **aman:** explain why aircraft swaps are unavailable ([#1178](https://github.com/flightstrips/FlightStrips/issues/1178)) ([320ce2c](https://github.com/flightstrips/FlightStrips/commit/320ce2c98544feea6abf802dbb9cfdaf910134e8))
+* **aman:** make the excluded flight list scrollable ([#1177](https://github.com/flightstrips/FlightStrips/issues/1177)) ([5071e7f](https://github.com/flightstrips/FlightStrips/commit/5071e7f6a1b11e83090038f1507f46146ce3d030))
+* **aman:** preserve TMA promotion during ETA smoothing ([#1179](https://github.com/flightstrips/FlightStrips/issues/1179)) ([22e64cf](https://github.com/flightstrips/FlightStrips/commit/22e64cf789e2d10126086bc08d2a387267970395))
+* **aman:** recover landed flights after reconnect ([#1180](https://github.com/flightstrips/FlightStrips/issues/1180)) ([8cba945](https://github.com/flightstrips/FlightStrips/commit/8cba94570af05db179d4e524c152600e6aa25328))
+* **aman:** require airborne evidence and preserve STAR interleaving ([#1181](https://github.com/flightstrips/FlightStrips/issues/1181)) ([3474b73](https://github.com/flightstrips/FlightStrips/commit/3474b73e3dc2c5f340c189e77de15d47ffce57a9))
+* **strip:** preserve manual callsign contrast without tag requests ([#1194](https://github.com/flightstrips/FlightStrips/issues/1194)) ([aaa17bb](https://github.com/flightstrips/FlightStrips/commit/aaa17bbf1f70eb830d8194ec805d090bcdabae37))
+* **strip:** recover rejected actions without resetting the board ([#1186](https://github.com/flightstrips/FlightStrips/issues/1186)) ([9a260bf](https://github.com/flightstrips/FlightStrips/commit/9a260bfe4aeac696693d22d379b90f21aa9ca08d))
+* **websocket:** recover stalled connections and preserve board state ([#1189](https://github.com/flightstrips/FlightStrips/issues/1189)) ([2148642](https://github.com/flightstrips/FlightStrips/commit/2148642a8790219fd2e3ee399512fbf7e0db4f11))
+
 ## [2.9.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.9.0...frontend/v2.9.1) (2026-11-15)
 
 

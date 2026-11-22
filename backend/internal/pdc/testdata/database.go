@@ -201,7 +201,7 @@ func SeedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, cal
 func SeedTestStripWithSquawks(t *testing.T, queries *database.Queries, sessionID int32, callsign string, squawk, assignedSquawk *string) {
 	ctx := context.Background()
 
-	err := queries.InsertStrip(ctx, database.InsertStripParams{
+	_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign:       callsign,
 		Session:        sessionID,
 		Origin:         "EKCH",
@@ -227,7 +227,7 @@ func ptr[T any](v T) *T { return &v }
 func SeedTestStripWithoutRouting(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
 	ctx := context.Background()
 
-	err := queries.InsertStrip(ctx, database.InsertStripParams{
+	_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign:       callsign,
 		Session:        sessionID,
 		Origin:         "EKCH",
@@ -249,7 +249,7 @@ func SeedTestStripWithoutRouting(t *testing.T, queries *database.Queries, sessio
 func SeedTestStripWithAircraftType(t *testing.T, queries *database.Queries, sessionID int32, callsign, aircraftType string) {
 	ctx := context.Background()
 
-	err := queries.InsertStrip(ctx, database.InsertStripParams{
+	_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign:       callsign,
 		Session:        sessionID,
 		Origin:         "EKCH",
@@ -271,7 +271,7 @@ func SeedTestStripWithAircraftType(t *testing.T, queries *database.Queries, sess
 func SeedClearedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
 	ctx := context.Background()
 
-	err := queries.InsertStrip(ctx, database.InsertStripParams{
+	_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign:       callsign,
 		Session:        sessionID,
 		Origin:         "EKCH",

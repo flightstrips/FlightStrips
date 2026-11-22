@@ -59,6 +59,54 @@ func TestPositionSnapshotAndPresence(t *testing.T) {
 	require.Equal(t, lat, *snapshot.Strip.PositionLatitude)
 }
 
+func TestFullSyncPreservesClearanceCommittedWhileWaitingForStrip(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	session := testdata.SeedTestSession(t, queries)
+	repo := NewStripRepository(pool)
+	oldLevel := int32(9000)
+	basis := &models.Strip{
+		Session: session, Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Bay: "ARR_HIDDEN",
+		TrackingController: "EKCH_APP", ClearedAltitude: &oldLevel,
+	}
+	require.NoError(t, repo.Create(ctx, basis))
+	tx, err := pool.Begin(ctx)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+	_, err = tx.Exec(ctx, "UPDATE strips SET cleared_altitude = 7000, version = version + 1 WHERE id = $1", basis.ID)
+	require.NoError(t, err)
+
+	updated := *basis
+	remark := "new full-sync remark"
+	updated.Remarks = &remark
+	writeCtx := shared.WithStripSyncWriteBasis(shared.WithStripSyncController(ctx, "EKCH_FMP"), basis)
+	done := make(chan error, 1)
+	go func() {
+		rows, err := repo.Update(writeCtx, &updated)
+		if err == nil && rows != 1 {
+			err = fmt.Errorf("full sync updated %d rows, want 1", rows)
+		}
+		done <- err
+	}()
+	require.Eventually(t, func() bool {
+		var waiting bool
+		err := pool.QueryRow(ctx, `SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+            AND wait_event_type = 'Lock' AND query LIKE '-- name: UpdateStrip :one%'
+        )`).Scan(&waiting)
+		return err == nil && waiting
+	}, 3*time.Second, 10*time.Millisecond, "the full sync should wait for the tracker transaction")
+	require.NoError(t, tx.Commit(ctx))
+	require.NoError(t, <-done)
+	require.EqualValues(t, 7000, *updated.ClearedAltitude)
+	require.Equal(t, basis.Version+2, updated.Version)
+	persisted, err := repo.GetByCallsign(ctx, session, basis.Callsign)
+	require.NoError(t, err)
+	require.Equal(t, &remark, persisted.Remarks)
+	require.Equal(t, updated.ClearedAltitude, persisted.ClearedAltitude)
+}
+
 func TestConcurrentPositionAndFrontendBayAppendsReserveUniqueSequences(t *testing.T) {
 	pool, q := testdata.SetupTestDB(t)
 	session := testdata.SeedTestSessionNamedWithSectors(t, q, "POSITION_APPEND", nil)

@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 import type {AMANFlight} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import {freezePresentation} from "./freeze-presentation";
-import {formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
+import {formatAMANClearedAltitude, formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
 
 export type AMANAircraftTargetOptionalField =
   | "feeder-fix-eta"
@@ -20,7 +20,7 @@ export interface AMANAircraftTargetField {
 }
 
 export interface AMANAircraftTargetProps {
-  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate" | "approach_release_forecast_time">;
+  flight: Pick<AMANFlight, "callsign" | "data_status" | "freeze_reason" | "gain_loss_seconds" | "lifecycle_state" | "sequence_disposition" | "expedited" | "runway_gap_exception" | "basic_estimate" | "approach_release_forecast_time" | "cleared_altitude">;
   guidance: Omit<AMANGainLossPresentationContext, "fresh">;
   selected?: boolean;
   disabled?: boolean;
@@ -32,6 +32,7 @@ export interface AMANAircraftTargetProps {
   dimmed?: boolean;
   compact?: boolean;
   delayFirst?: boolean;
+  transitionAltitude?: number;
 }
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; tone: string} {
@@ -88,7 +89,9 @@ export function AMANAircraftTarget({
   dimmed = false,
   compact = false,
   delayFirst = false,
+  transitionAltitude = 0,
 }: AMANAircraftTargetProps) {
+  const clearedAltitude = formatAMANClearedAltitude(flight.cleared_altitude, transitionAltitude);
   const delay = formatGainLoss(flight.gain_loss_seconds, {
     ...guidance,
     fresh: flight.data_status === "fresh",
@@ -102,7 +105,7 @@ export function AMANAircraftTarget({
   const displayedDelay = forecastRelease && delay !== "Unavailable" ? `~${delay}` : delay;
   return (
     <button
-      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${forecastRelease ? "; Forecast approach release; not committed" : ""}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
+      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${forecastRelease ? "; Forecast approach release; not committed" : ""}${flight.basic_estimate ? "; Basic estimate" : ""}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}${clearedAltitude ? `; cleared altitude ${clearedAltitude}` : ""}`}
       aria-pressed={selected}
       className={cn(
         "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border-2 border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
@@ -129,6 +132,7 @@ export function AMANAircraftTarget({
         {flight.basic_estimate && <span aria-hidden="true" className="ml-0.5 shrink-0 font-normal">≈</span>}
       </span>
       {!delayFirst && <span title={guidanceTitle} data-retained-guidance={retainedGuidance || undefined} className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", guidanceTone)}>{displayedDelay}</span>}
+      {clearedAltitude && <span className="flex shrink-0 items-center px-1 text-[#a9bdc5]" data-field="cfl" title="Cleared flight level (EuroScope)">{clearedAltitude}</span>}
       <TargetFields fields={trailingFields} />
       <span className="sr-only">{lifecycle.label}</span>
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}

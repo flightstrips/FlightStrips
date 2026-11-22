@@ -32,6 +32,18 @@ The plugin restores desktop calls before enabling dialing. If it remains **Synch
 
 The plugin can answer and end calls that include several participants. Create conferences and manage their participants inside VACS; the plugin's **Call...** menu dials one controller at a time.
 
+### Next-sector calling tag item
+
+A separate, optional tag item, **VACS next sector**, can be added to your own EuroScope tag layout to show a small phone icon for aircraft you are tracking and call the resolved next controller directly. It uses the native EuroScope phone glyph, including in the DK COOPANS font. It is independent of, and never changes, TopSky's own **SI** tag item or its click bindings.
+
+- **Left-click** calls the freshly resolved controller over VACS only when its sector ID, full controller callsign and unique VACS client ID match the destination FlightStrips generated for that aircraft within the last 10 seconds. Changed identities are rejected even if the compact label stays the same. Callback text is used for diagnostics rather than as proof of the displayed destination, allowing custom tag families to pass different text.
+- **Right-click** opens the same two-column controller picker as the panel's **Call...** button.
+- The phone uses the normal tag colour when VACS is ready and exactly one destination client matches. It is muted grey when no next controller resolves or calling is unavailable. Right-click remains available for manual selection.
+- Only the icon is displayed; the resolved sector/controller identities are stored for click validation. Long sector IDs are not truncated and do not affect the icon's width.
+- The field is computed independently from TopSky SI. Agreement with SI, including manual overrides, has not been verified live. EuroScope provides no API to read another plugin's rendered tag item.
+
+This item is not included in any shipped tag layout; add it to your own tag family in EuroScope's tag settings, under the **FlightStrips** plugin. See `euroscope-plugin/VACS_LOCAL_TESTING.md` for the exact steps and known limitations, including unverified behaviour under TopSky's minimized/extended tag modes.
+
 ### Browser controls
 
 ### Set it up
@@ -147,3 +159,5 @@ The browser relay is implemented in `frontend/src/vacs/vacs-client.ts`, with con
 `vacs_request` and `vacs_result` travel over the existing frontend WebSocket and typed EuroScope protobuf transport. The backend captures the authenticated own-plugin binding, replaces browser request IDs with private relay IDs, and accepts only matching replies from that membership. Outstanding requests are bounded; stale incarnations, unsolicited replies and repeated action IDs are rejected.
 
 The native handler is `euroscope-plugin/src/plugin/vacs/VacsRelay.cpp`. It uses `VacsService` and `VacsClient`, sharing the connection and call state with the native panel. Dialing validates the current controller list, while call actions validate the current call ID and state. Native snapshot sequence numbers prevent reordered status replies from replacing newer call state in the browser.
+
+The next-sector tag item's resolver lives in `euroscope-plugin/src/plugin/tag_items/VacsNextSectorHandler.h`/`.cpp`, registered as `TAG_ITEM_VACS_NEXT_SECTOR` with click functions `TAG_FUNC_VACS_NEXT_SECTOR_CALL` (left) and `TAG_FUNC_VACS_NEXT_SECTOR_PICKER` (right) in `Constants.h`. Display (`VacsNextSectorHandler::Handle`) and the left-click action (`VacsNextSectorHandler::ResolveCallTarget`, called from `FlightStripsPlugin::OnFunctionCall`) share the same `Resolve()`/`ResolveVacsNextSector()`/`MatchVacsClientId()` logic, so a click always re-resolves against the freshly selected flight plan and a freshly fetched `VacsService::GetClients()` rather than trusting what was last painted. The position-prediction scan anchors at `CFlightPlan::GetSectorExitMinutes()` rather than at minute 0 (`ResolvePredictionScanStart`), and `DecideVacsCallTargetFromPaintedTarget` requires a recent generated phone and matching aircraft/sector/controller/client identities. The tag callback captures this snapshot in `Handle`; `OnFunctionCall` callback text is logged for diagnosis and is not used as the displayed-label authority.

@@ -67,6 +67,10 @@ type DepartureFlightInfo struct {
 	AircraftType string
 	Latitude     float64
 	Longitude    float64
+	// SeenAt is when the feed last saw an online pilot: its last_updated, or
+	// the snapshot time when that is missing. It is zero for offline prefiles,
+	// whose presence in the feed is no evidence of an aircraft at the gate.
+	SeenAt time.Time
 }
 
 // ArrivalFlightInfo is the minimal VATSIM view the arrival lifecycle needs to
@@ -405,7 +409,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 			if pilotLifecycle, ok := r.lifecycle.(pilotDepartureLifecycle); ok {
-				managed, err := pilotLifecycle.ReconcilePilotDeparture(ctx, session.ID, strip, departureFlightInfo(flight))
+				managed, err := pilotLifecycle.ReconcilePilotDeparture(ctx, session.ID, strip, departureFlightInfo(flight, snapshot.Timestamp))
 				if err != nil {
 					return err
 				}
@@ -430,7 +434,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				onlineAfterEuroscope = assignment != nil && assignment.Direction == "DEPARTURE" && assignment.Stage == "DEPARTURE_BLOCK"
 			}
 			if prefileBeforeEuroscope || onlineAfterEuroscope {
-				if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
+				if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight, snapshot.Timestamp)); err != nil {
 					return err
 				}
 				if departurePushActive(strip) {
@@ -816,8 +820,17 @@ func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign str
 	return assignment.ExpiresAt.After(now)
 }
 
-func departureFlightInfo(flight Flight) DepartureFlightInfo {
+func departureFlightInfo(flight Flight, snapshotTime time.Time) DepartureFlightInfo {
+	var seenAt time.Time
+	if flight.Online() {
+		seenAt = flight.LastUpdated
+		if seenAt.IsZero() {
+			seenAt = snapshotTime
+		}
+		seenAt = seenAt.UTC()
+	}
 	return DepartureFlightInfo{
+		SeenAt:       seenAt,
 		Callsign:     flight.Callsign,
 		CID:          flight.CID,
 		Online:       flight.Online(),

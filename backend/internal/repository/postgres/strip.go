@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
+	"FlightStrips/internal/shared"
 	"context"
 	"encoding/json"
 	"errors"
@@ -202,7 +203,7 @@ func unmarshalArrivalETA(raw []byte) (*models.ArrivalETA, error) {
 	return &eta, nil
 }
 
-// Create inserts a new strip
+// Create inserts a new strip and records its persisted ID and version.
 func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error {
 	cdmData, err := marshalCdmData(strip.CdmData)
 	if err != nil {
@@ -226,7 +227,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 			return err
 		}
 	}
-	return r.queries.InsertStrip(ctx, database.InsertStripParams{
+	created, err := r.queries.InsertStrip(ctx, database.InsertStripParams{
 		BoardState: radis, IsManual: strip.IsManual, FlightPlanEet: strip.FlightPlanEET,
 		Callsign:             strip.Callsign,
 		Session:              strip.Session,
@@ -276,6 +277,11 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		NextDisplayLabel:     nextDisplayLabel,
 		NextDisplayFrequency: nextDisplayFrequency,
 	})
+	if err != nil {
+		return err
+	}
+	strip.ID, strip.Version = created.ID, created.Version
+	return nil
 }
 
 // GetByCallsign retrieves a strip by callsign and session
@@ -402,7 +408,7 @@ func (r *stripRepository) SetHasFP(ctx context.Context, session int32, callsign 
 	return r.queries.SetHasFP(ctx, session, callsign, hasFP)
 }
 
-// Update updates an existing strip
+// Update updates an existing strip and records its persisted ID and version.
 func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int64, error) {
 	cdmData, err := marshalCdmData(strip.CdmData)
 	if err != nil {
@@ -427,7 +433,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 	}
 	nextDisplayLabel, nextDisplayFrequency := nextDisplayColumns(strip.NextDisplay)
 
-	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
+	params := database.UpdateStripParams{
 		FlightPlanEet:            strip.FlightPlanEET,
 		Callsign:                 strip.Callsign,
 		Session:                  strip.Session,
@@ -488,7 +494,27 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		EuroscopeSeenAt:          TimeToPgTimestamptz(strip.EuroscopeSeenAt),
 		NextDisplayLabel:         nextDisplayLabel,
 		NextDisplayFrequency:     nextDisplayFrequency,
-	})
+	}
+	if basis := shared.StripSyncWriteBasis(ctx); basis != nil {
+		params.SyncStripID, params.SyncVersion = &basis.ID, &basis.Version
+		params.SyncClearedAltitude = basis.ClearedAltitude
+		params.SyncHold, params.SyncHoldType, params.SyncHoldEat = &basis.Hold, &basis.HoldType, &basis.HoldEat
+		if sender, authenticated := shared.StripSyncController(ctx); authenticated {
+			params.SyncSender = &sender
+		}
+		params.SyncRestart = shared.StripSyncLifecycleRestart(ctx)
+	}
+	updated, err := r.queries.UpdateStrip(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	strip.ID, strip.Version = updated.ID, updated.Version
+	strip.ClearedAltitude = updated.ClearedAltitude
+	strip.Hold, strip.HoldType, strip.HoldEat = updated.Hold, updated.HoldType, updated.HoldEat
+	return 1, nil
 }
 
 // Delete removes a strip by callsign and session
@@ -1374,21 +1400,26 @@ func (r *stripRepository) PersistAtEndOfBay(ctx context.Context, strip *models.S
 		return err
 	}
 	seq += spacing
-	strip.Sequence = &seq
+	updated := *strip
+	updated.Sequence = &seq
 	bound := &stripRepository{queries: q}
 	if create {
-		err = bound.Create(ctx, strip)
+		err = bound.Create(ctx, &updated)
 	} else {
 		var n int64
-		n, err = bound.Update(ctx, strip)
+		n, err = bound.Update(ctx, &updated)
 		if err == nil && n != 1 {
-			err = &pgconn.PgError{Code: "40001", Message: "strip append version conflict"}
+			err = errors.Join(&pgconn.PgError{Code: "40001", Message: "strip append version conflict"}, pgx.ErrNoRows)
 		}
 	}
 	if err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	*strip = updated
+	return nil
 }
 
 func (r *stripRepository) UpdateRunwayClearanceAtEndOfBay(ctx context.Context, session int32, callsign string, spacing int32) (int64, error) {

@@ -49,6 +49,7 @@ namespace FlightStrips {
     namespace TagItems {
         class TagItemHandlers;
         class DeIceHandler;
+        class VacsNextSectorHandler;
     }
     namespace graphics {
         struct PdcClearancePopupState;
@@ -98,6 +99,7 @@ namespace FlightStrips {
         // tag items
         std::shared_ptr<TagItems::DeIceHandler> deIceHandler;
         std::shared_ptr<TagItems::AMANGainLossHandler> amanGainLossHandler;
+        std::shared_ptr<TagItems::VacsNextSectorHandler> vacsNextSectorHandler;
 
         // PDC clearance popup shared state
         std::shared_ptr<graphics::PdcClearancePopupState> pdcPopup;

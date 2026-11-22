@@ -1666,7 +1666,7 @@ func TestFreshSessionSASHeavyUsesNormalNonSchengenRule(t *testing.T) {
 
 func seedTestArrivalStrip(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
 	ctx := context.Background()
-	err := queries.InsertStrip(ctx, database.InsertStripParams{
+	_, err := queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign:       callsign,
 		Session:        sessionID,
 		Origin:         "ESSA",

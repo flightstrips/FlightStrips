@@ -15,6 +15,7 @@ const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeListeners, sto
   tmtSpy: vi.fn(),
   storeState: {
     amanSelectedCallsign: null as string | null,
+    amanEuroScopeSelectionGeneration: 0,
     selectAMANFlight: vi.fn(),
     amanState: null as AMANState | null,
     amanPresentationStatus: "empty",
@@ -88,6 +89,7 @@ describe("AMAN route authorization", () => {
 
   beforeEach(() => {
     storeState.amanSelectedCallsign = null;
+    storeState.amanEuroScopeSelectionGeneration = 0;
     storeState.selectAMANFlight.mockImplementation((callsign: string | null) => {
       storeState.amanSelectedCallsign = callsign;
       storeListeners.forEach(listener => listener());
@@ -387,6 +389,7 @@ describe("AMAN route authorization", () => {
     expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: null}));
     fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
     storeState.amanSelectedCallsign = "SAS456";
+    storeState.amanEuroScopeSelectionGeneration++;
     rerender(<AMAN />);
     expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
     expect(screen.getByRole("dialog", {name: "SAS123"})).toBeInTheDocument();
@@ -471,15 +474,52 @@ describe("AMAN route authorization", () => {
   it("removes the callsign highlight when the flight menu is dismissed", () => {
     storeState.amanFMPAuthority = true;
     storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS123"}));
+    expect(storeState.amanSelectedCallsign).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole("dialog", {name: "SAS123"}), {key: "Escape"});
+    expect(screen.queryByRole("dialog", {name: "SAS123"})).not.toBeInTheDocument();
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: null}));
+  });
+
+  it.each(["before", "during"])("preserves a EuroScope selection made %s the flight menu interaction", (when) => {
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}]);
+    const selectInEuroScope = () => {
+      storeState.amanSelectedCallsign = "SAS123";
+      storeState.amanEuroScopeSelectionGeneration++;
+    };
+    if (when === "before") selectInEuroScope();
     const {rerender} = render(<AMAN />);
     fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
-    rerender(<AMAN />);
-    expect(storeState.amanSelectedCallsign).toBe("SAS123");
+    if (when === "during") {
+      selectInEuroScope();
+      rerender(<AMAN />);
+    }
 
-    act(() => fireEvent.keyDown(screen.getByRole("dialog", {name: "SAS123"}), {key: "Escape"}));
-    rerender(<AMAN />);
+    fireEvent.keyDown(screen.getByRole("dialog", {name: "SAS123"}), {key: "Escape"});
+
     expect(screen.queryByRole("dialog", {name: "SAS123"})).not.toBeInTheDocument();
-    expect(storeState.amanSelectedCallsign).toBeNull();
+    expect(storeState.amanSelectedCallsign).toBe("SAS123");
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS123"}));
+  });
+
+  it("uses the replacement membership's selection while the original flight menu remains open", () => {
+    storeState.amanState = authoritativeState([{callsign: "SAS123"}, {callsign: "SAS456"}]);
+    storeState.amanSelectedCallsign = "SAS123";
+    storeState.amanEuroScopeSelectionGeneration = 1;
+    const {rerender} = render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+
+    storeState.amanSelectedCallsign = "SAS456";
+    storeState.amanEuroScopeSelectionGeneration++;
+    rerender(<AMAN />);
+
+    expect(screen.getByRole("dialog", {name: "SAS123"})).toBeInTheDocument();
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedCallsign: "SAS456"}));
+    fireEvent.keyDown(screen.getByRole("dialog", {name: "SAS123"}), {key: "Escape"});
+    expect(storeState.amanSelectedCallsign).toBe("SAS456");
   });
 
   it("keeps details bound to their original flight while the board follows EuroScope", () => {

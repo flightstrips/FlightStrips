@@ -7,6 +7,7 @@
 #include "authentication/AuthenticationService.h"
 #include "aman/AMANGainLossStore.h"
 #include "tag_items/AMANGainLossHandler.h"
+#include "tag_items/VacsNextSectorHandler.h"
 #include "configuration/AppConfig.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
@@ -111,6 +112,38 @@ namespace FlightStrips {
             });
         this->container->tagItemHandlers->RegisterHandler(
             this->container->amanGainLossHandler, TAG_ITEM_AMAN_GAIN_LOSS);
+        const auto weakVacsService = std::weak_ptr<vacs::VacsService>(this->container->vacsService);
+        this->container->vacsNextSectorHandler = std::make_shared<TagItems::VacsNextSectorHandler>(
+            [weakPlugin] {
+                const auto plugin = weakPlugin.lock();
+                if (!plugin) return std::string{};
+                const auto controller = plugin->ControllerMyself();
+                return controller.IsValid() ? std::string(controller.GetCallsign()) : std::string{};
+            },
+            [weakPlugin](const std::string& callsign) {
+                const auto plugin = weakPlugin.lock();
+                if (!plugin) return std::string{};
+                const auto controller = plugin->ControllerSelect(callsign.c_str());
+                return controller.IsValid() ? std::string(controller.GetPositionId()) : std::string{};
+            },
+            [weakPlugin](const std::string& positionId) {
+                const auto plugin = weakPlugin.lock();
+                if (!plugin) return std::string{};
+                const auto controller = plugin->ControllerSelectByPositionId(positionId.c_str());
+                return controller.IsValid() ? std::string(controller.GetCallsign()) : std::string{};
+            },
+            [weakVacsService] {
+                const auto service = weakVacsService.lock();
+                if (!service) return false;
+                const auto view = service->GetView();
+                return view.state == vacs::State::Idle && view.actionable;
+            },
+            [weakVacsService] {
+                const auto service = weakVacsService.lock();
+                return service ? service->GetClients() : std::vector<vacs::Client>{};
+            });
+        this->container->tagItemHandlers->RegisterHandler(
+            this->container->vacsNextSectorHandler, TAG_ITEM_VACS_NEXT_SECTOR);
         this->container->unfilteredRadarTargetEventHandlers->RegisterHandler(
             std::make_shared<handlers::EkytApproachTrackingHandler>(this->container->plugin));
         this->container->unfilteredFlightPlanEventHandlers->RegisterHandler(

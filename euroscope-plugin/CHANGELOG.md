@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.7.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.7.0...plugin/v2.7.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **vacs:** validate next-sector calls and show a phone icon ([1e10b78](https://github.com/flightstrips/FlightStrips/commit/1e10b78649de33cbe792b454090d8de66dcec2ab))
+
+## [2.7.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.6.1...plugin/v2.7.0) (2026-11-19)
+
+
+### Features
+
+* **vacs:** add next-sector calling tag ([#1197](https://github.com/flightstrips/FlightStrips/issues/1197)) ([84d79fd](https://github.com/flightstrips/FlightStrips/commit/84d79fd6861707beb6a92d0b25cbffa0eb2e6418))
+
+
+### Bug Fixes
+
+* **aman:** keep holding cleared altitudes synchronized ([#1184](https://github.com/flightstrips/FlightStrips/issues/1184)) ([e69ed35](https://github.com/flightstrips/FlightStrips/commit/e69ed35c02befed3daf65fba4a613f22d416bb8d))
+* **websocket:** recover stalled connections and preserve board state ([#1189](https://github.com/flightstrips/FlightStrips/issues/1189)) ([2148642](https://github.com/flightstrips/FlightStrips/commit/2148642a8790219fd2e3ee399512fbf7e0db4f11))
+
 ## [2.6.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.6.0...plugin/v2.6.1) (2026-11-15)
 
 

@@ -157,7 +157,7 @@ export interface AMANBoardViewProps {
   error: string | null;
   connectionState: AMANConnectionState;
   selectedCallsign: string | null;
-  onSelectFlight: (callsign: string) => void;
+  onSelectFlight?: (callsign: string) => void;
   onOpenControls?: () => void;
   /** The anchor is the clicked target, so the flight menu can open over it. */
   onOpenFlightActions?: (callsign: string, anchor?: HTMLElement) => void;
@@ -190,6 +190,7 @@ export function AMANBoardView({
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
+  const transitionAltitude = useWebSocketStore((value) => value.transitionAltitude);
   const preferredACCView = readAMANViewPreference();
   const accView = suppliedACCView ?? resolveAMANView(
     state,
@@ -249,12 +250,13 @@ export function AMANBoardView({
       }}
       leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
       onSelect={(target) => {
-        onSelectFlight(flight.callsign);
+        onSelectFlight?.(flight.callsign);
         onOpenFlightActions?.(flight.callsign, target);
       }}
       selected={flight.callsign === selectedCallsign}
       dimmed={isDimmedFamily(flight.star_family ?? flight.feeder ?? flight.star)}
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
+      transitionAltitude={transitionAltitude}
     />
   );
   const renderFMPTarget = (flight: AMANFlight) => renderTarget(flight, true);
@@ -275,11 +277,12 @@ export function AMANBoardView({
         guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
         leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
         onSelect={(target) => {
-          onSelectFlight(flight.callsign);
+          onSelectFlight?.(flight.callsign);
           onOpenFlightActions?.(flight.callsign, target);
         }}
         selected={flight.callsign === selectedCallsign}
         trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
+        transitionAltitude={transitionAltitude}
       />
     );
   };

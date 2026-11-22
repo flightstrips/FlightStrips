@@ -86,6 +86,7 @@ type euroScopeAMANStripRemovalObserver interface {
 // owned by AMAN's later read model.
 type holdingClearanceObserver interface {
 	ObserveHoldingClearance(context.Context, *internalModels.Strip) error
+	ObserveClearedAltitude(context.Context, *internalModels.Strip) error
 }
 
 func NewStripService(stripReader StripReader, options ...StripServiceOption) *StripService {

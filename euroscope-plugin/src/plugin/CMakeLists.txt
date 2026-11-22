@@ -160,7 +160,9 @@ set(src__tag_items
         tag_items/ClearanceStatusHandler.cpp
         tag_items/ClearanceStatusHandler.h
         tag_items/AMANGainLossHandler.cpp
-        tag_items/AMANGainLossHandler.h)
+        tag_items/AMANGainLossHandler.h
+        tag_items/VacsNextSectorHandler.cpp
+        tag_items/VacsNextSectorHandler.h)
 
 set(ALL_FILES
         vacs/VacsClient.cpp

@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.9.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.9.0...docs/v1.9.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **vacs:** validate next-sector calls and show a phone icon ([1e10b78](https://github.com/flightstrips/FlightStrips/commit/1e10b78649de33cbe792b454090d8de66dcec2ab))
+
+## [1.9.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.8.1...docs/v1.9.0) (2026-11-19)
+
+
+### Features
+
+* **stand:** offer an ATC Assigned pushback entry that follows the assigned point ([#1196](https://github.com/flightstrips/FlightStrips/issues/1196)) ([4d703d6](https://github.com/flightstrips/FlightStrips/commit/4d703d663428f449cb3a5369d69bf1f3b59ba239))
+* **vacs:** add next-sector calling tag ([#1197](https://github.com/flightstrips/FlightStrips/issues/1197)) ([84d79fd](https://github.com/flightstrips/FlightStrips/commit/84d79fd6861707beb6a92d0b25cbffa0eb2e6418))
+
+
+### Bug Fixes
+
+* **aman:** preserve TMA promotion during ETA smoothing ([#1179](https://github.com/flightstrips/FlightStrips/issues/1179)) ([22e64cf](https://github.com/flightstrips/FlightStrips/commit/22e64cf789e2d10126086bc08d2a387267970395))
+* **aman:** reduce route-fact queries and sequencing latency ([#1188](https://github.com/flightstrips/FlightStrips/issues/1188)) ([4a945ec](https://github.com/flightstrips/FlightStrips/commit/4a945ec3b874e6633764817a1349bae235e42ebb))
+* **websocket:** reduce position processing contention ([#1185](https://github.com/flightstrips/FlightStrips/issues/1185)) ([9b76e8f](https://github.com/flightstrips/FlightStrips/commit/9b76e8f2c2c50037400b843309ff8c89de85054f))
+
 ## [1.8.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.8.0...docs/v1.8.1) (2026-11-15)
 
 

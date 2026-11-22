@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Map as MapIcon, Navigation, PlaneLanding, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Navigation, PlaneLanding, Route, type LucideIcon } from 'lucide-react';
 import { getChartFoxAccessToken, isChartFoxConfigured, startChartFoxAuthorization } from '@/lib/chartfox-auth';
+import { TaxiClearanceControls, TaxiClearanceHelp, TaxiClearanceMap, TaxiCommonRoutes } from '../taxi/TaxiClearance';
+import { useTaxiClearance } from '../taxi/useTaxiClearance';
 
 const chartFoxApiUrl = 'https://api.chartfox.org/v2';
 const airportChartOverviewCache = new Map<string, ChartOverview[]>();
@@ -32,7 +34,7 @@ interface ChartFamily {
   pages: ChartOverview[];
 }
 
-type ChartSection = 'taxi' | 'procedure' | 'approach';
+type ChartSection = 'procedure' | 'approach' | 'clearance';
 
 interface D1ChartProps {
   isOpen: boolean;
@@ -42,6 +44,8 @@ interface D1ChartProps {
   procedure: string;
   arrival: boolean;
   expected?: boolean;
+  /** Set for departures from an airport with a taxi network; enables the taxi clearance section. */
+  taxiClearance?: { callsign: string; mode?: 'departure' | 'arrival'; releasePoint: string | null; stand?: string | null; runway?: string | null };
 }
 
 function normalise(value: string) {
@@ -102,18 +106,15 @@ function chartFamilies(charts: ChartOverview[], allCharts = charts) {
   }));
 }
 
-function isTaxiChart(chart: ChartOverview) {
-  const type = chart.type_key.toUpperCase();
-  const name = chart.name.toUpperCase();
-  return ['APD', 'AERODROME', 'AIRPORT', 'GND', 'GROUND', 'TAXI', 'PARKING'].includes(type)
-    || /\b(AERODROME|AIRPORT|GROUND|TAXI|APRON|PARKING|STAND)\b/.test(name);
-}
-
 function isApproachChart(chart: ChartOverview) {
   return ['APP', 'IAP', 'APPROACH', 'ILS', 'LOC', 'RNP', 'VOR', 'NDB'].includes(chart.type_key.toUpperCase());
 }
 
-export default function D1Chart({ isOpen, onClose, airport, runway, procedure, arrival, expected = false }: D1ChartProps) {
+export default function D1Chart({ isOpen, onClose, airport, runway, procedure, arrival, expected = false, taxiClearance }: D1ChartProps) {
+  const taxi = useTaxiClearance({
+    callsign: taxiClearance?.callsign ?? '', mode: taxiClearance?.mode ?? 'departure',
+    atcReleasePoint: taxiClearance?.releasePoint ?? null, stand: taxiClearance?.stand ?? null, runway: taxiClearance?.runway ?? null,
+  });
   const [chartRecords, setChartRecords] = useState<ChartOverview[]>([]);
   const [loadedChart, setLoadedChart] = useState<ChartData | null>(null);
   const [selectedSection, setSelectedSection] = useState<ChartSection>('procedure');
@@ -127,7 +128,6 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
   const validProcedure = procedure !== 'NIL' ? procedure.trim().toUpperCase() : '';
   const hasAccessToken = Boolean(getChartFoxAccessToken());
 
-  const taxiFamilies = useMemo(() => chartFamilies(chartRecords.filter(isTaxiChart), chartRecords), [chartRecords]);
   const procedureFamilies = useMemo(() => {
     const chartsForType = chartRecords.filter((chart) => chart.type_key.toUpperCase() === chartType);
     const procedureCharts = chartsForType.filter((chart) => chartMatchesProcedure(chart, validProcedure, chartType));
@@ -139,8 +139,8 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
     return chartFamilies(chartRecords.filter((chart) => isApproachChart(chart) && chartMatchesRunway(chart, runway)), chartRecords);
   }, [arrival, chartRecords, runway]);
   const activeFamilies = useMemo(() => (
-    selectedSection === 'taxi' ? taxiFamilies : selectedSection === 'approach' ? approachFamilies : procedureFamilies
-  ), [approachFamilies, procedureFamilies, selectedSection, taxiFamilies]);
+    selectedSection === 'approach' ? approachFamilies : procedureFamilies
+  ), [approachFamilies, procedureFamilies, selectedSection]);
   const selectedFamily = activeFamilies.find((family) => family.id === selectedFamilyId) ?? activeFamilies[0] ?? null;
   const currentIndex = selectedFamily ? Math.min(selectedIndex, selectedFamily.pages.length - 1) : 0;
   const selectedChartOverview = selectedFamily?.pages[currentIndex];
@@ -213,10 +213,11 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
   const chartUrl = selectedChart?.url || selectedChart?.view_url;
   const canEmbed = selectedChart && selectedChart.allows_iframe !== false && !selectedChart.requires_preauth && chartUrl;
   const loading = loadingOverview || (loadingChart && !cachedSelectedChart);
-  const sections: Array<{ id: ChartSection; label: string; description: string; count: number; Icon: LucideIcon }> = [
-    { id: 'taxi', label: 'AIRPORT / TAXI', description: 'Ground movement and apron charts', count: taxiFamilies.length, Icon: MapIcon },
+  const showClearance = selectedSection === 'clearance' && Boolean(taxiClearance);
+  const sections: Array<{ id: ChartSection; label: string; description: string; count?: number; Icon: LucideIcon }> = [
     { id: 'procedure', label: `${expected ? 'EXPECTED' : 'ASSIGNED'} ${chartType}`, description: validProcedure || 'Published procedure', count: procedureFamilies.length, Icon: Navigation },
     ...(arrival ? [{ id: 'approach' as const, label: 'APPROACH', description: runway !== 'NIL' ? `Procedures for runway ${runway}` : 'Runway-specific procedures', count: approachFamilies.length, Icon: PlaneLanding }] : []),
+    ...(taxiClearance ? [{ id: 'clearance' as const, label: 'TAXI CLEARANCE', description: taxi.mode === 'arrival' ? (taxi.route.stand ? `To stand ${taxi.route.stand.name}` : 'Draw your taxi route to the stand') : taxi.route.releasePoint ? `From ${taxi.route.releasePoint.name}` : 'Draw your cleared taxi route', Icon: Route }] : []),
   ];
   const chartContext = [validAirport || null, runway !== 'NIL' ? `runway ${runway}` : null].filter(Boolean).join(', ');
   const close = () => {
@@ -230,8 +231,9 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" onClick={close}>
       <div role="dialog" aria-modal="true" aria-labelledby="efb-chart-title" className="flex h-[92dvh] w-[98vw] max-w-[1800px] flex-col overflow-hidden rounded-xl border-2 border-[#1D293D] bg-[#011328] sm:flex-row" onClick={(event) => event.stopPropagation()}>
         <div className="flex min-h-0 min-w-0 flex-[3] flex-col border-b-[10px] border-[#1D293D] bg-[#001a2e] sm:border-r-[10px] sm:border-b-0">
+          {showClearance ? <div className="min-h-0 flex-1"><TaxiClearanceMap route={taxi.route} preliminary={taxi.preliminary} departureRunway={taxi.departureRunway} landingRunway={taxi.mode === 'arrival' ? taxi.landingRunway : null} /></div> : <>
           <div className="min-h-0 flex-1 p-3">
-            {loading ? <div className="flex h-full flex-col items-center justify-center gap-4 text-center text-[#E0E0E0]" role="status" aria-label="Loading ChartFox chart"><span className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" /><p>Loading ChartFox chart…</p></div>
+            {loading ?<div className="flex h-full flex-col items-center justify-center gap-4 text-center text-[#E0E0E0]" role="status" aria-label="Loading ChartFox chart"><span className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" /><p>Loading ChartFox chart…</p></div>
               : canEmbed ? <iframe title={selectedChart.name} src={chartUrl} className="h-full w-full border-0 bg-white" />
                 : <div className="flex h-full items-center justify-center p-8 text-center text-[#E0E0E0]"><div className="max-w-lg"><p>{hasAccessToken ? 'Select a relevant chart to display it.' : 'Connect ChartFox to display flight charts.'}</p>{selectedChart && !canEmbed && chartUrl && <a href={chartUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block border border-white px-4 py-2 font-bold text-white">OPEN IN CHARTFOX</a>}</div></div>}
           </div>
@@ -240,27 +242,31 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
             <div aria-label={`Chart page ${selectedFamily ? currentIndex + 1 : 0} of ${selectedFamily?.pages.length ?? 0}`} className="min-w-20 text-center text-sm text-white">{selectedFamily ? `${currentIndex + 1} / ${selectedFamily.pages.length}` : '—'}</div>
             <button type="button" aria-label="Next chart" disabled={!selectedFamily || currentIndex >= selectedFamily.pages.length - 1} onClick={() => setSelectedIndex(Math.min((selectedFamily?.pages.length ?? 1) - 1, currentIndex + 1))} className="flex h-[50px] w-[50px] items-center justify-center rounded-full border-[3px] border-[#1D293D] bg-white text-[28px] font-bold text-black disabled:opacity-50">→</button>
           </div>
+          </>}
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#0d2540] sm:min-w-[300px] sm:max-w-[420px]">
           <div className="efb-scroll min-h-0 flex-1 overflow-auto text-white">
             <div className="border-b border-[#58708a] bg-[#102d49] px-5 py-5">
               <p className="m-0 text-[11px] font-bold tracking-[0.18em] text-[#8ed7ec]">EFB CHARTS</p>
-              <h2 id="efb-chart-title" className="mt-1 mb-0 text-[clamp(18px,2.5vh,24px)] font-bold">{validAirport || 'CHARTS'}</h2>
-              <p className="mt-1 mb-0 text-sm text-[#c7d9e5]">{chartContext || 'Relevant charts for this flight'}</p>
+              {/* The taxi clearance view does not repeat the airport and runway. */}
+              <h2 id="efb-chart-title" className={showClearance ? 'sr-only' : 'mt-1 mb-0 text-[clamp(18px,2.5vh,24px)] font-bold'}>{validAirport || 'CHARTS'}</h2>
+              {!showClearance && <p className="mt-1 mb-0 text-sm text-[#c7d9e5]">{chartContext || 'Relevant charts for this flight'}</p>}
               {expected && <p className="mt-2 mb-0 text-sm font-bold text-[#ffcc80]">Expected from route / ATIS, not an ATC clearance. Confirm the procedure and version with ATC.</p>}
             </div>
+            {showClearance && <div className="border-b border-[#58708a]"><TaxiClearanceControls state={taxi} />{taxi.mode === 'departure' && <TaxiCommonRoutes state={taxi} runway={runway} />}</div>}
             <div className="p-5">
               <p className="m-0 text-[11px] font-bold tracking-[0.16em] text-[#8ed7ec]">CHART SECTIONS</p>
               <div className="mt-2 grid gap-2">{sections.map((section) => {
                 const isSelected = selectedSection === section.id;
-                return <button key={section.id} type="button" aria-label={`${section.label} ${section.count}`} aria-pressed={isSelected} onClick={() => { setSelectedSection(section.id); setSelectedFamilyId(null); setSelectedIndex(0); }} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border p-3 text-left transition-colors ${isSelected ? 'border-[#a9ecff] bg-[#1A475F] shadow-[inset_3px_0_0_#8ed7ec]' : 'border-[#58708a] bg-[#0a1d31] hover:border-[#8ed7ec] hover:bg-[#12314f]'}`}>
+                return <button key={section.id} type="button" aria-label={section.count === undefined ? section.label : `${section.label} ${section.count}`} aria-pressed={isSelected} onClick={() => { setSelectedSection(section.id); setSelectedFamilyId(null); setSelectedIndex(0); }} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border p-3 text-left transition-colors ${isSelected ? 'border-[#a9ecff] bg-[#1A475F] shadow-[inset_3px_0_0_#8ed7ec]' : 'border-[#58708a] bg-[#0a1d31] hover:border-[#8ed7ec] hover:bg-[#12314f]'}`}>
                   <span className={`flex h-9 w-9 items-center justify-center rounded-sm ${isSelected ? 'bg-[#8ed7ec] text-[#062039]' : 'bg-[#173a58] text-[#b7eafa]'}`}><section.Icon size={19} strokeWidth={2.2} /></span>
                   <span className="min-w-0"><span className="block text-sm font-bold">{section.label}</span><span className="mt-0.5 block truncate text-xs font-normal text-[#c7d9e5]">{section.description}</span></span>
-                  <span className="flex items-center gap-2"><span className={`min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-bold ${isSelected ? 'bg-white text-[#102d49]' : 'bg-[#254967] text-white'}`}>{section.count}</span><ChevronRight size={17} className={isSelected ? 'text-[#8ed7ec]' : 'text-[#7c9bb3]'} /></span>
+                  <span className="flex items-center gap-2">{section.count !== undefined && <span className={`min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-bold ${isSelected ? 'bg-white text-[#102d49]' : 'bg-[#254967] text-white'}`}>{section.count}</span>}<ChevronRight size={17} className={isSelected ? 'text-[#8ed7ec]' : 'text-[#7c9bb3]'} /></span>
                 </button>;
               })}</div>
             </div>
+            {showClearance ? <TaxiClearanceHelp /> : <>
             {!isChartFoxConfigured() && <p role="alert" className="mt-4 text-sm text-[#ffcc80]">ChartFox is not configured for this FlightStrips deployment.</p>}
             <div className="border-t border-[#58708a] px-5 py-4">
               <div className="flex items-baseline justify-between gap-3"><p className="m-0 text-[11px] font-bold tracking-[0.16em] text-[#8ed7ec]">{sections.find((section) => section.id === selectedSection)?.label ?? 'CHARTS'}</p><span className="shrink-0 text-xs text-[#c7d9e5]">{activeFamilies.length} available</span></div>
@@ -276,6 +282,7 @@ export default function D1Chart({ isOpen, onClose, airport, runway, procedure, a
               })}</div>
             </div>
             <div className="border-t border-[#58708a] px-5 py-4 text-xs leading-[1.5] text-[#c7d9e5]"><p className="m-0">Chart data powered by <a href="https://chartfox.org" target="_blank" rel="noreferrer" className="underline hover:text-white">ChartFox</a>. For flight simulation only; not for real-world navigation.</p><a href="https://chartfox.org/legal/privacy" target="_blank" rel="noreferrer" className="mt-2 inline-block underline hover:text-white">ChartFox privacy policy</a></div>
+            </>}
           </div>
           <button type="button" className="flex h-16 shrink-0 cursor-pointer items-center justify-center border-t-[10px] border-[#1D293D] bg-white" onClick={close}><span className="text-[clamp(14px,2vh,20px)] font-bold text-black">CLICK TO CLOSE</span></button>
         </div>

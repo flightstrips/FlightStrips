@@ -94,6 +94,8 @@ interface ApiFlight {
   stand_version?: number | null;
   stand_state?: string | null;
   stand_request_unavailable_reason?: string;
+  // Pushback release point ATC assigned on the strip (departures only).
+  release_point?: string | null;
   cleared_altitude?: number | null;
   initial_climb?: string | null;
   ctot?: string | null;
@@ -216,6 +218,53 @@ function loadArrivalPreview(): { input: ArrivalPreviewInput; onGround: boolean }
   } catch (error) {
     console.error('Unable to restore saved EFB test flight', error);
     return defaults;
+  }
+}
+
+interface DeparturePreviewInput {
+  callsign: string;
+  origin: string;
+  destination: string;
+  aircraftType: string;
+  stand: string;
+  runway: string;
+  sid: string;
+  releasePoint: string;
+  tobt: string;
+  tsat: string;
+  ctot: string;
+}
+
+const initialDeparturePreviewInput: DeparturePreviewInput = {
+  callsign: 'SAS123',
+  origin: 'EKCH',
+  destination: 'EDDF',
+  aircraftType: 'A320',
+  stand: 'A12',
+  runway: '22R',
+  sid: '',
+  releasePoint: '',
+  tobt: '',
+  tsat: '',
+  ctot: '',
+};
+
+const DEPARTURE_PREVIEW_KEY = 'efb-departure-preview';
+
+function loadDeparturePreview(): DeparturePreviewInput {
+  if (!isLocalDevelopment) return initialDeparturePreviewInput;
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(DEPARTURE_PREVIEW_KEY) ?? 'null');
+    if (!saved || typeof saved !== 'object') return initialDeparturePreviewInput;
+    const input = { ...initialDeparturePreviewInput };
+    for (const key of Object.keys(input) as (keyof DeparturePreviewInput)[]) {
+      const value = Reflect.get(saved, key);
+      if (typeof value === 'string') input[key] = value;
+    }
+    return input;
+  } catch (error) {
+    console.error('Unable to restore saved EFB test departure', error);
+    return initialDeparturePreviewInput;
   }
 }
 
@@ -408,6 +457,11 @@ export default function EFBPage() {
   const [arrivalPreviewOpen, setArrivalPreviewOpen] = useState(false);
   const [arrivalPreviewInput, setArrivalPreviewInput] = useState(savedArrivalPreview.input);
   const [arrivalPreviewError, setArrivalPreviewError] = useState<string | null>(null);
+  // Which kind of simulated flight is shown while a preview is active.
+  const [previewPhase, setPreviewPhase] = useState<'ARRIVAL' | 'DEPARTURE'>('ARRIVAL');
+  const [departurePreviewOpen, setDeparturePreviewOpen] = useState(false);
+  const [departurePreviewInput, setDeparturePreviewInput] = useState(loadDeparturePreview);
+  const [departurePreviewError, setDeparturePreviewError] = useState<string | null>(null);
   const [profile, setProfile] = useState<EfbProfile | null>(null);
   const [trainingSessions, setTrainingSessions] = useState<TrainingSession[]>([]);
   const [trainingSessionsError, setTrainingSessionsError] = useState<string | null>(null);
@@ -628,7 +682,7 @@ export default function EFBPage() {
     return () => window.clearTimeout(timer);
   }, [apiFlight, refreshFlight]);
 
-  const previewAtisAirport = arrivalPreview ? apiFlight?.destination : undefined;
+  const previewAtisAirport = arrivalPreview ? (previewPhase === 'DEPARTURE' ? apiFlight?.origin : apiFlight?.destination) : undefined;
   useEffect(() => {
     if (!previewAtisAirport) return;
     const controller = new AbortController();
@@ -754,12 +808,13 @@ export default function EFBPage() {
       pdc_requires_pilot_action: false,
       pdc_available: false,
       pdc_can_submit: false,
-      atis: arrivalPreviewRef.current && apiFlightRef.current?.destination === destination ? apiFlightRef.current.atis : null,
+      atis: arrivalPreviewRef.current && previewPhase === 'ARRIVAL' && apiFlightRef.current?.destination === destination ? apiFlightRef.current.atis : null,
       capabilities: { pdc: false, tobt_update: false, stand_reassignment: false },
     };
 
     apiFlightRef.current = preview;
     arrivalPreviewRef.current = true;
+    setPreviewPhase('ARRIVAL');
     setApiFlight(preview);
     setArrivalPreview(true);
     setArrivalPreviewOpen(false);
@@ -785,6 +840,75 @@ export default function EFBPage() {
       setActionError('Unable to save the test flight in this browser');
     }
   }, [arrivalPreviewInput, previewOnGround]);
+
+  useEffect(() => {
+    if (!isLocalDevelopment) return;
+    try {
+      window.localStorage.setItem(DEPARTURE_PREVIEW_KEY, JSON.stringify(departurePreviewInput));
+    } catch (error) {
+      console.error('Unable to save EFB test departure', error);
+    }
+  }, [departurePreviewInput]);
+
+  const updateDeparturePreviewInput = (field: keyof DeparturePreviewInput, value: string) => {
+    setDeparturePreviewInput((current) => ({ ...current, [field]: value }));
+    setDeparturePreviewError(null);
+  };
+
+  const submitDeparturePreview = (event: FormEvent) => {
+    event.preventDefault();
+    const value = (field: keyof DeparturePreviewInput) => departurePreviewInput[field].trim().toUpperCase().replace(/Z$/, '');
+    const callsign = value('callsign'), origin = value('origin'), destination = value('destination');
+    if (!callsign || !/^[A-Z]{4}$/.test(origin) || !/^[A-Z]{4}$/.test(destination)) {
+      setDeparturePreviewError('Enter a callsign and valid four-letter origin and destination ICAO codes.');
+      return;
+    }
+    if (['tobt', 'tsat', 'ctot'].some((field) => value(field as keyof DeparturePreviewInput) && !/^([01]\d|2[0-3])[0-5]\d$/.test(value(field as keyof DeparturePreviewInput)))) {
+      setDeparturePreviewError('TOBT, TSAT, and CTOT must be valid HHMM UTC times.');
+      return;
+    }
+    const keepAtis = arrivalPreviewRef.current && previewPhase === 'DEPARTURE' && apiFlightRef.current?.origin === origin;
+    const preview: ApiFlight = {
+      callsign,
+      aircraft_type: value('aircraftType') || null,
+      origin,
+      destination,
+      phase: 'DEPARTURE',
+      stand: value('stand') || null,
+      stand_state: value('stand') ? 'ASSIGNED' : null,
+      runway: value('runway') || null,
+      sid: value('sid') || null,
+      release_point: value('releasePoint') || null,
+      tobt: value('tobt') || null,
+      eobt: value('tobt') || null,
+      tsat: value('tsat') || null,
+      ctot: value('ctot') || null,
+      pdc_state: '',
+      pdc_requires_pilot_action: false,
+      pdc_available: false,
+      pdc_can_submit: false,
+      atis: keepAtis ? apiFlightRef.current?.atis ?? null : null,
+      capabilities: { pdc: false, tobt_update: false, stand_reassignment: false },
+    };
+
+    apiFlightRef.current = preview;
+    arrivalPreviewRef.current = true;
+    setPreviewPhase('DEPARTURE');
+    setApiFlight(preview);
+    setArrivalPreview(true);
+    setDeparturePreviewOpen(false);
+    setDeparturePreviewError(null);
+    setPreviewAtisError(null);
+    setPilotState('DEPARTURE');
+    setLoadState('READY');
+    setLoadError(null);
+    setFlightStale(false);
+    setOpenDialog(null);
+    setPdcStatus('NOREQ');
+    setAtisTextCurrent(preview.atis?.text.join('\n') ?? '');
+    setAtisLetterCurrent(preview.atis?.code ?? '');
+    setActionError(null);
+  };
 
   const updateArrivalPreviewInput = (field: keyof ArrivalPreviewInput, value: string) => {
     setArrivalPreviewInput((current) => ({ ...current, [field]: value }));
@@ -1202,28 +1326,82 @@ useEffect(() => {
       )}
       {isLocalDevelopment && (
         arrivalPreview ? (
-          <div role="status" aria-label="Simulated arrival preview" className="absolute top-2 right-2 z-[50] flex max-w-[70vw] items-center gap-2 bg-black/90 p-2 font-mono text-xs text-cyan-100 sm:text-sm">
+          <div role="status" aria-label={previewPhase === 'DEPARTURE' ? 'Simulated departure preview' : 'Simulated arrival preview'} className="absolute top-2 right-2 z-[50] flex max-w-[70vw] items-center gap-2 bg-black/90 p-2 font-mono text-xs text-cyan-100 sm:text-sm">
             <div className="flex min-w-0 flex-col">
-              <span className="font-bold">SIMULATED ARRIVAL — READ ONLY</span>
-              <span>{apiFlight?.callsign} · {apiFlight?.origin}–{apiFlight?.destination}{apiFlight?.aircraft_type && ` · ${apiFlight.aircraft_type}`}{apiFlight?.cleared_altitude && ` · FL${Math.round(apiFlight.cleared_altitude / 100)}`}</span>
+              <span className="font-bold">SIMULATED {previewPhase} — READ ONLY</span>
+              <span>{apiFlight?.callsign} · {apiFlight?.origin}–{apiFlight?.destination}{apiFlight?.aircraft_type && ` · ${apiFlight.aircraft_type}`}{apiFlight?.cleared_altitude && ` · FL${Math.round(apiFlight.cleared_altitude / 100)}`}{previewPhase === 'DEPARTURE' && apiFlight?.stand && ` · STAND ${apiFlight.stand}`}{previewPhase === 'DEPARTURE' && apiFlight?.release_point && ` · RP ${apiFlight.release_point}`}</span>
               {apiFlight?.route && <span className="break-words text-[10px] text-slate-300 sm:text-xs">{apiFlight.route}</span>}
             </div>
-            <label className="flex shrink-0 items-center gap-2">
-              <input type="checkbox" checked={previewOnGround} onChange={(event) => updatePreviewOnGround(event.target.checked)} />
-              On ground
-            </label>
-            <button type="button" onClick={() => setArrivalPreviewOpen(true)} className="shrink-0 border border-cyan-300 px-2 py-1 font-bold">EDIT</button>
+            {previewPhase === 'ARRIVAL' && (
+              <label className="flex shrink-0 items-center gap-2">
+                <input type="checkbox" checked={previewOnGround} onChange={(event) => updatePreviewOnGround(event.target.checked)} />
+                On ground
+              </label>
+            )}
+            <button type="button" onClick={() => (previewPhase === 'DEPARTURE' ? setDeparturePreviewOpen(true) : setArrivalPreviewOpen(true))} className="shrink-0 border border-cyan-300 px-2 py-1 font-bold">EDIT</button>
             <button type="button" onClick={exitArrivalPreview} className="shrink-0 border border-cyan-300 px-2 py-1 font-bold">EXIT PREVIEW</button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => { setArrivalPreviewError(null); setArrivalPreviewOpen(true); }}
-            className="absolute top-2 right-2 z-[50] border border-cyan-300 bg-[#011328] px-3 py-2 font-mono font-bold text-cyan-100"
-          >
-            PREVIEW ARRIVAL
-          </button>
+          <div className="absolute top-2 right-2 z-[50] flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setDeparturePreviewError(null); setDeparturePreviewOpen(true); }}
+              className="border border-cyan-300 bg-[#011328] px-3 py-2 font-mono font-bold text-cyan-100"
+            >
+              PREVIEW DEPARTURE
+            </button>
+            <button
+              type="button"
+              onClick={() => { setArrivalPreviewError(null); setArrivalPreviewOpen(true); }}
+              className="border border-cyan-300 bg-[#011328] px-3 py-2 font-mono font-bold text-cyan-100"
+            >
+              PREVIEW ARRIVAL
+            </button>
+          </div>
         )
+      )}
+      {isLocalDevelopment && departurePreviewOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4">
+          <form
+            aria-label="Simulated departure"
+            onSubmit={submitDeparturePreview}
+            className="efb-scroll max-h-[90dvh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
+          >
+            <h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate a departure</h1>
+            <p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed. The release point stands in for the one ATC sets on the strip.</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {([
+                ['callsign', 'Callsign', true],
+                ['origin', 'Origin ICAO', true],
+                ['destination', 'Destination ICAO', true],
+                ['aircraftType', 'Aircraft type', false],
+                ['stand', 'Stand', false],
+                ['releasePoint', 'Release point (ATC)', false],
+                ['runway', 'Departure runway', false],
+                ['sid', 'SID', false],
+                ['tobt', 'TOBT (HHMM UTC)', false],
+                ['tsat', 'TSAT (HHMM UTC)', false],
+                ['ctot', 'CTOT (HHMM UTC)', false],
+              ] as const).map(([field, label, required]) => (
+                <label key={field} className="flex flex-col gap-1 text-xs font-bold text-cyan-100">
+                  {label}
+                  <input
+                    aria-label={label}
+                    required={required}
+                    value={departurePreviewInput[field]}
+                    onChange={(event) => updateDeparturePreviewInput(field, event.target.value)}
+                    className="min-w-0 border border-slate-500 bg-[#000109] px-2 py-2 text-sm text-white"
+                  />
+                </label>
+              ))}
+            </div>
+            {departurePreviewError && <p role="alert" className="mt-3 text-sm font-bold text-red-300">{departurePreviewError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeparturePreviewOpen(false)} className="border border-slate-400 px-4 py-2">CANCEL</button>
+              <button type="submit" className="border border-cyan-300 bg-[#1A475F] px-4 py-2 font-bold">SHOW DEPARTURE</button>
+            </div>
+          </form>
+        </div>
       )}
       {isLocalDevelopment && arrivalPreviewOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4">
@@ -1315,6 +1493,11 @@ useEffect(() => {
         procedure={isArrival ? flightData.star : flightData.sid}
         arrival={isArrival}
         expected={isArrival && apiFlight?.arrival_guidance_expected}
+        taxiClearance={!isArrival && apiFlight?.origin?.toUpperCase() === 'EKCH'
+          ? { callsign: apiFlight.callsign, mode: 'departure', releasePoint: apiFlight.release_point ?? null, stand: apiFlight.stand ?? null, runway: flightData.assignedRunway !== 'NIL' ? flightData.assignedRunway : null }
+          : isArrival && apiFlight?.destination?.toUpperCase() === 'EKCH'
+            ? { callsign: apiFlight.callsign, mode: 'arrival', releasePoint: null, stand: apiFlight.stand ?? null, runway: flightData.arrivalRunway !== 'NIL' ? flightData.arrivalRunway : null }
+            : undefined}
       />
       <D1DownloadsDialog
         isOpen={openDialog === 'D1DOWNLOADS'}

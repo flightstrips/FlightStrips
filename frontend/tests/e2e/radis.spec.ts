@@ -76,19 +76,25 @@ test("RADIS production sessions converge through database, own-plugin commands a
     expect((await rows(request)).find(s => s.Callsign === "FIND23")?.FlightPlanEET).toBe("0130");
   });
   await test.step("pointer moves and reordering persist without ownership", async () => {
-    const drag = async (callsign: string, target: ReturnType<Page["locator"]>) => {
+    const drag = async (callsign: string, target: ReturnType<Page["locator"]>, targetFraction = 0.5) => {
       await target.hover();
-      const from = await b.getByRole("button", {name:`Move ${callsign}`,exact:true}).boundingBox(), to = await target.boundingBox();
+      const source = b.getByRole("button", {name:`Move ${callsign}`,exact:true});
+      await source.hover();
+      const from = await source.boundingBox(), to = await target.boundingBox();
       if (!from || !to) throw new Error("missing drag bounds");
       await b.mouse.move(from.x+from.width/2, from.y+from.height/2);
       await b.mouse.down(); await b.mouse.move(from.x+from.width/2+10,from.y+from.height/2,{steps:3});
-      await b.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:20}); await b.mouse.up();
+      await b.mouse.move(to.x+to.width/2,to.y+to.height*targetFraction,{steps:20}); await b.mouse.up();
     };
     for (const callsign of ["RADIS1","RADIS2"]) {
-      await drag(callsign,b.locator(".radis-runway"));
+      // Append in the bay's empty lower area. Its center can overlap the
+      // existing strip and insert the next strip before it instead.
+      await drag(callsign,b.locator(".radis-runway"),0.9);
       await expect.poll(async () => (await rows(request)).find(s => s.Callsign === callsign)?.Bay).toBe("RUNWAY");
       for (const page of [a,b]) await expect(page.locator(".radis-runway").getByTestId(`radis-strip-${callsign}`)).toBeVisible();
     }
+    await expect.poll(async () => (await rows(request)).filter(s => s.Bay === "RUNWAY").sort((a,b)=>a.Sequence-b.Sequence).map(s=>s.Callsign)).toEqual(["RADIS1","RADIS2"]);
+    for (const page of [a,b]) await expect(page.locator(".radis-runway .radis-callsign-title")).toHaveText(["RADIS1","RADIS2"]);
     await drag("RADIS2",strip(b));
     await expect.poll(async () => (await rows(request)).filter(s => s.Bay === "RUNWAY").sort((a,b)=>a.Sequence-b.Sequence).map(s=>s.Callsign)).toEqual(["RADIS2","RADIS1"]);
     await expect(other.locator(".radis-runway").getByTestId("radis-strip-RADIS1")).toBeHidden();

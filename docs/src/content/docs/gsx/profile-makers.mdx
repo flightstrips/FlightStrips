@@ -47,7 +47,8 @@ airport, and answers with an arrival stand or a departure target:
 
 - **Arriving:** the script calls `selectGate()` with the stand.
 - **Departing:** the script adds an **ATC Assigned** entry to the pushback menu,
-  a copy of your route that ends nearest the target, within 40 m.
+  a copy of your route that ends nearest the target, within 40 m and closer
+  to the assigned point than to any neighboring release point.
   - **Two facings:** where your stand has two routes ending at that point, the
     airport's facing rule for the stand picks one. Without a rule, the nearest
     route is taken.

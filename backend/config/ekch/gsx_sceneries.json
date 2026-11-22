@@ -18,7 +18,6 @@
     "Z7": { "lat": 55.624946, "lon": 12.642762 },
     "M1": { "lat": 55.626552, "lon": 12.643084 },
     "Y2": { "lat": 55.625474, "lon": 12.643360 },
-    "Y3": { "lat": 55.624820, "lon": 12.645130 },
     "P2": { "lat": 55.625231, "lon": 12.646531 },
     "P1": { "lat": 55.626093, "lon": 12.646554 },
     "Q1": { "lat": 55.625774, "lon": 12.647709 },
@@ -54,7 +53,7 @@
     "Z8": "no position: no route to it in either Simnord profile",
     "R3": "no position: no route to it in either Simnord profile",
     "S4": "no position: no route to it in either Simnord profile",
-    "Y3": "only two routes, 46 m apart (B19 in both profiles); position is one of them"
+    "Y3": "no position published: the two surveyed B19 routes end 46 m apart"
   },
   "facings": {
     "A12": { "Y1": "E" },

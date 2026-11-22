@@ -36,7 +36,7 @@ not already available.
 | Parameter | Required | Notes |
 | --- | --- | --- |
 | `callsign` | yes | Alphanumeric, up to 12 characters. Normalised to upper case. |
-| `icao` | no | 3-4 characters. Restricts the lookup to the LIVE session at that airport. |
+| `icao` | no | 3–4 characters. Restricts the lookup to the LIVE session at that airport. If omitted, the matched session supplies the airport for scenery and target lookup. |
 | `scenery` | no | Which add-on the pilot is running. Unknown or missing, the answer uses the controller's own stand name and the bare pushback point, with no scenery labels. |
 
 ```
@@ -50,14 +50,15 @@ GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
 
 // departing EKCH: a named point
 { "stand": null, "pushback": ["Z2 Face E"], "point": "Z2",
-  "target": { "lat": 55.627587, "lon": 12.632347, "heading": null, "radius_m": 40 },
-  "revision": "push:A32:Z2:Z2 Face E" }
+  "target": { "lat": 55.627587, "lon": 12.632347, "heading": null, "radius_m": 40,
+              "avoid": [{ "lat": 55.627813, "lon": 12.631736 }, ...] },
+  "revision": "push:A32:Z2:Z2 Face E:<target hash>" }
 
 // departing EKCH: a direction button (a bare taxiway)
 { "stand": null, "pushback": null, "point": "W",
   "target": { "lat": null, "lon": null, "heading": 270, "radius_m": 40,
               "avoid": [{ "lat": 55.627813, "lon": 12.631736 }, ...] },
-  "revision": "push:A32:W" }
+  "revision": "push:A32:W:<target hash>" }
 ```
 
 | Field | Departures | What it is for |
@@ -80,9 +81,9 @@ has changed.
 `revision` is the assignment itself, deliberately, not `strips.version`. A
 strip's version changes for reasons that have nothing to do with parking, and
 each of those would otherwise look like a reassignment and make the script
-re-apply what is already applied. A departure's revision holds the stand
-as well as the point, because the target depends on the stand (facing rules
-are per stand).
+re-apply what is already applied. A departure's revision depends on the stand,
+point, scenery labels and target. A change to the target configuration therefore
+invalidates the cached response even when the strip assignment stays the same.
 
 ## Arrivals and departures
 
@@ -167,14 +168,15 @@ the per-scenery mapping:
 | Field | Meaning |
 | --- | --- |
 | `release_points` | Each named point's position. Seeded from the median end position of every route to it in both EKCH Simnord profiles. |
-| `release_point_radius_m` | How far from the point a route may end. It must stay below the distance between the two closest points (Z1 and Z2, 46 m), so a stand without the assigned point is never sent to its neighbour. A test enforces this. |
+| `release_point_radius_m` | How far a route may end from its closest named point and still match it. |
 | `facings` | Gate, then point, then compass direction (`N` to `NW`), for a stand that leaves one point in two facings. It's an airport rule, so it applies to every profile. |
 | `release_points_review` | Free-text notes on points without a position or with doubtful data. Ignored by the server. |
 
 How the handler uses `target`:
 
-- **Named point:** of the stand's routes ending within `radius_m` of the
-  point, the nearest. With a `heading`, it takes the nearest of those within
+- **Named point:** the nearest route ending within `radius_m` of the assigned
+  point and closer to it than to every other named point in `avoid`. With a
+  `heading`, it takes the nearest of those within
   90° of that heading when there are any. A route is never chosen by its name
   while `target` is present. When the chosen route's name says another point,
   the pilot is shown the controller's point instead.
@@ -191,8 +193,9 @@ and reports every route whose name and end point disagree.
 ### Still to place
 
 K1, L2, L3, Z8, R3 and S4 have no route in either Simnord profile, so they
-have no position yet. Y3 has only two routes, 46 m apart, and its position is
-one of them. Both are recorded under `release_points_review`.
+have no position yet. Y3 uses label matching while the two surveyed B19
+endpoints, 46 m apart, are reconciled. These points are recorded under
+`release_points_review`.
 
 ## Gate and scenery configuration
 

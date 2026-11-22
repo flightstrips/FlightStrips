@@ -1,7 +1,7 @@
 package gsx
 
 import (
-	"math"
+	"net/http"
 	"testing"
 )
 
@@ -30,6 +30,9 @@ func TestTargetCarriesThePointPosition(t *testing.T) {
 	}
 	if target.RadiusMeters != 40 {
 		t.Fatalf("radius: got %v", target.RadiusMeters)
+	}
+	if len(target.Avoid) != 1 || target.Avoid[0] != (PointPosition{Lat: 55.626254, Lon: 12.64125}) {
+		t.Fatalf("want only the other release point in avoid, got %+v", target.Avoid)
 	}
 }
 
@@ -76,16 +79,52 @@ func TestTargetForAnUnknownPointIsNil(t *testing.T) {
 
 func TestDepartureCarriesItsTarget(t *testing.T) {
 	api := NewWebAPI(liveEKCH(), departing("D2", "S1"), targetFixture(), true)
-	response := decode(t, get(t, api, "/gsx/stand?callsign=SAS1401&icao=EKCH", nil))
-	if response.Target == nil || response.Target.Lat == nil || *response.Target.Lat != 55.62603 {
-		t.Fatalf("want S1's position, got %+v", response.Target)
+	for _, path := range []string{"/gsx/stand?callsign=SAS1401", "/gsx/stand?callsign=SAS1401&icao=EKCH"} {
+		response := decode(t, get(t, api, path, nil))
+		if response.Target == nil || response.Target.Lat == nil || *response.Target.Lat != 55.62603 {
+			t.Fatalf("%s: want S1's position, got %+v", path, response.Target)
+		}
 	}
 }
 
-// TestShippedReleasePointsStayApart pins the property the matching relies on:
-// the radius is smaller than the distance between any two points, so a stand
-// that lacks the assigned point can never be sent to its neighbour instead.
-func TestShippedReleasePointsStayApart(t *testing.T) {
+func TestTargetChangesInvalidateDepartureETag(t *testing.T) {
+	changes := []struct {
+		name   string
+		point  string
+		update func(*SceneryConfig)
+	}{
+		{"position", "Y1", func(cfg *SceneryConfig) { cfg.ReleasePoints["Y1"] = PointPosition{Lat: 55.627, Lon: 12.641} }},
+		{"radius", "Y1", func(cfg *SceneryConfig) { cfg.ReleasePointRadiusMeters = 30 }},
+		{"facing", "Y1", func(cfg *SceneryConfig) { cfg.Facings["A15"]["Y1"] = "W" }},
+		{"nearby point", "Y1", func(cfg *SceneryConfig) { delete(cfg.ReleasePoints, "S1") }},
+		{"direction avoidance", "W", func(cfg *SceneryConfig) { delete(cfg.ReleasePoints, "S1") }},
+		{"withdrawn target", "Y1", func(cfg *SceneryConfig) { delete(cfg.ReleasePoints, "Y1") }},
+	}
+	const path = "/gsx/stand?callsign=SAS1401"
+	for _, change := range changes {
+		t.Run(change.name, func(t *testing.T) {
+			api := NewWebAPI(liveEKCH(), departing("A15", change.point), targetFixture(), true)
+			original := get(t, api, path, nil)
+			etag := original.Header().Get("ETag")
+			previous := decode(t, original)
+			headers := map[string]string{"If-None-Match": etag}
+			if same := get(t, api, path, headers); same.Code != http.StatusNotModified {
+				t.Fatalf("unchanged target: want 304, got %d", same.Code)
+			}
+			change.update(api.sceneries["EKCH"])
+			updated := get(t, api, path, headers)
+			if updated.Code != http.StatusOK || updated.Header().Get("ETag") == etag {
+				t.Fatalf("changed target: want 200 and a new ETag, got %d and %q",
+					updated.Code, updated.Header().Get("ETag"))
+			}
+			if response := decode(t, updated); response.Revision == previous.Revision {
+				t.Fatalf("changed target kept the same revision %q", response.Revision)
+			}
+		})
+	}
+}
+
+func TestShippedReleasePoints(t *testing.T) {
 	cfg, err := LoadSceneryConfig("../../config/ekch/gsx_sceneries.json")
 	if err != nil || cfg == nil {
 		t.Fatalf("load shipped config: %v", err)
@@ -97,12 +136,12 @@ func TestShippedReleasePointsStayApart(t *testing.T) {
 	if radius <= 0 {
 		t.Fatal("the shipped config must set release_point_radius_m")
 	}
-	for a, pa := range cfg.ReleasePoints {
-		for b, pb := range cfg.ReleasePoints {
-			if a < b && metres(pa, pb) <= radius {
-				t.Errorf("%s and %s are %.0f m apart, inside the %.0f m radius", a, b, metres(pa, pb), radius)
-			}
-		}
+	sceneries := Sceneries{"EKCH": cfg}
+	if target := sceneries.Target("EKCH", "B19", "Y3"); target != nil {
+		t.Fatalf("Y3 needs its surveyed positions reconciled before publishing a target: %+v", target)
+	}
+	if _, labels := sceneries.Resolve("EKCH", "B19", "Simnord-Sonnich", "Y3"); len(labels) == 0 {
+		t.Fatal("B19 Y3 should still carry the mapped labels")
 	}
 	for gate, rules := range cfg.Facings {
 		for point, facing := range rules {
@@ -114,10 +153,4 @@ func TestShippedReleasePointsStayApart(t *testing.T) {
 			}
 		}
 	}
-}
-
-func metres(a, b PointPosition) float64 {
-	dLat := (a.Lat - b.Lat) * 111320
-	dLon := (a.Lon - b.Lon) * 111320 * math.Cos(a.Lat*math.Pi/180)
-	return math.Hypot(dLat, dLon)
 }

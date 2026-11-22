@@ -32,8 +32,7 @@ type SceneryConfig struct {
 	// not, so the handler picks the route ending nearest the point.
 	ReleasePoints map[string]PointPosition `json:"release_points,omitempty"`
 	// ReleasePointRadiusMeters is how far a route may end from its point and
-	// still count. It must stay below half the distance between the two
-	// closest points, or a stand without one could be sent to its neighbour.
+	// still count, provided that point is the closest.
 	ReleasePointRadiusMeters float64 `json:"release_point_radius_m,omitempty"`
 	// Facings are the airport's own rules for a point a stand can leave in two
 	// facings: gate -> point -> compass direction (N, NE, E ... NW). Operational
@@ -55,10 +54,9 @@ type Target struct {
 	Lon          *float64 `json:"lon"`
 	Heading      *float64 `json:"heading"`
 	RadiusMeters float64  `json:"radius_m"`
-	// Avoid lists the named points, for a bare direction only. A direction is
-	// how a controller assigns a bare taxiway, so a route ending at a named
-	// point (W2 facing west) is the wrong answer to "face west" when the stand
-	// also has a route that ends on the taxiway itself.
+	// Avoid lists the other named points. For a position, a route closer to
+	// any of them belongs to a different point. For a direction, the handler
+	// prefers a route ending away from all named points.
 	Avoid []PointPosition `json:"avoid,omitempty"`
 }
 
@@ -92,14 +90,7 @@ func (s Sceneries) Target(icao, gate, releasePoint string) *Target {
 	if heading, ok := compassHeadings[point]; ok {
 		target := &Target{Heading: &heading, RadiusMeters: radius}
 		if cfg != nil {
-			names := make([]string, 0, len(cfg.ReleasePoints))
-			for name := range cfg.ReleasePoints {
-				names = append(names, name)
-			}
-			sort.Strings(names) // a stable body, so the ETag stays meaningful
-			for _, name := range names {
-				target.Avoid = append(target.Avoid, cfg.ReleasePoints[name])
-			}
+			target.Avoid = cfg.otherReleasePoints("")
 		}
 		return target
 	}
@@ -111,7 +102,10 @@ func (s Sceneries) Target(icao, gate, releasePoint string) *Target {
 	if !ok {
 		return nil
 	}
-	target := &Target{Lat: &position.Lat, Lon: &position.Lon, RadiusMeters: radius}
+	target := &Target{
+		Lat: &position.Lat, Lon: &position.Lon, RadiusMeters: radius,
+		Avoid: cfg.otherReleasePoints(point),
+	}
 	if rules, ok := lookup(cfg.Facings, gate); ok {
 		if facing, ok := lookup(rules, point); ok {
 			if heading, ok := compassHeadings[normalizeKey(facing)]; ok {
@@ -120,6 +114,21 @@ func (s Sceneries) Target(icao, gate, releasePoint string) *Target {
 		}
 	}
 	return target
+}
+
+func (cfg *SceneryConfig) otherReleasePoints(point string) []PointPosition {
+	names := make([]string, 0, len(cfg.ReleasePoints))
+	for name := range cfg.ReleasePoints {
+		if point == "" || normalizeKey(name) != point {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names) // keep the target and its revision stable across polls
+	positions := make([]PointPosition, 0, len(names))
+	for _, name := range names {
+		positions = append(positions, cfg.ReleasePoints[name])
+	}
+	return positions
 }
 
 type GateScenery struct {

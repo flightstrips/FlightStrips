@@ -57,9 +57,18 @@ function Get-Body {
     if ($state.Route) {
         $point = ConvertTo-JsonString $state.Route
         $spot = $Config.release_points.($state.Route)
-        $culture = [System.Globalization.CultureInfo]::InvariantCulture
-        $target = '{"lat":' + ([double]$spot.lat).ToString($culture) + ',"lon":' + ([double]$spot.lon).ToString($culture) +
-            ',"heading":null,"radius_m":' + ([double]$Config.release_point_radius_m).ToString($culture) + '}'
+        if ($spot) {
+            $avoid = @($Config.release_points.PSObject.Properties |
+                Where-Object { $_.Name -ne $state.Route } |
+                ForEach-Object { $_.Value })
+            $target = ConvertTo-Json -Compress -Depth 4 -InputObject @{
+                lat = $spot.lat
+                lon = $spot.lon
+                heading = $null
+                radius_m = $Config.release_point_radius_m
+                avoid = $avoid
+            }
+        }
     }
     return '{"stand":null,"pushback":null,"point":' + $point + ',"target":' + $target +
         ',"revision":' + (ConvertTo-JsonString $state.Revision) + '}'

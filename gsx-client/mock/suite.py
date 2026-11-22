@@ -902,7 +902,8 @@ case("reloading into the same namespace never chains FlightStrips to itself")
 POINTS = {
     "S1": (55.626033, 12.653217), "S2": (55.625207, 12.653250),
     "Y0": (55.626680, 12.640100), "Y1": (55.626254, 12.641250),
-    "Z1": (55.627813, 12.631736), "W2": (55.624398, 12.654864),
+    "Z1": (55.627813, 12.631736), "Z2": (55.627587, 12.632347),
+    "W2": (55.624398, 12.654864),
 }
 RADIUS = 40
 COMPASS = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
@@ -932,11 +933,11 @@ class PlannedGate(CopyingGate):
                                 "wws": 2, "startEngines": 0.0} for label, pos in extras]
 
 
-def planned(routes):
+def planned(routes, src=SRC):
     """A departure under way at a made-up stand."""
     env = Env(copying=True)
     env.gate = PlannedGate(routes)
-    g = load(env)
+    g = load(env, src=src)
     h = Handler()
     g["onEnterAirport"](h)
     g["onAirportDepartureRequested"](h)
@@ -951,7 +952,8 @@ def target(point, facing=None):
                 "avoid": [{"lat": lat, "lon": lon} for lat, lon in POINTS.values()]}
     lat, lon = POINTS[point]
     return {"lat": lat, "lon": lon, "radius_m": RADIUS,
-            "heading": COMPASS[facing] if facing else None}
+            "heading": COMPASS[facing] if facing else None,
+            "avoid": [{"lat": a, "lon": b} for name, (a, b) in POINTS.items() if name != point]}
 
 
 def assign(env, g, h, point, facing=None):
@@ -1036,5 +1038,58 @@ assert assign(env, g, h, "S1") == "ATC Assigned: S1", env.gate.menu()
 entry = env.gate._addPos[-1]
 assert tuple(entry["pos"][:2]) == POINTS["S1"], entry
 case("two routes with one name: the entry goes where position chose")
+
+COINCIDENT = [("Push", at("S1", 90)), ("S2 Face S", at("S2", 180)),
+              ("Push", at("S1", 270))]
+for point, facing in (("S1", "W"), ("W", None)):
+    env, g, h = planned(COINCIDENT)
+    extra = env.gate.pushbackAddPos[0]
+    extra["approach"] = [(55.626, 12.653, 270)]
+    extra["wws"] = 1
+    env.gate.pushbackAddPos = [extra] + env.gate.pushbackAddPos[1:]
+    # Force a fresh snapshot of the configured route on this stand.
+    h._standGateSnapshot = None
+    assign(env, g, h, point, facing)
+    entry = env.gate.pushbackAddPos[-1]
+    assert entry["pos"] == at("S1", 270), entry
+    assert entry["approach"] == extra["approach"] and entry["wws"] == 1, entry
+case("duplicate names and endpoints preserve the slot, heading, approach and settings")
+
+OVERLAP = [("Z1", (55.62762638, 12.63224052, 270)), ("S2 Face S", at("S2", 180))]
+env, g, h = planned(OVERLAP)
+assert assign(env, g, h, "Z1") == "ATC Assigned", env.gate.menu()
+assert said() == ["ATC assigned Z1 - no route to it from this stand"]
+assert assign(env, g, h, "Z2") == "ATC Assigned: Z2", env.gate.menu()
+case("a route in two matching radii belongs only to the nearer point")
+
+for src in (MARK_ONLY, NARROW_ONLY):
+    env, g, h = planned(EXACT, src=src)
+    original = env.gate.menu()
+    assign(env, g, h, "S2")
+    assert env.gate.menu() != original, env.gate.menu()
+    assign(env, g, h, "S1")
+    assert env.gate.menu() == original, env.gate.menu()
+    assert said() == ["ATC assigned S1 - no route to it from this stand"]
+case("geometry rejection clears the previous mark and never marks an exact-name match")
+
+env, g, h = planned([("Push", at("S1", 90)), ("Push", at("S1", 270))], src=MARK_ONLY)
+assign(env, g, h, "S1", facing="W")
+assert env.gate.pushbackLabels == ("Push", "ATC Assigned"), env.gate.pushbackLabels
+assert g["_standPushbackMarked"](h, ["Push"])
+env, g, h = planned(COINCIDENT, src=NARROW_ONLY)
+assign(env, g, h, "S1", facing="W")
+assert env.gate.pushback == 0 and len(env.gate.pushbackAddPos) == 1, env.gate.menu()
+assert env.gate.pushbackAddPos[0]["pos"] == at("S1", 270)
+case("marking and narrowing use the selected slot for coincident routes")
+
+env, g, h = planned([("Push", at("S1", 90)), ("Push", at("S1", 270))], src=NARROW_ONLY)
+assign(env, g, h, "S1", facing="W")
+assert env.gate.pushback == 2, env.gate.menu()
+env.state = 5
+g["_standCheck"](h)
+assign(env, g, h, "S1", facing="E")
+assert env.gate.pushbackRightPos == at("S1", 90)
+assert any("your push now goes there" in message for message in said())
+case("after narrowing, a same-label reassignment redirects the slot offered")
 
 print("\nall passed")

@@ -17,8 +17,10 @@ package gsx
 import (
 	"FlightStrips/internal/models"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -123,7 +125,7 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 	if assigned != nil {
 		// The stand is needed either way: for an arrival it is the answer, and
 		// for a departure it is what decides which pushback routes exist.
-		stand, pushback := a.sceneries.Resolve(airport, assigned.stand, scenery, assigned.releasePoint)
+		stand, pushback := a.sceneries.Resolve(assigned.airport, assigned.stand, scenery, assigned.releasePoint)
 
 		if assigned.departure {
 			// Leaving. Never move an aircraft that is already parked and
@@ -137,13 +139,21 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 			if assigned.releasePoint != "" {
 				point := assigned.releasePoint
 				response.Point = &point
-				response.Target = a.sceneries.Target(airport, assigned.stand, point)
+				response.Target = a.sceneries.Target(assigned.airport, assigned.stand, point)
 				response.Pushback = pushback
 				// The stand is in the revision because the target depends on
 				// it (facing rules are per stand), even when nothing else does.
 				response.Revision = "push:" + assigned.stand + ":" + point
 				if len(pushback) > 0 {
 					response.Revision += ":" + strings.Join(pushback, "|")
+				}
+				if response.Target != nil {
+					targetJSON, err := json.Marshal(response.Target)
+					if err != nil {
+						writeJSONError(w, http.StatusInternalServerError, "invalid pushback target")
+						return
+					}
+					response.Revision += fmt.Sprintf(":%x", sha256.Sum256(targetJSON))
 				}
 			}
 		} else {
@@ -175,6 +185,7 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 // point is how departing traffic leaves the stand it is already on. Which one
 // applies is decided here, not by the script.
 type assignment struct {
+	airport      string
 	stand        string
 	releasePoint string
 	departure    bool
@@ -218,7 +229,10 @@ func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*as
 		}
 		// Same rule the PDC lookup uses: a strip whose origin is this airport
 		// is leaving it.
-		found := assignment{stand: stand, departure: strings.EqualFold(strip.Origin, session.Airport)}
+		found := assignment{
+			airport: session.Airport, stand: stand,
+			departure: strings.EqualFold(strip.Origin, session.Airport),
+		}
 		if strip.ReleasePoint != nil {
 			found.releasePoint = strings.TrimSpace(*strip.ReleasePoint)
 		}

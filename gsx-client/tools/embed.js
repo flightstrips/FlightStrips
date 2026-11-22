@@ -63,9 +63,9 @@ const inside = begin >= 0 ? text.slice(begin, text.indexOf(END, begin) >>> 0) : 
 const setting = (name, flag, fallback) => {
   const given = option(flag);
   if (given !== undefined) return given;
-  const line = inside.match(new RegExp(`^(?:${PREFIX})?${name}\\s*=.*$`, "m"));
+  const line = inside.match(new RegExp(`^(?:${PREFIX})?${name}\\s*=(.*)$`, "m"));
   if (!line) return fallback;
-  const kept = line[0].match(/=\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*(?:#.*)?$/);
+  const kept = line[1].match(/^\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*(?:#.*)?$/);
   if (!kept) fail(`cannot read ${name} in ${target}: ${line[0].trim()}\nfix that line, or pass ${flag}`);
   return kept[1] !== undefined ? kept[1] : kept[2];
 };

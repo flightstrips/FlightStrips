@@ -614,13 +614,17 @@ namespace FlightStrips::messages {
             return;
         }
 
-        const bool wasTracking = fp.GetTrackingControllerIsMe();
-        if (!wasTracking) {
+        const auto existing = m_pendingHandovers.find(event.callsign);
+        const bool wasTracking = existing != m_pendingHandovers.end()
+            ? existing->second.wasTracking
+            : fp.GetTrackingControllerIsMe();
+
+        if (!fp.GetTrackingControllerIsMe()) {
             if (!fp.StartTracking()) {
                 Logger::Warning("Failed to start tracking {} for coordination_handover", event.callsign);
                 return;
             }
-            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, false};
+            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, wasTracking};
             return;
         }
 
@@ -628,7 +632,7 @@ namespace FlightStrips::messages {
             m_pendingHandovers.erase(event.callsign);
         } else {
             Logger::Warning("Failed to initiate handoff for {} to {}, queuing retry", event.callsign, event.target_callsign);
-            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, true};
+            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, wasTracking};
         }
     }
 

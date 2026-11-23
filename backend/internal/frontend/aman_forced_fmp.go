@@ -151,15 +151,37 @@ func (hub *Hub) SetAMANForcedFMPStore(store aman.ForcedFMPStore) {
 	}
 }
 
-// storedForcedFMPStillValid keeps a stored grant only while its holder is
-// logged on and no FMP is. These are the conditions whose change would have
-// revoked the grant had the process been running.
+// controllerRecordID returns the ID of the logged-on, non-observer controller
+// record for callsign, or 0 when there is none.
+func (hub *Hub) controllerRecordID(ctx context.Context, session int32, callsign string) (int32, error) {
+	if hub.server == nil || hub.server.GetControllerRepository() == nil {
+		return 0, errControllerPresenceUnavailable
+	}
+	controllers, err := hub.server.GetControllerRepository().ListBySession(ctx, session)
+	if err != nil {
+		return 0, errControllerPresenceUnavailable
+	}
+	for _, controller := range controllers {
+		if controller != nil && !controller.Observer && sameCallsign(controller.Callsign, callsign) {
+			return controller.ID, nil
+		}
+	}
+	return 0, nil
+}
+
+// storedForcedFMPStillValid keeps a stored grant only while the same logon
+// that forced it is still active and no FMP is online. Logging off deletes
+// the controller record, so a matching record ID rules out a revocation
+// that happened while the grant's delete was failing.
 func (hub *Hub) storedForcedFMPStillValid(ctx context.Context, grant aman.ForcedFMPGrant) (bool, error) {
-	online, err := hub.onlineControllerCallsigns(ctx, grant.SessionID)
+	if grant.ControllerID == 0 {
+		return false, nil
+	}
+	id, err := hub.controllerRecordID(ctx, grant.SessionID, grant.Callsign)
 	if err != nil {
 		return false, err
 	}
-	if !online[strings.ToUpper(strings.TrimSpace(grant.Callsign))] {
+	if id != grant.ControllerID {
 		return false, nil
 	}
 	fmpOnline, err := hub.fmpOnline(ctx, grant.SessionID)
@@ -243,6 +265,8 @@ func (hub *Hub) sendAMANFMPAuthority(ctx context.Context, client *Client) {
 	client.Enqueue(hub.amanFMPAuthorityEvent(ctx, client, fmpOnline, err == nil))
 	if err != nil {
 		hub.retryAMANFMPAuthority(client.session)
+	} else {
+		hub.amanAuthorityRefresh.presenceRecovered(client.session)
 	}
 }
 
@@ -433,6 +457,11 @@ func handleAMANForceFMP(ctx context.Context, client *Client, message Message) er
 	}
 	previous, hadPrevious := hub.forcedFMP.get(ctx, identity.session)
 	grant := aman.ForcedFMPGrant{SessionID: identity.session, Airport: identity.airport, Callsign: strings.TrimSpace(identity.callsign), CID: client.GetCid(), GrantedAt: auth.ReceivedAt}
+	// Without a controller record the grant still works now but is not
+	// restored after a restart (ControllerID 0 fails validation).
+	if id, err := hub.controllerRecordID(ctx, identity.session, grant.Callsign); err == nil {
+		grant.ControllerID = id
+	}
 	if err := hub.forcedFMP.set(ctx, grant); err != nil {
 		slog.ErrorContext(ctx, "Failed to store forced FMP grant", slog.Any("error", err))
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorDependencyUnavailable, Message: "FORCE FMP could not be saved"})

@@ -108,11 +108,48 @@ func TestRestartDoesNotRestoreARevokedGrantWhoseDeleteFailed(t *testing.T) {
 	require.NotContains(t, store.grants, forcedFMPTestSession, "the stale row is deleted")
 }
 
+func TestRestartDoesNotRestoreGrantAfterHolderLogsOffAndOnAgain(t *testing.T) {
+	store := &failingClearStore{memoryForcedFMPStore: memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{}}}
+	online := []*internalModels.Controller{{ID: 7, Session: forcedFMPTestSession, Callsign: "EKCH_W_APP"}}
+	hub, holder, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	hub.SetAMANForcedFMPStore(store)
+	sendForcedFMP(t, hub, holder, frontendEvents.AMANForceFMPType)
+	require.Equal(t, int32(7), store.grants[forcedFMPTestSession].ControllerID)
+
+	// 1. The holder logs off and the delete fails.
+	store.failClear = true
+	online = nil
+	hub.resetForcedFMPOnControllerOffline(forcedFMPTestSession, "EKCH_W_APP")
+	// 2. The holder logs on again (a new controller record) while deletes still fail.
+	online = []*internalModels.Controller{{ID: 8, Session: forcedFMPTestSession, Callsign: "EKCH_W_APP"}}
+	require.False(t, hub.hasAMANFMPAuthority(holder))
+	require.Contains(t, store.grants, forcedFMPTestSession)
+	// 3. The backend restarts before a delete succeeds.
+	restarted, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	restarted.SetAMANForcedFMPStore(store)
+
+	require.False(t, restarted.hasAMANFMPAuthority(client), "a grant from an earlier logon is never restored")
+}
+
+func TestInitialLookupSuccessResetsRetryBudget(t *testing.T) {
+	online := []*internalModels.Controller{}
+	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	for range authorityRetryMaxAttempts {
+		hub.amanAuthorityRefresh.reserveRetry(forcedFMPTestSession)
+		hub.amanAuthorityRefresh.finishRetry(forcedFMPTestSession)
+	}
+	require.False(t, hub.amanAuthorityRefresh.reserveRetry(forcedFMPTestSession), "budget exhausted")
+
+	hub.sendAMANFMPAuthority(context.Background(), client)
+
+	require.True(t, hub.amanAuthorityRefresh.reserveRetry(forcedFMPTestSession), "a successful initial lookup resets the budget")
+}
+
 func TestRestartDropsStoredGrantWhileFMPOnline(t *testing.T) {
 	store := &memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{
-		forcedFMPTestSession: {SessionID: forcedFMPTestSession, Airport: "EKCH", Callsign: "EKCH_W_APP", CID: "1234567"},
+		forcedFMPTestSession: {SessionID: forcedFMPTestSession, Airport: "EKCH", Callsign: "EKCH_W_APP", CID: "1234567", ControllerID: 7},
 	}}
-	online := []*internalModels.Controller{{Callsign: "EKCH_W_APP"}, {Callsign: "EKDK_FMP", Position: "131.040"}}
+	online := []*internalModels.Controller{{ID: 7, Callsign: "EKCH_W_APP"}, {ID: 9, Callsign: "EKDK_FMP", Position: "131.040"}}
 	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
 	hub.SetAMANForcedFMPStore(store)
 
@@ -122,7 +159,7 @@ func TestRestartDropsStoredGrantWhileFMPOnline(t *testing.T) {
 
 func TestStoredGrantNotUsedWhilePresenceUnknown(t *testing.T) {
 	store := &memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{
-		forcedFMPTestSession: {SessionID: forcedFMPTestSession, Airport: "EKCH", Callsign: "EKCH_W_APP", CID: "1234567"},
+		forcedFMPTestSession: {SessionID: forcedFMPTestSession, Airport: "EKCH", Callsign: "EKCH_W_APP", CID: "1234567", ControllerID: 7},
 	}}
 	online := []*internalModels.Controller{}
 	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)

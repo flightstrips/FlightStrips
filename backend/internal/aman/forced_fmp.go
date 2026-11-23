@@ -13,6 +13,11 @@ type ForcedFMPGrant struct {
 	Callsign  string
 	CID       string
 	GrantedAt time.Time
+	// ControllerID is the holder's controller record at the time of the
+	// grant. Logging off deletes that record, so a stored grant whose ID no
+	// longer matches belongs to an earlier logon and was revoked. Zero means
+	// unknown and never survives a restart.
+	ControllerID int32
 }
 
 // ForcedFMPStore persists the single forced FMP grant of each session so it

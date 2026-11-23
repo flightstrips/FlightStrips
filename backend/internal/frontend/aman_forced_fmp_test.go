@@ -42,7 +42,7 @@ func newForcedFMPTestHub(t *testing.T, callsign string, online *[]*internalModel
 	service := &recordingAMANCommandService{}
 	hub, client := newAMANCommandTestClient(service, time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC))
 	hub.amanRoleForPosition = func(string) string { return "" }
-	hub.amanAuthorityRefresh = make(chan int32, 16)
+	hub.amanAuthorityRefresh = newSessionRefreshQueue()
 	hub.forcedFMP = newForcedFMPRegistry()
 	hub.server = &testutil.MockServer{ControllerRepoVal: &testutil.MockControllerRepository{
 		ListBySessionFn: func(context.Context, int32) ([]*internalModels.Controller, error) { return *online, nil },
@@ -101,7 +101,7 @@ func TestForceFMPGivesApproachControllerFMPAuthority(t *testing.T) {
 
 	sendForcedFMP(t, hub, client, frontendEvents.AMANForceFMPType)
 	require.True(t, hub.hasAMANFMPAuthority(client))
-	require.Equal(t, forcedFMPTestSession, <-hub.amanAuthorityRefresh)
+	require.Equal(t, []int32{forcedFMPTestSession}, hub.amanAuthorityRefresh.drain())
 
 	swapAs(t, hub, client)
 	require.Equal(t, "swap", service.operation)
@@ -133,7 +133,7 @@ func TestForceFMPRejectedWhileFMPOnline(t *testing.T) {
 
 	require.Equal(t, string(aman.ErrorInvalidTransition), lastRejection(t, client).Data.Code)
 	require.False(t, hub.hasAMANFMPAuthority(client))
-	event := hub.amanFMPAuthorityEvent(context.Background(), client, true)
+	event := hub.amanFMPAuthorityEvent(context.Background(), client, true, true)
 	require.False(t, event.Data.CanForce)
 	require.True(t, event.Data.FMPOnline)
 }
@@ -149,7 +149,7 @@ func TestForceFMPCanBeTakenOverByAnotherController(t *testing.T) {
 
 	require.False(t, hub.hasAMANFMPAuthority(first), "only one controller holds forced FMP")
 	require.True(t, hub.hasAMANFMPAuthority(second))
-	holder := hub.amanFMPAuthorityEvent(context.Background(), first, false).Data
+	holder := hub.amanFMPAuthorityEvent(context.Background(), first, false, true).Data
 	require.Equal(t, "EKDK_V_CTR", *holder.ForcedHolder)
 	require.True(t, holder.CanForce, "the previous holder can take it back")
 }

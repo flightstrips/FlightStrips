@@ -88,6 +88,20 @@ describe("FORCE FMP", () => {
     expect(onForceFMP).toHaveBeenCalledWith(true);
   });
 
+  it("closes an open release confirmation when someone else takes FMP", () => {
+    const onForceFMP = vi.fn();
+    const header = (forcedFMP: AMANFMPAuthority) => <AMANSettingsHeader connectionState="connected" forcedFMP={forcedFMP} hasFMPAuthority={forcedFMP.has_fmp_authority} onForceFMP={onForceFMP} onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} presentationStatus="ready" readOnly={false} selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />;
+    const {rerender} = render(header(status({has_fmp_authority: true, forced: true, forced_holder: "EKCH_W_APP", can_force: false})));
+    fireEvent.click(forceButton());
+    expect(screen.getByRole("button", {name: "Release FORCE FMP"})).toBeInTheDocument();
+
+    rerender(header(status({forced_holder: "EKDK_V_CTR"})));
+
+    expect(screen.queryByRole("button", {name: "Release FORCE FMP"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Confirm FORCE FMP"})).not.toBeInTheDocument();
+    expect(onForceFMP).not.toHaveBeenCalled();
+  });
+
   it("is hidden until the server reports FMP authority", () => {
     renderHeader(null);
 

@@ -312,6 +312,10 @@ export default function AMAN() {
               setSwapOpen(true);
             }} type="button">Swap sequence</button>
             {swapBlockReason && <p className="px-3 pb-2 text-[10px] font-normal leading-snug" id="aman-swap-menu-reason" role="status">Swap unavailable: {swapBlockReason}</p>}
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={sequenceBlockReason !== null || dialogFlight === null || dialogFlight.freeze_reason === "tma" || Object.values(pendingCommands).some(command => command.callsign === dialogCallsign && (command.type === "aman.lock_flight" || command.type === "aman.unlock_flight"))} onClick={() => {
+              if (dialogFlight) sendCommand({type: dialogFlight.freeze_reason === "manual" ? "aman.unlock_flight" : "aman.lock_flight", callsign: dialogFlight.callsign});
+              setFlightActionsOpen(false);
+            }} type="button">{dialogFlight?.freeze_reason === "manual" ? "Release manual freeze" : "Apply manual freeze"}</button>
             <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => {
               setFlightActionsOpen(false);
               setCoordinationOpen(true);

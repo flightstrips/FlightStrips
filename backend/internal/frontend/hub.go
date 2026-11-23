@@ -89,7 +89,7 @@ type Hub struct {
 	sessionSynced chan int32
 	amanRefresh   chan string
 	// amanAuthorityRefresh carries sessions whose FMP authority changed.
-	amanAuthorityRefresh chan int32
+	amanAuthorityRefresh *sessionRefreshQueue
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 
@@ -224,7 +224,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		cidDisconnect:         make(chan cidDisconnectMessage),
 		sessionSynced:         make(chan int32),
 		amanRefresh:           make(chan string, 16),
-		amanAuthorityRefresh:  make(chan int32, 16),
+		amanAuthorityRefresh:  newSessionRefreshQueue(),
 		forcedFMP:             newForcedFMPRegistry(),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
@@ -2026,8 +2026,10 @@ func (hub *Hub) Run(ctx context.Context) {
 			hub.handlePluginMembershipDisconnected(msg)
 		case session := <-hub.sessionSynced:
 			hub.handleSessionSynced(session)
-		case session := <-hub.amanAuthorityRefresh:
-			hub.publishAMANFMPAuthority(ctx, session)
+		case <-hub.amanAuthorityRefresh.wake():
+			for _, session := range hub.amanAuthorityRefresh.drain() {
+				hub.publishAMANFMPAuthority(ctx, session)
+			}
 		case airport := <-hub.amanRefresh:
 			for client := range hub.clients {
 				if client.airport == airport {

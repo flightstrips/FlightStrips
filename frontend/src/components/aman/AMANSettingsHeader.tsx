@@ -66,7 +66,9 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   const [maestroAnchor, setMaestroAnchor] = useState<DOMRect | null>(null);
   const [dseqOpen, setDseqOpen] = useState(false);
   const [releaseOpen, setReleaseOpen] = useState(false);
-  const [forceFMPOpen, setForceFMPOpen] = useState(false);
+  // The operation chosen when the FORCE FMP dialog opened, so a holder change
+  // while it is open can never turn a release into a takeover.
+  const [forceFMPRequest, setForceFMPRequest] = useState<{release: boolean; holder: string | null} | null>(null);
   const [runwayIDs, setRunwayIDs] = useState<string[]>([]);
   const [rateValues, setRateValues] = useState<Record<string, number>>({});
   const [rateBaseMs, setRateBaseMs] = useState(() => Date.now());
@@ -166,6 +168,9 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
   }, [blocked, commandRejections, onCommand, pendingCommands, rateCommandQueue, state.revision]);
   const forcedByMe = forcedFMP?.forced === true;
   const forceFMPHolder = forcedFMP?.forced_holder ?? null;
+  // A request whose holder or role has since changed is stale and closes.
+  const forceFMPOpen = forceFMPRequest !== null && forceFMPRequest.release === forcedByMe && forceFMPRequest.holder === forceFMPHolder;
+  const releasing = forceFMPRequest?.release === true;
   // A real FMP is green but cannot release; a gray button works only when
   // the server says this controller may force FMP now.
   const forceFMPDisabled = forcedFMP === null || forceFMPPending || readOnly
@@ -235,7 +240,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
         })}
         <button aria-haspopup="dialog" className="aman-settings-button ml-1 bg-[#d6d6d6] text-black" onClick={() => setDseqOpen(true)} type="button">DSEQ · {desequenced}</button>
         {forcedFMP !== null && <>
-          <button aria-haspopup="dialog" aria-pressed={hasFMPAuthority} className={cn("aman-settings-button ml-1 px-2 disabled:cursor-not-allowed", hasFMPAuthority ? "border-white bg-[#2f9a46] text-white" : "bg-[#d6d6d6] text-black", forceFMPDisabled && !hasFMPAuthority && "opacity-60")} disabled={forceFMPDisabled} onClick={() => setForceFMPOpen(true)} title={forceFMPTitle} type="button">FORCE FMP</button>
+          <button aria-haspopup="dialog" aria-pressed={hasFMPAuthority} className={cn("aman-settings-button ml-1 px-2 disabled:cursor-not-allowed", hasFMPAuthority ? "border-white bg-[#2f9a46] text-white" : "bg-[#d6d6d6] text-black", forceFMPDisabled && !hasFMPAuthority && "opacity-60")} disabled={forceFMPDisabled} onClick={() => setForceFMPRequest({release: forcedByMe, holder: forceFMPHolder})} title={forceFMPTitle} type="button">FORCE FMP</button>
           {forceFMPHolder !== null && !forcedByMe && <span className="self-center whitespace-nowrap px-1 font-mono text-[0.68rem] font-bold text-white" title={`${forceFMPHolder} holds FORCE FMP`}>FMP: {forceFMPHolder}</span>}
           {forceFMPRejection !== null && <span className="self-center truncate px-1 text-[0.68rem] font-semibold text-amber-200" role="alert">{forceFMPRejection}</span>}
         </>}
@@ -246,11 +251,11 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
             : <span className={cn("flex items-center px-2 font-mono text-[0.68rem] font-bold", stateCues.length > 0 ? "border border-amber-200 bg-[#3f3f3f] text-amber-100" : "text-white")}>{stateCues.join(" · ") || "✓ READY"}</span>}
         </div>
       </div>
-      <Dialog onOpenChange={setForceFMPOpen} open={forceFMPOpen}>
+      <Dialog onOpenChange={(open) => { if (!open) setForceFMPRequest(null); }} open={forceFMPOpen}>
         <DialogContent className="w-[min(22rem,calc(100vw-2rem))] max-w-none gap-0 rounded-md border-2 border-[#5174b8] bg-[#505052] p-0 font-display text-white [&>button]:hidden">
-          <DialogTitle className={designTitleClass}>{forcedByMe ? "Release FMP" : "Force FMP"}</DialogTitle>
+          <DialogTitle className={designTitleClass}>{releasing ? "Release FMP" : "Force FMP"}</DialogTitle>
           <div className="grid gap-2 px-4 py-3 text-sm">
-            {forcedByMe
+            {releasing
               ? <p>Are you sure you want to release FORCE FMP? AMAN will have no FMP until someone forces FMP or an FMP logs on.</p>
               : <>
                 <p>Are you sure you want to force FMP? You will be able to sequence flights like the FMP until you release it, you log off, or an FMP logs on.</p>
@@ -258,7 +263,7 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
               </>}
           </div>
           <div className="grid grid-cols-2 gap-2 px-4 pb-3 pt-1">
-            <button aria-label={forcedByMe ? "Release FORCE FMP" : "Confirm FORCE FMP"} className="h-7 rounded-sm bg-[#d6d6d6] font-bold text-black hover:bg-[#a3d5e8] disabled:opacity-50" disabled={forceFMPDisabled} onClick={() => { onForceFMP?.(!forcedByMe); setForceFMPOpen(false); }} type="button">YES</button>
+            <button aria-label={releasing ? "Release FORCE FMP" : "Confirm FORCE FMP"} className="h-7 rounded-sm bg-[#d6d6d6] font-bold text-black hover:bg-[#a3d5e8] disabled:opacity-50" disabled={forceFMPDisabled} onClick={() => { onForceFMP?.(!releasing); setForceFMPRequest(null); }} type="button">YES</button>
             <DialogClose aria-label="Cancel" className="h-7 rounded-sm bg-[#d6d6d6] text-center font-bold text-black hover:bg-[#a3d5e8]">NO</DialogClose>
           </div>
         </DialogContent>

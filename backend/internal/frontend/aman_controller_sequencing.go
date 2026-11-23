@@ -128,21 +128,24 @@ func availableSTARFamilies(state events.AMANState) map[string]bool {
 	return families
 }
 
-func (hub *Hub) onlineControllerCallsigns(ctx context.Context, session int32) map[string]bool {
+// onlineControllerCallsigns lists logged-on non-observer controllers. A
+// failed lookup is an error, never "everyone is offline", because offline
+// neighbours widen a controller's STAR families.
+func (hub *Hub) onlineControllerCallsigns(ctx context.Context, session int32) (map[string]bool, error) {
 	online := map[string]bool{}
 	if hub.server == nil || hub.server.GetControllerRepository() == nil {
-		return online
+		return nil, errControllerPresenceUnavailable
 	}
 	controllers, err := hub.server.GetControllerRepository().ListBySession(ctx, session)
 	if err != nil {
-		return online
+		return nil, fmt.Errorf("%w: %v", errControllerPresenceUnavailable, err)
 	}
 	for _, controller := range controllers {
 		if controller != nil && !controller.Observer {
 			online[strings.ToUpper(strings.TrimSpace(controller.Callsign))] = true
 		}
 	}
-	return online
+	return online, nil
 }
 
 var errNoSequencingState = errors.New("AMAN state is unavailable for controller sequencing")
@@ -159,7 +162,11 @@ func (hub *Hub) authorizeControllerSequencing(ctx context.Context, identity clie
 		return fmt.Errorf("%w: %v", errNoSequencingState, err)
 	}
 	position := hub.amanRoleForIdentity(identity)
-	families := controllerSequencingFamilies(position, hub.onlineControllerCallsigns(ctx, identity.session), availableSTARFamilies(event.Data))
+	online, err := hub.onlineControllerCallsigns(ctx, identity.session)
+	if err != nil {
+		return err
+	}
+	families := controllerSequencingFamilies(position, online, availableSTARFamilies(event.Data))
 	if len(families) == 0 {
 		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: fmt.Sprintf("%s has no STAR families to sequence; FMP authority is required", position)}
 	}

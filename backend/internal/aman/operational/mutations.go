@@ -101,6 +101,10 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		if !s.runwayAssignmentCompatible(flight, command.RunwayGroupID) {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not compatible with the flight's arrival"}
 		}
+		// Controllers may reorder their own flights but runway choice stays FMP-only.
+		if (flight.SelectedRunwayGroup == nil || *flight.SelectedRunwayGroup != command.RunwayGroupID) && !auth.HasFMPAuthority() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "changing runway requires FMP authority"}
+		}
 		for _, closure := range state.RunwayGroups[groupIndex].Closures {
 			if !command.SlotTime.Before(closure.Start) && (closure.End == nil || command.SlotTime.Before(*closure.End)) {
 				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "manual placement cannot use runway closure capacity"}

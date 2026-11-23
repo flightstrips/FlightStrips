@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {defaultACCFamilies} from "./aman-default-families";
+import {defaultACCFamilies, sequencingACCFamilies} from "./aman-default-families";
 
 const ALL = new Set(["TESPI", "TUDLO", "MONAK", "TIDVU", "ERNOV"]);
 const online = (...callsigns: string[]) => callsigns.map((callsign) => ({callsign}));
@@ -42,5 +42,13 @@ describe("defaultACCFamilies", () => {
     expect(sorted(defaultACCFamilies("EKCH_O_APP", [], ALL))).toEqual(["MONAK", "TIDVU"]);
     expect(defaultACCFamilies("EKCH_P1_APP", [], ALL)).toEqual([]);
     expect(defaultACCFamilies("EKCH_TWR", [], ALL)).toEqual([]);
+  });
+});
+
+describe("sequencingACCFamilies", () => {
+  it("gives the combined approach every family and others nothing beyond their ACC default", () => {
+    expect([...sequencingACCFamilies("EKCH_P_APP", [], ALL)].sort()).toEqual([...ALL].sort());
+    expect([...sequencingACCFamilies("EKCH_W_APP", [], ALL)].sort()).toEqual(["ERNOV", "TESPI", "TUDLO"]);
+    expect(sequencingACCFamilies("EKCH_TWR", [], ALL).size).toBe(0);
   });
 });

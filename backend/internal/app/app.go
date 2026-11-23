@@ -399,6 +399,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if amanCoordination != nil {
 		amanCoordination.SetClearanceNotifier(frontendHub.RefreshAMANCoordination)
 	}
+	if amanRuntime.Enabled() {
+		frontendHub.SetAMANForcedFMPStore(postgres.NewAMANForcedFMPStore(dbpool))
+	}
 	euroscopeHub := realtime.euroscope
 	euroscopeHub.SetAirportRegistry(cfg.Airports)
 	euroscopeHub.SetWorkflowRegistry(workflows)

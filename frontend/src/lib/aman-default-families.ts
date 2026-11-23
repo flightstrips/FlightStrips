@@ -83,3 +83,17 @@ export function defaultACCFamilies(
 
   return [...selected].filter((family) => availableFamilies.has(family));
 }
+
+/**
+ * STAR families a controller without FMP authority may sequence from the ACC
+ * view. Unlike defaultACCFamilies, an empty result means none. The backend
+ * enforces the same rule in aman_controller_sequencing.go.
+ */
+export function sequencingACCFamilies(
+  position: string,
+  controllers: readonly AMANOnlineController[],
+  availableFamilies: ReadonlySet<string>,
+): Set<string> {
+  if (ALL_EKCH_APPROACH.has(position.trim().toUpperCase())) return new Set(availableFamilies);
+  return new Set(defaultACCFamilies(position, controllers, availableFamilies));
+}

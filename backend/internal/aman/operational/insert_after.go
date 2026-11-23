@@ -9,8 +9,8 @@ import (
 )
 
 func (s *Service) InsertFlightAfter(ctx context.Context, auth aman.CommandContext, command aman.InsertFlightAfterCommand) (sequence.CommandMutation, error) {
-	if err := s.authorizeFlightDisposition(auth); err != nil {
-		return nil, err
+	if !auth.CanChangeSequenceOrder() {
+		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "inserting a flight requires FMP authority or the flight's STAR family"}
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		index, anchorIndex := flightIndex(state.Flights, command.Callsign), flightIndex(state.Flights, command.AfterCallsign)

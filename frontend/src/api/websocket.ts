@@ -49,7 +49,7 @@ import { FRONTEND_VERSION } from "@/lib/app-version";
 import {ConnectionRecovery, type ConnectionPhase} from "./connection-recovery";
 export type {ConnectionPhase} from "./connection-recovery";
 import type {InboundDeparturesEvent} from "./inbound-departures";
-import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANStateEvent} from "./aman";
+import type {AMANArrivalSequenceRebuiltEvent, AMANCommandRejectedEvent, AMANCoordinationStateEvent, AMANFMPAuthorityEvent, AMANStateEvent} from "./aman";
 
 
 type EventMap = {
@@ -110,6 +110,7 @@ type EventMap = {
   [EventType.FrontendAMANCommandRejected]: AMANCommandRejectedEvent;
  [EventType.FrontendAMANArrivalSequenceRebuilt]: AMANArrivalSequenceRebuiltEvent;
   [EventType.FrontendAMANCoordinationState]: AMANCoordinationStateEvent;
+  [EventType.FrontendAMANFMPAuthority]: AMANFMPAuthorityEvent;
 };
 
 type WebSocketClientDelegate = {

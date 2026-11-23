@@ -11,13 +11,15 @@ import (
 type Audience struct {
 	Controller ControllerID
 	Role       string
+	// FMPAuthority marks a forced FMP holder whose role is not an FMP role.
+	FMPAuthority bool
 }
 
 // Project returns the request read model visible to one audience. Controllers
 // receive only pending requests assigned to them. The originating FMP position
 // retains every state so supersession and later decisions remain observable.
 func Project(requests []Request, audience Audience) ([]Request, error) {
-	authorizedFMP := aman.IsFMPRole(audience.Role)
+	authorizedFMP := audience.FMPAuthority || aman.IsFMPRole(audience.Role)
 
 	projected := make([]Request, 0, len(requests))
 	for _, request := range requests {

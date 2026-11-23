@@ -19,6 +19,8 @@ import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {canInsertAMANFlight, getAMANSwapBlockReason, getAMANMutationBlockReason, isExcludedAMANFlight, isUnslottedAMANFlight} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
+import {sequencingACCFamilies} from "@/lib/aman-default-families";
+import {availableAMANViews} from "@/lib/aman-view-preference";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {EKCH_STAR_FAMILY_HOLDING, EKCH_TMT_HOLDING_ORDER, holdingsForFamilies} from "@/config/aman";
 import {AMANHoldingSequenceList} from "@/components/aman/AMANHoldingSequenceList";
@@ -35,6 +37,8 @@ export default function AMAN() {
   const error = useWebSocketStore((value) => value.amanError);
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
+  const ownCallsign = useWebSocketStore((value) => value.callsign);
+  const controllers = useWebSocketStore((value) => value.controllers);
   const warnings = useWebSocketStore((value) => value.amanWarnings);
   const transitionAltitude = useWebSocketStore((value) => value.transitionAltitude);
   const readOnly = useWebSocketStore((value) => value.readOnly);
@@ -121,7 +125,14 @@ export default function AMAN() {
   ];
   const activeTmtTab = accActive || !tmtTabs.some(tab => tab.id === tmtTab) ? "holdings" : tmtTab;
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
-  const swapBlockReason = getAMANSwapBlockReason(dialogFlight, mutationBlockReason);
+  // In the ACC view a controller may reorder flights on its own STAR families
+  // without FMP authority. The server checks the same families.
+  const sequencingFamilies = sequencingACCFamilies(ownCallsign ?? "", controllers ?? [], availableAMANViews(state));
+  const controllerSequencing = !hasFMPAuthority && accActive && dialogFlight?.star_family != null && sequencingFamilies.has(dialogFlight.star_family);
+  const sequenceBlockReason = controllerSequencing
+    ? getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: true})
+    : mutationBlockReason;
+  const swapBlockReason = getAMANSwapBlockReason(dialogFlight, sequenceBlockReason);
 
   const navigateToWarningFlight = (callsign: string): boolean => {
     if (!state?.flights.some((flight) => flight.callsign === callsign)) return false;
@@ -294,7 +305,7 @@ export default function AMAN() {
               }} type="button"><span>{label}</span>{child && <span aria-hidden="true">▶</span>}</button>
             ))}
             <div className="mx-1 my-0.5 border-t-2 border-white" />
-            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={mutationBlockReason !== null || !canInsertAMANFlight(dialogFlight)} onClick={() => { setFlightActionsOpen(false); setInsertCallsign(dialogCallsign); }} type="button">Insert behind…</button>
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={sequenceBlockReason !== null || !canInsertAMANFlight(dialogFlight)} onClick={() => { setFlightActionsOpen(false); setInsertCallsign(dialogCallsign); }} type="button">Insert behind…</button>
             <button aria-describedby={swapBlockReason ? "aman-swap-menu-reason" : undefined} className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-40" disabled={swapBlockReason !== null} onClick={() => {
               setFlightActionsOpen(false);
               setSwapCommandID(null);
@@ -329,7 +340,7 @@ export default function AMAN() {
           {mutationBlockReason !== null && <p className="sr-only">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
         </DialogContent>
       </Dialog>
-      {insertFlight && state && <AMANInsertBehindDialog key={insertFlight.callsign} flight={insertFlight} state={state} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} onClose={() => setInsertCallsign(null)} />}
+      {insertFlight && state && <AMANInsertBehindDialog key={insertFlight.callsign} flight={insertFlight} state={state} disabled={sequenceBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} onClose={() => setInsertCallsign(null)} />}
       <AMANQuickGapDialog
         busy={Object.values(pendingCommands).some((command) => command.type === "aman.create_gap" || command.type === "aman.remove_gap")}
         disabled={mutationBlockReason !== null || dialogFlight === null}
@@ -346,7 +357,7 @@ export default function AMAN() {
       {swapOpen && dialogFlight !== null && <AMANSwapDialog
         key={dialogFlight.callsign}
         busy={Object.values(pendingCommands).some((command) => command.type === "aman.swap_flights" || command.type === "aman.move_flight" || command.type === "aman.rebuild_arrival_sequence")}
-        mutationBlockReason={mutationBlockReason}
+        mutationBlockReason={sequenceBlockReason}
         flight={dialogFlight}
         flights={state?.flights ?? []}
         onClose={() => setSwapOpen(false)}

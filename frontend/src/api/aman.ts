@@ -75,6 +75,46 @@ export interface AMANCoordinationStateEvent {
   requests: AMANCoordinationRequest[];
 }
 
+/** Server-computed FMP authority for this client and its session. */
+export interface AMANFMPAuthority {
+  has_fmp_authority: boolean;
+  /** True when this client's authority comes from FORCE FMP. */
+  forced: boolean;
+  /** Callsign currently holding FORCE FMP, if any. */
+  forced_holder: string | null;
+  /** True while an FMP position is logged on. */
+  fmp_online: boolean;
+  /** True when this client may force FMP now. */
+  can_force: boolean;
+}
+
+export interface AMANFMPAuthorityEvent {
+  type: "aman.fmp_authority";
+  version: typeof AMAN_WIRE_VERSION;
+  data: AMANFMPAuthority;
+}
+
+/**
+ * Commands that only change the order of flights. Controllers without FMP
+ * authority may send them for flights on their own STAR families.
+ */
+export const AMAN_SEQUENCE_ORDER_COMMANDS: ReadonlySet<string> = new Set([
+  "aman.swap_flights", "aman.move_flight", "aman.insert_flight_after",
+  "aman.place_flight_at_time", "aman.lock_flight", "aman.unlock_flight",
+]);
+
+export type AMANForcedFMPCommandType ="aman.force_fmp" | "aman.release_forced_fmp";
+
+export interface AMANForcedFMPMessage {
+  type: AMANForcedFMPCommandType;
+  version: typeof AMAN_WIRE_VERSION;
+  data: {command_id: string};
+}
+
+export function createAMANForcedFMPCommand(type: AMANForcedFMPCommandType, commandID: string): AMANForcedFMPMessage {
+  return {type, version: AMAN_WIRE_VERSION, data: {command_id: commandID}};
+}
+
 export interface AMANReleaseBuffer {
   blocked_reasons?: string[];
   unknown_callsigns?: string[];
@@ -861,6 +901,13 @@ function hasValidCoordinationRequests(value: unknown): value is AMANCoordination
 export function isAMANCoordinationStateEvent(value: unknown): value is AMANCoordinationStateEvent {
   return isObject(value) && value.type === "aman.coordination_state" && value.version === AMAN_WIRE_VERSION
     && isNonNegativeInteger(value.revision) && hasValidCoordinationRequests(value.requests);
+}
+
+export function isAMANFMPAuthorityEvent(value: unknown): value is AMANFMPAuthorityEvent {
+  if (!isObject(value) || value.type !== "aman.fmp_authority" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
+  const data = value.data;
+  return typeof data.has_fmp_authority === "boolean" && typeof data.forced === "boolean" && typeof data.fmp_online === "boolean"
+    && typeof data.can_force === "boolean" && (data.forced_holder === null || typeof data.forced_holder === "string");
 }
 
 export function isAMANStateEvent(value: unknown): value is AMANStateEvent {

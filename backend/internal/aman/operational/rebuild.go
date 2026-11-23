@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Service) RebuildArrivalSequence(ctx context.Context, auth aman.CommandContext, command aman.RebuildArrivalSequenceCommand) (sequence.CommandMutation, error) {
-	if !aman.IsFMPRole(auth.Role) {
+	if !auth.HasFMPAuthority() {
 		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "arrival sequence rebuild requires an FMP role"}
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {

@@ -424,7 +424,7 @@ func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlig
 }
 
 func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
-	if aman.IsFMPRole(auth.Role) {
+	if auth.HasFMPAuthority() {
 		return nil
 	}
 	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "flight disposition command requires an FMP role"}
@@ -456,7 +456,7 @@ func lifecycleReason(flight aman.AMANFlight) aman.LifecycleReason {
 }
 
 func (s *Service) SetHoldingEATWriteback(auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (sequence.CommandMutation, error) {
-	if !aman.IsFMPRole(auth.Role) {
+	if !auth.HasFMPAuthority() {
 		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "EAT writeback setting requires an FMP role"}
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
@@ -849,7 +849,7 @@ func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveR
 }
 
 func (s *Service) authorizeRunwayGap(auth aman.CommandContext) error {
-	if aman.IsFMPRole(auth.Role) {
+	if auth.HasFMPAuthority() {
 		return nil
 	}
 	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway capacity command requires an FMP role"}

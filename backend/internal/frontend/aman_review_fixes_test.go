@@ -3,7 +3,9 @@ package frontend
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"FlightStrips/internal/aman"
 	internalModels "FlightStrips/internal/models"
@@ -30,6 +32,50 @@ func (s *failingClearStore) ClearForcedFMP(ctx context.Context, session int32) e
 		return errLookup
 	}
 	return s.memoryForcedFMPStore.ClearForcedFMP(ctx, session)
+}
+
+// lockedFailingClearStore is safe for the background retry goroutine.
+type lockedFailingClearStore struct {
+	mu        sync.Mutex
+	grants    map[int32]aman.ForcedFMPGrant
+	failClear bool
+}
+
+func (s *lockedFailingClearStore) LoadForcedFMP(_ context.Context, session int32) (aman.ForcedFMPGrant, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	grant, ok := s.grants[session]
+	return grant, ok, nil
+}
+
+func (s *lockedFailingClearStore) SaveForcedFMP(_ context.Context, grant aman.ForcedFMPGrant) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.grants[grant.SessionID] = grant
+	return nil
+}
+
+func (s *lockedFailingClearStore) ClearForcedFMP(_ context.Context, session int32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failClear {
+		return errLookup
+	}
+	delete(s.grants, session)
+	return nil
+}
+
+func (s *lockedFailingClearStore) setFail(fail bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failClear = fail
+}
+
+func (s *lockedFailingClearStore) has(session int32) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.grants[session]
+	return ok
 }
 
 func TestForceFMPRejectedWhenFMPPresenceUnknown(t *testing.T) {
@@ -143,6 +189,50 @@ func TestInitialLookupSuccessResetsRetryBudget(t *testing.T) {
 	hub.sendAMANFMPAuthority(context.Background(), client)
 
 	require.True(t, hub.amanAuthorityRefresh.reserveRetry(forcedFMPTestSession), "a successful initial lookup resets the budget")
+}
+
+func TestFailedDeleteIsRetriedInTheBackground(t *testing.T) {
+	previous := forcedFMPClearRetryDelay
+	forcedFMPClearRetryDelay = 10 * time.Millisecond
+	t.Cleanup(func() { forcedFMPClearRetryDelay = previous })
+	store := &lockedFailingClearStore{grants: map[int32]aman.ForcedFMPGrant{}}
+	online := []*internalModels.Controller{{ID: 7, Callsign: "EKCH_W_APP"}}
+	hub, holder, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	hub.SetAMANForcedFMPStore(store)
+	sendForcedFMP(t, hub, holder, frontendEvents.AMANForceFMPType)
+
+	// An FMP logs on and the delete fails; nothing touches the grant again.
+	store.setFail(true)
+	hub.resetForcedFMPOnControllerOnline(forcedFMPTestSession, "EKDK_FMP", "131.040")
+	require.True(t, store.has(forcedFMPTestSession))
+
+	// The database recovers: the background retry removes the row without
+	// any further access, so a later restart has nothing to restore.
+	store.setFail(false)
+	require.Eventually(t, func() bool { return !store.has(forcedFMPTestSession) }, time.Second, 5*time.Millisecond)
+}
+
+func TestForceFMPUndoneWhenHolderLogsOffDuringForce(t *testing.T) {
+	online := []*internalModels.Controller{}
+	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	lookups := 0
+	hub.server = &testutil.MockServer{ControllerRepoVal: &testutil.MockControllerRepository{
+		ListBySessionFn: func(context.Context, int32) ([]*internalModels.Controller, error) {
+			lookups++
+			// Presence check, record ID read, presence recheck: holder online.
+			// Final record recheck: holder has logged off.
+			if lookups <= 3 {
+				return []*internalModels.Controller{{ID: 7, Callsign: "EKCH_W_APP"}}, nil
+			}
+			return nil, nil
+		},
+	}}
+
+	sendForcedFMP(t, hub, client, frontendEvents.AMANForceFMPType)
+
+	require.Equal(t, string(aman.ErrorInvalidTransition), lastRejection(t, client).Data.Code)
+	_, held := hub.forcedFMP.get(context.Background(), forcedFMPTestSession)
+	require.False(t, held)
 }
 
 func TestRestartDropsStoredGrantWhileFMPOnline(t *testing.T) {

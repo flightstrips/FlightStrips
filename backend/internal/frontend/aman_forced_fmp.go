@@ -27,6 +27,8 @@ type forcedFMPRegistry struct {
 	// restart) may still authorize. It must not call the registry. An error
 	// means "unknown": the grant is not used and is checked again later.
 	validateLoaded func(context.Context, aman.ForcedFMPGrant) (bool, error)
+	// retryTimers marks sessions with a scheduled background delete retry.
+	retryTimers map[int32]bool
 }
 
 func newForcedFMPRegistry() *forcedFMPRegistry {
@@ -88,6 +90,9 @@ func (r *forcedFMPRegistry) get(ctx context.Context, session int32) (aman.Forced
 				slog.InfoContext(ctx, "Dropping stale stored forced FMP grant", slog.Int("session", int(session)), slog.String("holder", grant.Callsign))
 				r.pendingClear[session] = true
 				r.retryPendingClearLocked(ctx, session)
+				if r.pendingClear[session] {
+					r.scheduleClearRetryLocked(session)
+				}
 				r.loaded[session] = true
 				return aman.ForcedFMPGrant{}, false
 			}
@@ -135,10 +140,37 @@ func (r *forcedFMPRegistry) clearIf(ctx context.Context, session int32, match fu
 	if r.store != nil {
 		if err := r.store.ClearForcedFMP(ctx, session); err != nil {
 			r.pendingClear[session] = true
+			r.scheduleClearRetryLocked(session)
 			return grant, true, err
 		}
 	}
 	return grant, true, nil
+}
+
+// forcedFMPClearRetryDelay is how often a failed delete is retried in the
+// background. A variable so tests can shorten it.
+var forcedFMPClearRetryDelay = 5 * time.Second
+
+// scheduleClearRetryLocked keeps retrying a failed delete in the background,
+// not only on the next access, so a revoked grant leaves the store as soon
+// as the database recovers. The caller holds r.mu.
+func (r *forcedFMPRegistry) scheduleClearRetryLocked(session int32) {
+	if r.retryTimers == nil {
+		r.retryTimers = map[int32]bool{}
+	}
+	if r.retryTimers[session] {
+		return
+	}
+	r.retryTimers[session] = true
+	time.AfterFunc(forcedFMPClearRetryDelay, func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		delete(r.retryTimers, session)
+		r.retryPendingClearLocked(context.Background(), session)
+		if r.pendingClear[session] {
+			r.scheduleClearRetryLocked(session)
+		}
+	})
 }
 
 // SetAMANForcedFMPStore makes forced FMP grants survive a backend restart.
@@ -474,6 +506,12 @@ func handleAMANForceFMP(ctx context.Context, client *Client, message Message) er
 			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorDependencyUnavailable, Message: "FMP presence could not be checked; try again"})
 		}
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "FMP is online; FORCE FMP is only available while FMP is not manned"})
+	}
+	// Likewise a holder logoff between reading the record ID and saving found
+	// no grant to clear; undo the grant unless the same logon is still active.
+	if id, recordErr := hub.controllerRecordID(ctx, identity.session, grant.Callsign); recordErr != nil || id != grant.ControllerID {
+		hub.clearForcedFMP(identity.session, "holder_offline_during_force", grant.Callsign, func(current aman.ForcedFMPGrant) bool { return current == grant })
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "Your logon changed while forcing FMP; try again"})
 	}
 	attrs := []any{slog.Int("session", int(identity.session)), slog.String("airport", identity.airport), slog.String("holder", grant.Callsign), slog.String("actor", grant.CID)}
 	if hadPrevious && !sameCallsign(previous.Callsign, grant.Callsign) {

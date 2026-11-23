@@ -39,6 +39,11 @@ namespace FlightStrips::messages {
         bool SendCdmCtotRemove(const std::string& callsign) const;
 		bool SendCdmReady(const std::string& callsign) const;
     private:
+        struct PendingFrequencyMessage {
+            PendingFrequencySubmission submission;
+            FrequencyMessageResultEvent result;
+            websocket::protobuf::wire::MembershipContext context;
+        };
         struct PendingHandover {
             std::string callsign;
             std::string targetCallsign;
@@ -47,11 +52,6 @@ namespace FlightStrips::messages {
         };
         mutable std::unordered_map<std::string, PendingHandover> m_pendingHandovers;
 
-        struct PendingFrequencyMessage {
-            PendingFrequencySubmission submission;
-            FrequencyMessageResultEvent result;
-            websocket::protobuf::wire::MembershipContext context;
-        };
         mutable std::optional<PendingFrequencyMessage> m_pendingFrequencyMessage;
         mutable std::optional<SyncEvent> m_sourceSnapshot;
         mutable uint64_t m_sourceSnapshotBatch=0;

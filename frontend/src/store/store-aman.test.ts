@@ -309,7 +309,7 @@ describe("AMAN command store", () => {
     store.getState().setAMANConnectionState("disconnected");
     expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     store.getState().setAMANConnectionState("connected");
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.expedite_flight", callsign: "SAS123"})).toBeNull();
     client._emit(EventType.FrontendInitial, initialSnapshot(false));
     // Order commands such as lock go to the server, which checks STAR families.
     expect(store.getState().sendAMANCommand({type: "aman.expedite_flight", callsign: "SAS123"})).toBeNull();

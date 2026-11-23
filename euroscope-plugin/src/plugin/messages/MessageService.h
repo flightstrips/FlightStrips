@@ -8,6 +8,7 @@
 #include "websocket/WebSocketService.h"
 #include "stands/StandService.h"
 #include "runway/RunwayService.h"
+#include <unordered_map>
 
 namespace FlightStrips::messages {
     class MessageService final : public handlers::MessageHandler, public handlers::TimedEventHandler {
@@ -38,6 +39,14 @@ namespace FlightStrips::messages {
         bool SendCdmCtotRemove(const std::string& callsign) const;
 		bool SendCdmReady(const std::string& callsign) const;
     private:
+        struct PendingHandover {
+            std::string callsign;
+            std::string targetCallsign;
+            int ticksRemaining = 10;
+            bool wasTracking = false;
+        };
+        mutable std::unordered_map<std::string, PendingHandover> m_pendingHandovers;
+
         struct PendingFrequencyMessage {
             PendingFrequencySubmission submission;
             FrequencyMessageResultEvent result;

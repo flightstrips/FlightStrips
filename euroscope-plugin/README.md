@@ -14,7 +14,7 @@ The existing destination-airport, holding-release, and inside-TMA rules still ap
 
 ## Force release a tower tag
 
-If a tag is stuck with a FlightStrips tower controller, an APP or CTR controller can send **ROF** from TopSky and then assume the released tag normally. The tower's plugin handles the `/ROF/<aircraft>/<requesting controller>` scratchpad pulse and ends EuroScope tracking only when the aircraft matches the pulse, the tag is tracked locally, and both controllers are online controller positions: `_TWR` (facility 4) to `_APP` (facility 5) or `_CTR` (facility 6). Split positions are supported.
+If a tag is stuck with a FlightStrips tower controller, an APP, DEP, or CTR controller can send **ROF** from TopSky and then assume the released tag normally. The tower's plugin handles the `/ROF/<aircraft>/<requesting controller>` scratchpad pulse and ends EuroScope tracking only when the aircraft matches the pulse, the tag is tracked locally, and both controllers are online controller positions: `_TWR` (facility 4) to `_APP` or `_DEP` (facility 5) or `_CTR` (facility 6). Split positions are supported.
 
 Observers, DEL/GND requests, and APP/CTR-owned tags do not trigger a release. Normal airborne-to-airborne ROF coordination is unchanged. This does not automatically assume the tag or change the FlightStrips strip owner; EuroScope tracking updates continue through the existing synchronization path. The request uses TopSky's existing broadcast protocol, which identifies the requester in the payload rather than exposing an authenticated sender to the receiving plugin.
 

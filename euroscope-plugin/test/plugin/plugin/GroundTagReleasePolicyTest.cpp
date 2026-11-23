@@ -21,10 +21,14 @@ TEST(GroundTagReleasePolicyTest, RejectsMalformedPulsesAndOtherCoordinationMessa
     }
 }
 
-TEST(GroundTagReleasePolicyTest, ReleasesTowerTagForApproachAndCentreRequests) {
+TEST(GroundTagReleasePolicyTest, ReleasesTowerTagForApproachDepartureAndCentreRequests) {
     EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_D_TWR", 4, "EKCH_APP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_D_TWR", 4, "EKCH_DEP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_D_TWR", 4, "EKCH_E_DEP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_D_TWR", 4, "EKCH_W_DEP", 5, false, true));
     EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_A_TWR", 4, "EKDK_B_CTR", 6, false, true));
     EXPECT_TRUE(ShouldReleaseGroundTag("ekyt_twr", 4, "ekyt_2_app", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("ekyt_twr", 4, "ekyt_dep", 5, false, true));
 }
 
 TEST(GroundTagReleasePolicyTest, NeverReleasesAnotherControllersTagOrObserverTag) {
@@ -47,5 +51,7 @@ TEST(GroundTagReleasePolicyTest, RejectsNonAirborneRequestersAndFacilityMismatch
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 3, "EKCH_APP", 5, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 1, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 6, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 1, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 6, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKDK_CTR", 5, false, true));
 }

@@ -591,6 +591,8 @@ namespace FlightStrips::messages {
 
         if (!fp.EndTracking()) {
             Logger::Warning("Failed to end tracking {} for drop_tracking", event.callsign);
+        } else {
+            m_pendingHandovers.erase(event.callsign);
         }
     }
 

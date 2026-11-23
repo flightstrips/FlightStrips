@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/config"
@@ -22,6 +23,10 @@ type forcedFMPRegistry struct {
 	loaded       map[int32]bool
 	grants       map[int32]aman.ForcedFMPGrant
 	pendingClear map[int32]bool
+	// validateLoaded decides whether a grant read back from the store (after a
+	// restart) may still authorize. It must not call the registry. An error
+	// means "unknown": the grant is not used and is checked again later.
+	validateLoaded func(context.Context, aman.ForcedFMPGrant) (bool, error)
 }
 
 func newForcedFMPRegistry() *forcedFMPRegistry {
@@ -68,6 +73,24 @@ func (r *forcedFMPRegistry) get(ctx context.Context, session int32) (aman.Forced
 		if err != nil {
 			slog.ErrorContext(ctx, "Failed to load forced FMP grant", slog.Int("session", int(session)), slog.Any("error", err))
 			return aman.ForcedFMPGrant{}, false
+		}
+		if ok && r.validateLoaded != nil {
+			valid, err := r.validateLoaded(ctx, grant)
+			if err != nil {
+				// Fail closed and look again on the next access.
+				slog.WarnContext(ctx, "Could not validate stored forced FMP grant", slog.Int("session", int(session)), slog.Any("error", err))
+				return aman.ForcedFMPGrant{}, false
+			}
+			if !valid {
+				// The holder logged off or an FMP logged on while the grant
+				// was only in the store, for example across a restart after
+				// a failed delete. Drop it instead of restoring it.
+				slog.InfoContext(ctx, "Dropping stale stored forced FMP grant", slog.Int("session", int(session)), slog.String("holder", grant.Callsign))
+				r.pendingClear[session] = true
+				r.retryPendingClearLocked(ctx, session)
+				r.loaded[session] = true
+				return aman.ForcedFMPGrant{}, false
+			}
 		}
 		if ok {
 			r.grants[session] = grant
@@ -121,6 +144,29 @@ func (r *forcedFMPRegistry) clearIf(ctx context.Context, session int32, match fu
 // SetAMANForcedFMPStore makes forced FMP grants survive a backend restart.
 func (hub *Hub) SetAMANForcedFMPStore(store aman.ForcedFMPStore) {
 	hub.forcedFMP.setStore(store)
+	if hub.forcedFMP != nil {
+		hub.forcedFMP.mu.Lock()
+		hub.forcedFMP.validateLoaded = hub.storedForcedFMPStillValid
+		hub.forcedFMP.mu.Unlock()
+	}
+}
+
+// storedForcedFMPStillValid keeps a stored grant only while its holder is
+// logged on and no FMP is. These are the conditions whose change would have
+// revoked the grant had the process been running.
+func (hub *Hub) storedForcedFMPStillValid(ctx context.Context, grant aman.ForcedFMPGrant) (bool, error) {
+	online, err := hub.onlineControllerCallsigns(ctx, grant.SessionID)
+	if err != nil {
+		return false, err
+	}
+	if !online[strings.ToUpper(strings.TrimSpace(grant.Callsign))] {
+		return false, nil
+	}
+	fmpOnline, err := hub.fmpOnline(ctx, grant.SessionID)
+	if err != nil {
+		return false, err
+	}
+	return !fmpOnline, nil
 }
 
 // forcedFMPEligibleRole reports whether a role may force FMP: approach and
@@ -157,7 +203,7 @@ var errControllerPresenceUnavailable = errors.New("controller presence is unavai
 // can fail closed instead of treating the FMP as offline.
 func (hub *Hub) fmpOnline(ctx context.Context, session int32) (bool, error) {
 	if hub.server == nil || hub.server.GetControllerRepository() == nil {
-		return false, nil
+		return false, errControllerPresenceUnavailable
 	}
 	controllers, err := hub.server.GetControllerRepository().ListBySession(ctx, session)
 	if err != nil {
@@ -195,6 +241,28 @@ func (hub *Hub) amanFMPAuthorityEvent(ctx context.Context, client *Client, fmpOn
 func (hub *Hub) sendAMANFMPAuthority(ctx context.Context, client *Client) {
 	fmpOnline, err := hub.fmpOnline(ctx, client.session)
 	client.Enqueue(hub.amanFMPAuthorityEvent(ctx, client, fmpOnline, err == nil))
+	if err != nil {
+		hub.retryAMANFMPAuthority(client.session)
+	}
+}
+
+const (
+	authorityRetryDelay       = 5 * time.Second
+	authorityRetryMaxAttempts = 60 // five minutes
+)
+
+// retryAMANFMPAuthority republishes a session's authority later when FMP
+// presence could not be read, so FORCE FMP becomes available again once the
+// controller repository recovers. Retries are bounded per session.
+func (hub *Hub) retryAMANFMPAuthority(session int32) {
+	queue := hub.amanAuthorityRefresh
+	if queue == nil || !queue.reserveRetry(session) {
+		return
+	}
+	time.AfterFunc(authorityRetryDelay, func() {
+		queue.finishRetry(session)
+		queue.add(session)
+	})
 }
 
 // sessionRefreshQueue coalesces authority refreshes per session. Adding never
@@ -204,10 +272,43 @@ type sessionRefreshQueue struct {
 	mu      sync.Mutex
 	pending map[int32]bool
 	signal  chan struct{}
+	// retrying holds sessions with a scheduled presence retry; attempts
+	// counts consecutive failed lookups per session.
+	retrying map[int32]bool
+	attempts map[int32]int
 }
 
 func newSessionRefreshQueue() *sessionRefreshQueue {
-	return &sessionRefreshQueue{pending: map[int32]bool{}, signal: make(chan struct{}, 1)}
+	return &sessionRefreshQueue{pending: map[int32]bool{}, signal: make(chan struct{}, 1), retrying: map[int32]bool{}, attempts: map[int32]int{}}
+}
+
+// reserveRetry reports whether a new retry may be scheduled: at most one at a
+// time per session, and at most authorityRetryMaxAttempts in a row.
+func (q *sessionRefreshQueue) reserveRetry(session int32) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.retrying[session] || q.attempts[session] >= authorityRetryMaxAttempts {
+		return false
+	}
+	q.retrying[session] = true
+	q.attempts[session]++
+	return true
+}
+
+func (q *sessionRefreshQueue) finishRetry(session int32) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	delete(q.retrying, session)
+}
+
+// presenceRecovered resets the retry budget after a successful lookup.
+func (q *sessionRefreshQueue) presenceRecovered(session int32) {
+	if q == nil {
+		return
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	delete(q.attempts, session)
 }
 
 func (q *sessionRefreshQueue) add(session int32) {
@@ -262,6 +363,11 @@ func (hub *Hub) publishAMANFMPAuthority(ctx context.Context, session int32) {
 		if hub.amanCoordination != nil {
 			hub.sendAMANCoordinationSnapshot(ctx, client)
 		}
+	}
+	if err != nil {
+		hub.retryAMANFMPAuthority(session)
+	} else {
+		hub.amanAuthorityRefresh.presenceRecovered(session)
 	}
 }
 
@@ -330,6 +436,15 @@ func handleAMANForceFMP(ctx context.Context, client *Client, message Message) er
 	if err := hub.forcedFMP.set(ctx, grant); err != nil {
 		slog.ErrorContext(ctx, "Failed to store forced FMP grant", slog.Any("error", err))
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorDependencyUnavailable, Message: "FORCE FMP could not be saved"})
+	}
+	// An FMP logon between the first check and the save found no grant to
+	// clear, so check again now the grant exists and undo it if needed.
+	if fmpOnline, presenceErr := hub.fmpOnline(ctx, identity.session); presenceErr != nil || fmpOnline {
+		hub.clearForcedFMP(identity.session, "fmp_online_during_force", grant.Callsign, func(current aman.ForcedFMPGrant) bool { return current == grant })
+		if presenceErr != nil {
+			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorDependencyUnavailable, Message: "FMP presence could not be checked; try again"})
+		}
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "FMP is online; FORCE FMP is only available while FMP is not manned"})
 	}
 	attrs := []any{slog.Int("session", int(identity.session)), slog.String("airport", identity.airport), slog.String("holder", grant.Callsign), slog.String("actor", grant.CID)}
 	if hadPrevious && !sameCallsign(previous.Callsign, grant.Callsign) {

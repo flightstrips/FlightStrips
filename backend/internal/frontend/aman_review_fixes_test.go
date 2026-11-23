@@ -87,6 +87,93 @@ func TestAuthorityRefreshesOnFMPPresenceWithoutGrant(t *testing.T) {
 	require.Empty(t, hub.amanAuthorityRefresh.drain(), "other logoffs without a grant change nothing")
 }
 
+func TestRestartDoesNotRestoreARevokedGrantWhoseDeleteFailed(t *testing.T) {
+	store := &failingClearStore{memoryForcedFMPStore: memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{}}}
+	online := []*internalModels.Controller{{Session: forcedFMPTestSession, Callsign: "EKCH_W_APP"}}
+	hub, holder, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	hub.SetAMANForcedFMPStore(store)
+	sendForcedFMP(t, hub, holder, frontendEvents.AMANForceFMPType)
+
+	// The holder logs off and the delete fails, then the backend restarts
+	// before the retry.
+	store.failClear = true
+	online = nil
+	hub.resetForcedFMPOnControllerOffline(forcedFMPTestSession, "EKCH_W_APP")
+	require.Contains(t, store.grants, forcedFMPTestSession)
+	store.failClear = false
+
+	restarted, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	restarted.SetAMANForcedFMPStore(store)
+	require.False(t, restarted.hasAMANFMPAuthority(client), "a holder who is offline is not restored")
+	require.NotContains(t, store.grants, forcedFMPTestSession, "the stale row is deleted")
+}
+
+func TestRestartDropsStoredGrantWhileFMPOnline(t *testing.T) {
+	store := &memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{
+		forcedFMPTestSession: {SessionID: forcedFMPTestSession, Airport: "EKCH", Callsign: "EKCH_W_APP", CID: "1234567"},
+	}}
+	online := []*internalModels.Controller{{Callsign: "EKCH_W_APP"}, {Callsign: "EKDK_FMP", Position: "131.040"}}
+	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	hub.SetAMANForcedFMPStore(store)
+
+	require.False(t, hub.hasAMANFMPAuthority(client))
+	require.Empty(t, store.grants)
+}
+
+func TestStoredGrantNotUsedWhilePresenceUnknown(t *testing.T) {
+	store := &memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{
+		forcedFMPTestSession: {SessionID: forcedFMPTestSession, Airport: "EKCH", Callsign: "EKCH_W_APP", CID: "1234567"},
+	}}
+	online := []*internalModels.Controller{}
+	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	hub.SetAMANForcedFMPStore(store)
+	failControllerLookup(hub)
+
+	require.False(t, hub.hasAMANFMPAuthority(client), "fail closed while presence is unknown")
+	require.Contains(t, store.grants, forcedFMPTestSession, "kept to be checked again later")
+}
+
+func TestForceFMPUndoneWhenFMPLogsOnDuringForce(t *testing.T) {
+	online := []*internalModels.Controller{}
+	hub, client, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
+	lookups := 0
+	hub.server = &testutil.MockServer{ControllerRepoVal: &testutil.MockControllerRepository{
+		ListBySessionFn: func(context.Context, int32) ([]*internalModels.Controller, error) {
+			lookups++
+			if lookups == 1 {
+				return nil, nil
+			}
+			return []*internalModels.Controller{{Callsign: "EKDK_FMP", Position: "131.040"}}, nil
+		},
+	}}
+
+	sendForcedFMP(t, hub, client, frontendEvents.AMANForceFMPType)
+
+	require.Equal(t, string(aman.ErrorInvalidTransition), lastRejection(t, client).Data.Code)
+	require.False(t, hub.hasAMANFMPAuthority(client))
+}
+
+func TestFMPPresenceUnknownWithoutControllerRepository(t *testing.T) {
+	hub := &Hub{}
+	_, err := hub.fmpOnline(context.Background(), forcedFMPTestSession)
+	require.ErrorIs(t, err, errControllerPresenceUnavailable)
+}
+
+func TestAuthorityRetriesAreBounded(t *testing.T) {
+	queue := newSessionRefreshQueue()
+	require.True(t, queue.reserveRetry(1))
+	require.False(t, queue.reserveRetry(1), "one pending retry per session")
+	for attempt := 1; attempt < authorityRetryMaxAttempts; attempt++ {
+		queue.finishRetry(1)
+		require.True(t, queue.reserveRetry(1))
+	}
+	queue.finishRetry(1)
+	require.False(t, queue.reserveRetry(1), "stops after the maximum")
+
+	queue.presenceRecovered(1)
+	require.True(t, queue.reserveRetry(1), "a successful lookup resets the budget")
+}
+
 func TestSessionRefreshQueueNeverDropsASession(t *testing.T) {
 	queue := newSessionRefreshQueue()
 	for range 100 {

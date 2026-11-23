@@ -201,7 +201,8 @@ func TestForcedFMPIsTiedToCallsignAndSession(t *testing.T) {
 
 func TestForcedFMPGrantSurvivesRestartThroughStore(t *testing.T) {
 	store := &memoryForcedFMPStore{grants: map[int32]aman.ForcedFMPGrant{}}
-	online := []*internalModels.Controller{}
+	// The holder is still logged on, so the stored grant is kept.
+	online := []*internalModels.Controller{{Session: forcedFMPTestSession, Callsign: "EKCH_W_APP", Position: "119.805"}}
 	hub, holder, _ := newForcedFMPTestHub(t, "EKCH_W_APP", &online)
 	hub.SetAMANForcedFMPStore(store)
 	sendForcedFMP(t, hub, holder, frontendEvents.AMANForceFMPType)

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"FlightStrips/internal/models"
@@ -37,6 +38,39 @@ func TestAssumeStripCoordination_CompletedAssumptionDoesNotTouchNewCoordination(
 			require.Equal(t, int32(2), strip.Version)
 		})
 	}
+}
+
+func TestAssumeStripCoordination_PublishesCommitWhenValidationReevaluationFails(t *testing.T) {
+	const position = "118.580"
+	strip := &models.Strip{ID: 70, Callsign: "DLH9TK", Version: 2, NextOwners: []string{position, "121.730"}}
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil },
+		CommitStripAssumptionFn: func(_ context.Context, _ int32, _ *models.Strip, _ *models.Coordination, owner string, nextOwners, _ []string) (bool, error) {
+			require.Equal(t, position, owner)
+			require.Equal(t, []string{"121.730"}, nextOwners)
+			return true, nil
+		},
+	}
+	hub := &testutil.MockFrontendHub{}
+	service := newWorkflowTestService(repo)
+	service.SetFrontendHub(hub)
+	service.SetCoordinationRepo(&testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(context.Context, int32, int32) (*models.Coordination, error) { return nil, pgx.ErrNoRows },
+	})
+	reevaluationFailed := false
+	service.SetSessionRepo(&testutil.MockSessionRepository{
+		GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+			reevaluationFailed = true
+			return nil, errors.New("session read failed")
+		},
+	})
+
+	require.NoError(t, service.AssumeStripCoordination(t.Context(), 1, strip.Callsign, position))
+	require.True(t, reevaluationFailed)
+	require.Equal(t, []testutil.CoordinationAssumeCall{{Session: 1, Callsign: strip.Callsign, Position: position}}, hub.CoordinationAssumes)
+	require.Len(t, hub.OwnersUpdates, 1)
+	require.Equal(t, position, hub.OwnersUpdates[0].Owner)
+	require.Equal(t, []string{"121.730"}, hub.OwnersUpdates[0].NextOwners)
 }
 
 func TestAssumeStripCoordination_CurrentOwnerAcceptsIncomingEsCoordination(t *testing.T) {

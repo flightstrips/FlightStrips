@@ -266,7 +266,12 @@ func (s *StripService) commitStripAssumption(ctx context.Context, session int32,
 		snapshot.Strip = strip
 	}
 	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &position); err != nil {
-		return err
+		// Send the committed owner even if validation refresh fails.
+		slog.ErrorContext(ctx, "Failed to reevaluate validations after strip assumption",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("position", position),
+			slog.Any("error", err))
 	}
 
 	var nextDisplay *internalModels.NextDisplay

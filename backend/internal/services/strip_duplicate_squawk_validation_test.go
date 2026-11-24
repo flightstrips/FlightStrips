@@ -72,7 +72,7 @@ func TestAcceptCoordinationValidatesCommittedOwnerFromRequestCaches(t *testing.T
 					copy := persisted
 					return []*models.Strip{&copy, peer}, nil
 				},
-				AcceptCoordinationFn: func(_ context.Context, _ int32, _ *models.Strip, _ *models.Coordination, owner string, _, _ []string) (bool, error) {
+				CommitStripAssumptionFn: func(_ context.Context, _ int32, _ *models.Strip, _ *models.Coordination, owner string, _, _ []string) (bool, error) {
 					persisted.Owner = &owner
 					persisted.Version++
 					return true, nil

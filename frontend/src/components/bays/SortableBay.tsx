@@ -161,7 +161,7 @@ export function SortableBay({
   const openValidationDialog = useOpenValidationDialog();
 
   const validationBlocked = (strip: AnyStrip) =>
-    isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition);
+    isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition, strip.owner);
   const dragDisabled = (strip: AnyStrip) =>
     (isFlight(strip)
       ? strip.bay === Bay.NotCleared || isActiveStripTransfer(stripTransfers[strip.callsign])
@@ -486,6 +486,7 @@ export function SortableStrip({
       {...listeners}
       onClickCapture={validationBlocked && onValidationClick
         ? (event) => {
+            if (event.target instanceof Element && event.target.closest("[data-assume-unowned]")) return;
             event.stopPropagation();
             onValidationClick(callsign);
           }

@@ -111,7 +111,7 @@ export function ApnPushStrip({
   const { bg, textWhite, callsignStyle } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const manualBlue = isManual && !(isTagRequest ? callsignStyle.color === "white" : textWhite) ? COLOR_MANUAL_BLUE : undefined;
   const callsignTextColor = isSelected && isTagRequest ? "black" : manualBlue ?? callsignStyle.color ?? (textWhite ? "white" : "black");
-  const callsignValidationStyle = getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, callsignTextColor);
+  const callsignValidationStyle = getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, callsignTextColor, owner);
   const isTwr = useIsTwr();
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"testing"
 
+	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 
 	"github.com/jackc/pgx/v5"
@@ -19,7 +21,7 @@ import (
 type validationStoreFake struct {
 	getByCallsignFn               func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	setValidationStatusFn         func(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
-	acknowledgeValidationStatusFn func(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
+	acknowledgeValidationStatusFn func(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error)
 	clearValidationStatusFn       func(ctx context.Context, session int32, callsign string) error
 }
 
@@ -44,11 +46,11 @@ func (f *validationStoreFake) CompareAndSetStandValidation(ctx context.Context, 
 	return true, f.SetValidationStatus(ctx, session, callsign, update.Next)
 }
 
-func (f *validationStoreFake) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
+func (f *validationStoreFake) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error) {
 	if f.acknowledgeValidationStatusFn == nil {
 		panic("unexpected call to validationStoreFake.AcknowledgeValidationStatus")
 	}
-	return f.acknowledgeValidationStatusFn(ctx, session, callsign, activationKey)
+	return f.acknowledgeValidationStatusFn(ctx, session, callsign, activationKey, requestingPosition)
 }
 
 func (f *validationStoreFake) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
@@ -81,9 +83,10 @@ func TestAcknowledgeValidationStatus_AllowsPdcValidationForNonOwnerPosition(t *t
 				},
 			}, nil
 		},
-		acknowledgeValidationStatusFn: func(_ context.Context, _ int32, callsign string, activationKey string) (int64, error) {
+		acknowledgeValidationStatusFn: func(_ context.Context, _ int32, callsign string, activationKey, requestingPosition string) (int64, error) {
 			assert.Equal(t, "SAS123", callsign)
 			assert.Equal(t, "activation-key", activationKey)
+			assert.Equal(t, "EKCH_GND", requestingPosition)
 			acknowledged = true
 			return 1, nil
 		},
@@ -118,6 +121,74 @@ func TestAcknowledgeValidationStatus_RejectsNonOwnerForNonPdcValidation(t *testi
 	err := svc.AcknowledgeValidationStatus(context.Background(), 1, "SAS123", "activation-key", "EKCH_GND")
 	require.Error(t, err)
 	assert.EqualError(t, err, "acknowledge_validation_status: requesting position is not the owning position")
+}
+
+func TestAssumeUnownedStripWithValidation(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	const callsign = "PGT36YP"
+	const previousPosition = "118.105"
+	for _, scenario := range []struct {
+		name           string
+		position       string
+		transferTarget string
+	}{
+		{name: "direct route assumption", position: "119.355"},
+		{name: "transfer target outside route", position: "121.630", transferTarget: "121.630"},
+		{name: "route assumption with stale transfer", position: "119.355", transferTarget: "121.630"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			ctx := t.Context()
+			session := testdata.SeedTestSessionNamedWithSectors(t, queries, scenario.name, nil)
+			newOwner := scenario.position
+			_, err := queries.InsertStrip(ctx, database.InsertStripParams{
+				Callsign: callsign, Session: session, Origin: "EKCH", Destination: "LTFJ",
+				Bay: shared.BAY_CLEARED, Cleared: true, CdmData: []byte(`{"canonical":{}}`),
+				NextOwners: []byte(`["119.355"]`), PreviousOwners: []byte(`[]`),
+			})
+			require.NoError(t, err)
+
+			strips := postgres.NewStripRepository(pool)
+			validation := newTestStripValidationService(strips, strips)
+			status := &models.ValidationStatus{
+				IssueType:      models.ValidationIssueTypeReadyTransferTsat,
+				OwningPosition: previousPosition, Active: true, ContextKey: "123400",
+			}
+			require.NoError(t, validation.SetValidationStatus(ctx, session, callsign, status))
+			service := newWorkflowTestService(strips)
+			service.SetFrontendHub(&testutil.MockFrontendHub{})
+			coordRepo := postgres.NewCoordinationRepository(pool)
+			service.SetCoordinationRepo(coordRepo)
+			if scenario.transferTarget != "" {
+				strip, err := strips.GetByCallsign(ctx, session, callsign)
+				require.NoError(t, err)
+				require.NoError(t, coordRepo.Create(ctx, &models.Coordination{
+					Session: session, StripID: strip.ID, FromPosition: previousPosition, ToPosition: scenario.transferTarget,
+				}))
+			}
+			require.Error(t, service.AssumeStripCoordination(ctx, session, callsign, "118.580"))
+
+			require.NoError(t, service.AssumeStripCoordination(ctx, session, callsign, newOwner))
+			assumed, err := strips.GetByCallsign(ctx, session, callsign)
+			require.NoError(t, err)
+			require.Equal(t, &newOwner, assumed.Owner)
+			require.Equal(t, status, assumed.ValidationStatus)
+			require.ErrorContains(t, service.AssumeStripCoordination(ctx, session, callsign, "118.580"), "strip is locked")
+			require.ErrorContains(t, validation.AcknowledgeValidationStatus(ctx, session, callsign, status.ActivationKey, previousPosition), "not the owning position")
+
+			// A request already in flight from the old position must also fail at the database.
+			rows, err := strips.AcknowledgeValidationStatus(ctx, session, callsign, status.ActivationKey, previousPosition)
+			require.NoError(t, err)
+			require.Zero(t, rows)
+
+			require.NoError(t, validation.AcknowledgeValidationStatus(ctx, session, callsign, status.ActivationKey, newOwner))
+			acknowledged, err := strips.GetByCallsign(ctx, session, callsign)
+			require.NoError(t, err)
+			require.NotNil(t, acknowledged.ValidationStatus)
+			require.False(t, acknowledged.IsValidationLocked())
+			require.Equal(t, status.ActivationKey, acknowledged.ValidationStatus.ActivationKey)
+			require.Equal(t, status.ContextKey, acknowledged.ValidationStatus.ContextKey)
+		})
+	}
 }
 
 func TestNewStripValidationServiceRejectsMissingStore(t *testing.T) {

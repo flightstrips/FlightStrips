@@ -216,33 +216,40 @@ func (s *StripService) acceptCoordination(ctx context.Context, session int32, ca
 		if err != nil {
 			return err
 		}
-	} else if coordination.StripID != strip.ID || coordination.ToPosition != assumingPosition {
-		return shared.RejectAction("validated coordination does not target this strip and position")
-	}
-
-	nextOwners := strip.NextOwners
-	index := slices.Index(nextOwners, assumingPosition)
-	if index >= 0 {
-		nextOwners = nextOwners[index+1:]
+	} else {
+		if coordination.StripID != strip.ID || coordination.ToPosition != assumingPosition {
+			return shared.RejectAction("validated coordination does not target this strip and position")
+		}
+		if strip.IsValidationLocked() && helpers.ValueOrDefault(strip.Owner) != "" {
+			return errors.New("strip is locked by an active validation")
+		}
 	}
 
 	previousOwners := append(slices.Clone(strip.PreviousOwners), coordination.FromPosition)
-	accepted, err := s.ownerStore.AcceptCoordination(ctx, session, strip, coordination, assumingPosition, nextOwners, previousOwners)
+	return s.commitStripAssumption(ctx, session, strip, coordination, assumingPosition, previousOwners, shouldRefreshRouteAfterCoordinationAssume(strip.Bay))
+}
+
+func (s *StripService) commitStripAssumption(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, position string, previousOwners []string, refreshRoute bool) error {
+	callsign := strip.Callsign
+	nextOwners := strip.NextOwners
+	if index := slices.Index(nextOwners, position); index >= 0 {
+		nextOwners = nextOwners[index+1:]
+	}
+	accepted, err := s.ownerStore.CommitStripAssumption(ctx, session, strip, coordination, position, nextOwners, previousOwners)
 	if err != nil {
 		return err
 	}
 	if !accepted {
 		return shared.RejectAction("coordination or strip changed before acceptance")
 	}
-	resolvedOwner := assumingPosition
 	// Publish the committed state to request-local readers before validation.
 	// Replace snapshots so sync callers retain their original owner for diffs.
 	committed := *strip
-	if helpers.ValueOrDefault(strip.Owner) != assumingPosition {
+	if helpers.ValueOrDefault(strip.Owner) != position {
 		committed.NextControllerSector = nil
 	}
 	strip = &committed
-	strip.Owner = &resolvedOwner
+	strip.Owner = &position
 	strip.NextOwners = slices.Clone(nextOwners)
 	strip.PreviousOwners = slices.Clone(previousOwners)
 	strip.NextDisplay = nil
@@ -258,14 +265,19 @@ func (s *StripService) acceptCoordination(ctx context.Context, session int32, ca
 	if snapshot := shared.StripPublication(ctx, session); snapshot != nil && snapshot.Strip.Callsign == callsign {
 		snapshot.Strip = strip
 	}
-	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &assumingPosition); err != nil {
-		return err
+	if err := s.reevaluateAfterOwnerChange(ctx, session, callsign, &position); err != nil {
+		// Send the committed owner even if validation refresh fails.
+		slog.ErrorContext(ctx, "Failed to reevaluate validations after strip assumption",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("position", position),
+			slog.Any("error", err))
 	}
 
 	var nextDisplay *internalModels.NextDisplay
-	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && shouldRefreshRouteAfterCoordinationAssume(strip.Bay) {
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && refreshRoute {
 		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
-			slog.ErrorContext(ctx, "Error updating route after coordination acceptance",
+			slog.ErrorContext(ctx, "Error updating route after strip assumption",
 				slog.String("callsign", callsign),
 				slog.Any("error", err))
 		} else if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
@@ -279,8 +291,8 @@ func (s *StripService) acceptCoordination(ctx context.Context, session int32, ca
 		}
 	}
 
-	s.publisher.SendCoordinationAssume(session, callsign, assumingPosition)
-	s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners, nextDisplay)
+	s.publisher.SendCoordinationAssume(session, callsign, position)
+	s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, previousOwners, nextDisplay)
 	return nil
 }
 
@@ -588,6 +600,9 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 	if err := shared.ValidateCommandAuthority(ctx, session); err != nil {
 		return err
 	}
+	if position == "" {
+		return shared.RejectAction("cannot assume strip without a controller position")
+	}
 	coordRepo := s.getCoordinationRepository()
 	if coordRepo == nil {
 		return errors.New("coordination repository not configured")
@@ -598,78 +613,29 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		return err
 	}
 
+	owner := helpers.ValueOrDefault(strip.Owner)
+	if strip.IsValidationLocked() && owner != "" {
+		return errors.New("strip is locked by an active validation")
+	}
+
 	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		coordination = nil
+	} else if err != nil {
 		return err
 	}
 	// A current owner may still need to accept an incoming ES coordination.
 	// Completed assumptions must leave newer outgoing coordinations untouched.
-	if position != "" && strip.Owner != nil && *strip.Owner == position &&
-		(err != nil || coordination.ToPosition != position || coordination.FromPosition == position) {
+	if owner == position && (coordination == nil || coordination.ToPosition != position || coordination.FromPosition == position) {
 		return nil
 	}
 
-	// Check for a pending coordination first.
-	if err == nil {
-		// Coordination exists — validate it targets this position.
-		if coordination.ToPosition != position {
-			// Special case: strip is unowned and this position is next in line.
-			// The coordination is stale (e.g. from an ES arrival push to a different position).
-			// Delete it and allow direct assumption.
-			if (strip.Owner == nil || *strip.Owner == "") && slices.Contains(strip.NextOwners, position) {
-				_ = coordRepo.Delete(ctx, coordination.ID)
-
-				nextOwners := strip.NextOwners
-				index := slices.Index(nextOwners, position)
-				if index >= 0 {
-					nextOwners = nextOwners[index+1:]
-				}
-
-				if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
-					return err
-				}
-
-				count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &position, strip.Version)
-				if err != nil {
-					return err
-				}
-				if count != 1 {
-					return errors.New("failed to set strip owner")
-				}
-				resolvedOwner := position
-				strip.Owner = &resolvedOwner
-				strip.NextOwners = slices.Clone(nextOwners)
-
-				var nextDisplay *internalModels.NextDisplay
-				if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
-					if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
-						slog.ErrorContext(ctx, "Error updating route after stale coordination assumption",
-							slog.String("callsign", callsign),
-							slog.Any("error", err))
-					} else if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
-						nextOwners = refreshed.NextOwners
-						nextDisplay = refreshed.NextDisplay
-						if s.routeDisplayComputer != nil {
-							if computed, err := s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, refreshed, session); err == nil {
-								nextDisplay = computed
-							}
-						}
-					}
-				}
-				s.publisher.SendCoordinationAssume(session, callsign, position)
-				s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nextDisplay)
-				return nil
-			}
-			return shared.RejectAction("cannot assume strip which is not transferred to you")
-		}
-
+	if coordination != nil && coordination.ToPosition == position {
 		if err := s.acceptCoordination(ctx, session, callsign, position, coordination); err != nil {
 			return err
 		}
 
-		// Missed approach return: if an APP controller assumes an AIRBORNE strip that was
-		// handed over by a TWR controller, automatically move it back to FINAL so TWR
-		// becomes the next controller again on the next approach.
+		// An APP assumption from TWR after a missed approach returns the strip to FINAL.
 		if strip.Bay == shared.BAY_AIRBORNE && isMissedApproachReturn(coordination.FromPosition, position) {
 			if moveErr := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); moveErr != nil {
 				slog.WarnContext(ctx, "missed approach assume: failed to auto-move strip to FINAL",
@@ -681,56 +647,18 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		}
 
 		s.maybeSyncEsCoordinationAcceptance(ctx, session, callsign, coordination, position)
-
 		return nil
 	}
 
-	// Strip is not owned by anyone and has no pending coordination — assume directly.
-	if strip.Owner == nil || *strip.Owner == "" {
-		nextOwners := strip.NextOwners
-		index := slices.Index(nextOwners, position)
-		if index >= 0 {
-			nextOwners = nextOwners[index+1:]
-		}
-
-		if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
-			return err
-		}
-
-		count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &position, strip.Version)
-		if err != nil {
-			return err
-		}
-		if count != 1 {
-			return errors.New("failed to set strip owner")
-		}
-		resolvedOwner := position
-		strip.Owner = &resolvedOwner
-		strip.NextOwners = slices.Clone(nextOwners)
-
-		s.publisher.SendCoordinationAssume(session, callsign, position)
-
-		var nextDisplay *internalModels.NextDisplay
-		if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
-			if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
-				slog.ErrorContext(ctx, "Error updating route after direct assume", slog.String("callsign", callsign), slog.Any("error", err))
-			}
-			if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
-				nextOwners = refreshed.NextOwners
-				nextDisplay = refreshed.NextDisplay
-				if s.routeDisplayComputer != nil {
-					if computed, err := s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, refreshed, session); err == nil {
-						nextDisplay = computed
-					}
-				}
-			}
-		}
-
-		s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nextDisplay)
-		return nil
+	if owner != "" {
+		return shared.RejectAction("cannot assume strip which is not transferred to you")
 	}
-
-	return shared.RejectAction("cannot assume strip which is not transferred to you")
+	if !slices.Contains(strip.NextOwners, position) {
+		return shared.RejectAction("cannot assume strip outside your controller route")
+	}
+	// If a stale coordination targets a different position, consume that
+	// exact row together with the owner and route change.
+	return s.commitStripAssumption(ctx, session, strip, coordination, position, strip.PreviousOwners, true)
 }
 
 // ForceAssumeStrip forcibly takes ownership of a strip, overriding any existing owner.

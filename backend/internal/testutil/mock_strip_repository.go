@@ -12,7 +12,7 @@ import (
 // MockStripRepository is a configurable mock for repository.StripRepository.
 // Set function fields before each test; unset fields panic on call.
 type MockStripRepository struct {
-	AcceptCoordinationFn func(context.Context, int32, *models.Strip, *models.Coordination, string, []string, []string) (bool, error)
+	CommitStripAssumptionFn func(context.Context, int32, *models.Strip, *models.Coordination, string, []string, []string) (bool, error)
 	UpdateFsScratchPadFn            func(context.Context, int32, string, string) (int64, error)
 	CreateFn                        func(ctx context.Context, strip *models.Strip) error
 	GetByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
@@ -81,14 +81,14 @@ type MockStripRepository struct {
 	UpdateVFRManualFPLFieldsFn      func(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
 	SetHasFPFn                      func(ctx context.Context, session int32, callsign string, hasFP bool) error
 	SetValidationStatusFn           func(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
-	AcknowledgeValidationStatusFn   func(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
+	AcknowledgeValidationStatusFn   func(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error)
 	ClearValidationStatusFn         func(ctx context.Context, session int32, callsign string) error
 	WithTxFn                        func(tx pgx.Tx) repository.StripRepository
 }
 
-func (m *MockStripRepository) AcceptCoordination(ctx context.Context, session int32, strip *models.Strip, coordination *models.Coordination, owner string, next, previous []string) (bool, error) {
-	if m.AcceptCoordinationFn == nil { panic("unexpected call to MockStripRepository.AcceptCoordination") }
-	return m.AcceptCoordinationFn(ctx, session, strip, coordination, owner, next, previous)
+func (m *MockStripRepository) CommitStripAssumption(ctx context.Context, session int32, strip *models.Strip, coordination *models.Coordination, owner string, next, previous []string) (bool, error) {
+	if m.CommitStripAssumptionFn == nil { panic("unexpected call to MockStripRepository.CommitStripAssumption") }
+	return m.CommitStripAssumptionFn(ctx, session, strip, coordination, owner, next, previous)
 }
 
 // WithTx returns a transaction-bound repository in production. The mock has
@@ -607,11 +607,11 @@ func (m *MockStripRepository) CompareAndSetStandValidation(context.Context, int3
 	panic("unexpected call to MockStripRepository.CompareAndSetStandValidation")
 }
 
-func (m *MockStripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
+func (m *MockStripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error) {
 	if m.AcknowledgeValidationStatusFn == nil {
 		panic("unexpected call to MockStripRepository.AcknowledgeValidationStatus")
 	}
-	return m.AcknowledgeValidationStatusFn(ctx, session, callsign, activationKey)
+	return m.AcknowledgeValidationStatusFn(ctx, session, callsign, activationKey, requestingPosition)
 }
 
 func (m *MockStripRepository) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {

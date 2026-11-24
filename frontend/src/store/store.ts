@@ -494,7 +494,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       const strip = findStrip(callsign);
       const myPosition = get().position;
 
-      if (!strip || !isValidationBlockingForPosition(strip.validation_status, myPosition)) {
+      if (!strip || !isValidationBlockingForPosition(strip.validation_status, myPosition, strip.owner)) {
+        return true;
+      }
+
+      if (action.type === "coordination_assume_request" && !strip.owner) {
         return true;
       }
 

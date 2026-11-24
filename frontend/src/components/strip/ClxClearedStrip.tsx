@@ -154,7 +154,7 @@ export function ClxClearedStrip({
         <button
           aria-label={callsign}
           className={`relative flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition, callsignBackgroundColor, callsignTextColor ?? (textWhite ? "white" : "black")) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true), ...getValidationBlinkStyle(validationStatus, myPosition, callsignBackgroundColor, callsignTextColor ?? (textWhite ? "white" : "black"), owner) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >

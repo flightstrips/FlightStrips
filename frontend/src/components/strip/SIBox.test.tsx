@@ -1,11 +1,12 @@
 import { fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Bay, type FrontendController } from "@/api/models";
+import { Bay, type FrontendController, type ValidationStatus } from "@/api/models";
+import { SortableStrip } from "@/components/bays/SortableBay";
 import { SIBox } from "./SIBox";
 
 const state = vi.hoisted(() => ({
   pendingAssumptions: {} as Record<string, boolean>,
-  strips: [] as { callsign: string; communication_type: string }[],
+  strips: [] as { callsign: string; communication_type: string; validation_status?: ValidationStatus }[],
   controllers: [] as FrontendController[],
   textPilotReadbacks: {} as Record<string, boolean>, layout: "", displayedLayout: "", callsign: "EKCH_GND",
 }));
@@ -99,6 +100,28 @@ describe("startup SI transfer", () => {
     transferStrip.mockClear();
     startRequestAndTransfer.mockClear();
     openStripContextMenu.mockClear();
+  });
+
+  it("lets the SI click assume a locked unowned strip in a sortable bay", () => {
+    state.strips = [{
+      callsign: "SAS123",
+      communication_type: "TEXT",
+      validation_status: {
+        issue_type: "TSAT START REQUEST", message: "Outside the TSAT window",
+        active: true, activation_key: "key", owning_position: "118.105",
+      },
+    }];
+    const onValidationClick = vi.fn();
+    const { container } = render(
+      <SortableStrip callsign="SAS123" validationBlocked onValidationClick={onValidationClick}>
+        <SIBox callsign="SAS123" bay={Bay.Cleared} myPosition="118.105" nextControllers={["118.105"]} />
+      </SortableStrip>,
+    );
+
+    fireEvent.click(container.querySelector("[data-assume-unowned]")!);
+    expect(assumeStrip).toHaveBeenCalledExactlyOnceWith("SAS123");
+    expect(onValidationClick).not.toHaveBeenCalled();
+    expect(openTextPilotMenu).not.toHaveBeenCalled();
   });
 
   it("ignores an assume click while the store awaits confirmation", () => {

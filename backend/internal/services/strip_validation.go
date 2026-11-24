@@ -71,9 +71,9 @@ func (s *StripValidationService) SetValidationStatus(ctx context.Context, sessio
 }
 
 // AcknowledgeValidationStatus marks the validation status as inactive if the activation key
-// matches and the requesting position is allowed to acknowledge it. Most validations remain
-// owner-scoped; PDC validations are visible and acknowledgeable for all online positions.
-// Uses a conditional DB update so concurrent triggers cannot be accidentally dismissed.
+// matches and the requesting position is allowed to acknowledge it. Non-PDC validations
+// follow the current strip owner and fall back to the recorded position when unowned.
+// The database checks ownership and the activation key again when acknowledging.
 func (s *StripValidationService) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -86,17 +86,21 @@ func (s *StripValidationService) AcknowledgeValidationStatus(ctx context.Context
 	if strip.ValidationStatus == nil {
 		return nil
 	}
-	if strip.ValidationStatus.OwningPosition != requestingPosition &&
+	validationPosition := strip.ValidationStatus.OwningPosition
+	if strip.Owner != nil && *strip.Owner != "" {
+		validationPosition = *strip.Owner
+	}
+	if validationPosition != requestingPosition &&
 		!isPdcInvalidValidation(strip.ValidationStatus) &&
 		!isPdcCustomValidation(strip.ValidationStatus) {
 		return errors.New("acknowledge_validation_status: requesting position is not the owning position")
 	}
-	rows, err := s.validationStore.AcknowledgeValidationStatus(ctx, session, callsign, activationKey)
+	rows, err := s.validationStore.AcknowledgeValidationStatus(ctx, session, callsign, activationKey, requestingPosition)
 	if err != nil {
 		return err
 	}
 	if rows == 0 {
-		// Key mismatch or already acknowledged — not an error, just a no-op.
+		// The activation, ownership, or strip changed before the update.
 		return nil
 	}
 	if strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType {

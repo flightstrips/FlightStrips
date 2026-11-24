@@ -154,7 +154,7 @@ export function StripListPopup<T extends FrontendStrip>({
   };
 
   const handleRowClick = (strip: T) => {
-    if (isValidationBlockingForPosition(strip.validation_status, myPosition)) {
+    if (isValidationBlockingForPosition(strip.validation_status, myPosition, strip.owner)) {
       setValidationDialogCallsign(strip.callsign);
       setValidationDialogOpen(true);
       return;

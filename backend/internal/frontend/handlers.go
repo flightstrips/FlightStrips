@@ -295,13 +295,6 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, identity.session, req.Callsign)
-	if err != nil {
-		return err
-	}
-	if strip.IsValidationLocked() {
-		return errors.New("strip is locked by an active validation")
-	}
 	return client.hub.stripService.AssumeStripCoordination(ctx, identity.session, req.Callsign, identity.position)
 }
 

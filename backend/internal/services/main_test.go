@@ -20,13 +20,15 @@ func newWorkflowTestService(reader StripReader, options ...StripServiceOption) *
 	service := NewStripService(reader, append([]StripServiceOption{WithAirportWorkflows(testWorkflows)}, options...)...)
 	// Keep the existing narrow unit fixtures for owner writes. Production uses
 	// the transactional repository operation, covered by PostgreSQL race tests.
-	if owner, ok := service.ownerStore.(*testutil.MockStripRepository); ok && owner.AcceptCoordinationFn == nil {
-		owner.AcceptCoordinationFn = func(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, position string, next, previous []string) (bool, error) {
-			if err := service.getCoordinationRepository().Delete(ctx, coordination.ID); err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					return false, nil
+	if owner, ok := service.ownerStore.(*testutil.MockStripRepository); ok && owner.CommitStripAssumptionFn == nil {
+		owner.CommitStripAssumptionFn = func(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, position string, next, previous []string) (bool, error) {
+			if coordination != nil {
+				if err := service.getCoordinationRepository().Delete(ctx, coordination.ID); err != nil {
+					if errors.Is(err, pgx.ErrNoRows) {
+						return false, nil
+					}
+					return false, err
 				}
-				return false, err
 			}
 			if err := owner.SetNextAndPreviousOwners(ctx, session, strip.Callsign, next, previous); err != nil {
 				return false, err

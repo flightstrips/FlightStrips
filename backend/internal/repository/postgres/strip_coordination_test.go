@@ -40,7 +40,7 @@ func TestAcceptCoordinationConsumesExactRowOnce(t *testing.T) {
 	for range 2 {
 		go func() {
 			<-start
-			accepted, err := repo.AcceptCoordination(t.Context(), strip.Session, strip, incoming, "P", []string{"Q"}, []string{"X", "A"})
+			accepted, err := repo.CommitStripAssumption(t.Context(), strip.Session, strip, incoming, "P", []string{"Q"}, []string{"X", "A"})
 			results <- result{accepted, err}
 		}()
 	}
@@ -81,12 +81,12 @@ func TestAcceptCoordinationRejectsConsumedOrCancelledRow(t *testing.T) {
 				_, err := pool.Exec(t.Context(), "DELETE FROM coordinations WHERE id=$1", incoming.ID)
 				require.NoError(t, err)
 			} else {
-				accepted, err := repo.AcceptCoordination(t.Context(), strip.Session, strip, incoming, "P", []string{"Q"}, []string{"X", "A"})
+				accepted, err := repo.CommitStripAssumption(t.Context(), strip.Session, strip, incoming, "P", []string{"Q"}, []string{"X", "A"})
 				require.NoError(t, err)
 				require.True(t, accepted)
 				current, err := repo.GetByCallsign(t.Context(), strip.Session, strip.Callsign)
 				require.NoError(t, err)
-				accepted, err = repo.AcceptCoordination(t.Context(), strip.Session, current, outgoing, "Q", nil, []string{"X", "A", "P"})
+				accepted, err = repo.CommitStripAssumption(t.Context(), strip.Session, current, outgoing, "Q", nil, []string{"X", "A", "P"})
 				require.NoError(t, err)
 				require.True(t, accepted)
 			}
@@ -94,7 +94,7 @@ func TestAcceptCoordinationRejectsConsumedOrCancelledRow(t *testing.T) {
 			// the obsolete incoming coordination. Its row must still be consumable.
 			before, err := repo.GetByCallsign(t.Context(), strip.Session, strip.Callsign)
 			require.NoError(t, err)
-			accepted, err := repo.AcceptCoordination(t.Context(), strip.Session, before, incoming, "P", nil, []string{"A"})
+			accepted, err := repo.CommitStripAssumption(t.Context(), strip.Session, before, incoming, "P", nil, []string{"A"})
 			require.NoError(t, err)
 			require.False(t, accepted)
 			after, err := repo.GetByCallsign(t.Context(), strip.Session, strip.Callsign)
@@ -119,7 +119,7 @@ func TestAcceptCoordinationRechecksVersionAfterLockWait(t *testing.T) {
 	}
 	result := make(chan acceptanceResult, 1)
 	go func() {
-		accepted, err := repo.AcceptCoordination(ctx, strip.Session, strip, incoming, "P", nil, nil)
+		accepted, err := repo.CommitStripAssumption(ctx, strip.Session, strip, incoming, "P", nil, nil)
 		result <- acceptanceResult{accepted, err}
 	}()
 	require.Eventually(t, func() bool {
@@ -148,7 +148,7 @@ func TestAcceptCoordinationRollsBackConsumptionWhenOwnerWriteFails(t *testing.T)
 	BEGIN RAISE EXCEPTION 'owner write failed'; END $$;
 	CREATE TRIGGER reject_owner BEFORE UPDATE ON strips FOR EACH ROW EXECUTE FUNCTION reject_coordination_owner()`)
 	require.NoError(t, err)
-	accepted, err := repo.AcceptCoordination(t.Context(), strip.Session, strip, incoming, "P", nil, nil)
+	accepted, err := repo.CommitStripAssumption(t.Context(), strip.Session, strip, incoming, "P", nil, nil)
 	require.ErrorContains(t, err, "owner write failed")
 	require.False(t, accepted)
 	current, err := repo.GetByCallsign(t.Context(), strip.Session, strip.Callsign)
@@ -157,4 +157,53 @@ func TestAcceptCoordinationRollsBackConsumptionWhenOwnerWriteFails(t *testing.T)
 	var remaining bool
 	require.NoError(t, pool.QueryRow(t.Context(), "SELECT EXISTS(SELECT 1 FROM coordinations WHERE id=$1)", incoming.ID).Scan(&remaining))
 	require.True(t, remaining, "owner failure must roll back the selected coordination's deletion")
+}
+
+func TestCommitUnownedAssumptionPreservesRouteWhenAcknowledgementWins(t *testing.T) {
+	for _, withCoordination := range []bool{false, true} {
+		t.Run(map[bool]string{false: "direct", true: "stale coordination"}[withCoordination], func(t *testing.T) {
+			pool, repo, strip, incoming, outgoing := seedCoordinationAcceptance(t)
+			ctx := t.Context()
+			_, err := pool.Exec(ctx, `UPDATE strips SET owner=NULL WHERE id=$1`, strip.ID)
+			require.NoError(t, err)
+			_, err = pool.Exec(ctx, `DELETE FROM coordinations WHERE id=$1`, outgoing.ID)
+			require.NoError(t, err)
+			if !withCoordination {
+				_, err = pool.Exec(ctx, `DELETE FROM coordinations WHERE id=$1`, incoming.ID)
+				require.NoError(t, err)
+				incoming = nil
+			}
+			require.NoError(t, repo.SetValidationStatus(ctx, strip.Session, strip.Callsign, &models.ValidationStatus{
+				IssueType: models.ValidationIssueTypeReadyTransferTsat, Active: true,
+				OwningPosition: "A", ActivationKey: "validation",
+			}))
+			before, err := repo.GetByCallsign(ctx, strip.Session, strip.Callsign)
+			require.NoError(t, err)
+			// Acknowledge after the assume decision reads the strip, before it commits.
+			rows, err := repo.AcknowledgeValidationStatus(ctx, strip.Session, strip.Callsign, "validation", "A")
+			require.NoError(t, err)
+			require.EqualValues(t, 1, rows)
+			accepted, err := repo.CommitStripAssumption(ctx, strip.Session, before, incoming, "Q", nil, before.PreviousOwners)
+			require.NoError(t, err)
+			require.False(t, accepted)
+
+			current, err := repo.GetByCallsign(ctx, strip.Session, strip.Callsign)
+			require.NoError(t, err)
+			require.Nil(t, current.Owner)
+			require.Equal(t, before.NextOwners, current.NextOwners)
+			require.Equal(t, before.PreviousOwners, current.PreviousOwners)
+			require.Equal(t, before.Version+1, current.Version)
+			require.False(t, current.IsValidationLocked())
+
+			// An eligible controller can retry against the acknowledged revision.
+			accepted, err = repo.CommitStripAssumption(ctx, strip.Session, current, incoming, "Q", nil, current.PreviousOwners)
+			require.NoError(t, err)
+			require.True(t, accepted)
+			assumed, err := repo.GetByCallsign(ctx, strip.Session, strip.Callsign)
+			require.NoError(t, err)
+			require.NotNil(t, assumed.Owner)
+			require.Equal(t, "Q", *assumed.Owner)
+			require.Empty(t, assumed.NextOwners)
+		})
+	}
 }

@@ -102,8 +102,8 @@ export function canForceAssumeStrip({
   return !!myPosition && owner !== myPosition && !isClrDel;
 }
 
-export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string, fallbackBackground?: string, fallbackForeground?: string): CSSProperties {
-  if (!isValidationActiveForPosition(validationStatus, myPosition)) {
+export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string, fallbackBackground?: string, fallbackForeground?: string, owner?: string): CSSProperties {
+  if (!isValidationActiveForPosition(validationStatus, myPosition, owner)) {
     return {};
   }
 
@@ -190,8 +190,8 @@ export function useStripCallsignInteraction({
   const localMarked = useWebSocketStore((state) => state.localMarked[callsign]);
   const marked = localMarked ?? serverMarked;
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
-  const isValidationVisible = isValidationActiveForPosition(validationStatus, myPosition);
-  const isValidationActive = isValidationBlockingForPosition(validationStatus, myPosition);
+  const isValidationVisible = isValidationActiveForPosition(validationStatus, myPosition, owner);
+  const isValidationActive = isValidationBlockingForPosition(validationStatus, myPosition, owner);
 
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
 
@@ -276,9 +276,9 @@ export function useStripCallsignInteraction({
  * Uses a CSS keyframe animation so no interval timers are needed.
  */
 export function useValidationBlink(callsign: string): CSSProperties {
-  const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
+  const strip = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign));
   const myPosition = useWebSocketStore((state) => state.position);
-  return getValidationBlinkStyle(validationStatus, myPosition);
+  return getValidationBlinkStyle(strip?.validation_status, myPosition, undefined, undefined, strip?.owner);
 }
 
 /**

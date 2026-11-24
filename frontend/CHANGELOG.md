@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.11.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.11.0...frontend/v2.11.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **cdm:** limit inbound CTOT status to the AMAN CTOT tab ([#1223](https://github.com/flightstrips/FlightStrips/issues/1223)) ([6ea37f8](https://github.com/flightstrips/FlightStrips/commit/6ea37f80753c36ef6d475d42046a223de748e876))
+* **clearance:** correct text climb and pushback QNH ([#1225](https://github.com/flightstrips/FlightStrips/issues/1225)) ([79387f4](https://github.com/flightstrips/FlightStrips/commit/79387f4eec2b3277de561348e738170f1a598a52))
+* **strip:** allow assumption of locked unowned strips ([#1224](https://github.com/flightstrips/FlightStrips/issues/1224)) ([14b95df](https://github.com/flightstrips/FlightStrips/commit/14b95dfd25a95cf3dc49a806ff4b10c3f7c9bdd6))
+* **strip:** remove blue runway highlight for arrivals in RWY DEP ([#1222](https://github.com/flightstrips/FlightStrips/issues/1222)) ([ec2c0ae](https://github.com/flightstrips/FlightStrips/commit/ec2c0aee88c528008fcf1c9fafc7fbe7614f8a33))
+* **strip:** restore taxiway and holding point coordination ([#1218](https://github.com/flightstrips/FlightStrips/issues/1218)) ([4e7a602](https://github.com/flightstrips/FlightStrips/commit/4e7a602230c948c7bf701c4a28c75eb33e624f39))
+* **strip:** skip pilot text for release point coordination ([#1219](https://github.com/flightstrips/FlightStrips/issues/1219)) ([b99a5b5](https://github.com/flightstrips/FlightStrips/commit/b99a5b5af374ade1fc38bac04a7bcb020f4f146d))
+
 ## [2.11.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.10.0...frontend/v2.11.0) (2026-11-24)
 
 

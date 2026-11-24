@@ -92,6 +92,17 @@ function renderStrip() {
   );
 }
 
+describe("TWY DEP strip runway color", () => {
+  it.each([
+    { arrival: true, backgroundColor: "" },
+    { arrival: false, backgroundColor: "var(--color-strip-dep-bg)" },
+  ])("uses the expected runway background in RWY DEP when arrival is $arrival", ({ arrival, backgroundColor }) => {
+    render(<TwyDepStrip callsign="SAS123" bay={Bay.Depart} pdcStatus="NONE" runway="22R" arrival={arrival} />);
+
+    expect(screen.getByText("22R").parentElement?.style.backgroundColor).toBe(backgroundColor);
+  });
+});
+
 describe("TWY DEP strip altitude and heading controls", () => {
   it("opens the altitude menu and sends the selected altitude to the strip", () => {
     renderStrip();

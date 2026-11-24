@@ -119,13 +119,13 @@ export function TwyDepStrip({
   const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
 
   // RWY cell background color (only when strip is in DEPART bay):
-  // - runway_cleared = false: blue/cyan (in bay, awaiting clearance)
+  // - runway_cleared = false: blue/cyan for departures awaiting clearance
   // - runway_cleared = true, runway_confirmed = true: green (controller acknowledged)
   // - runway_cleared = true, runway_confirmed = false: red (new/incoming, needs attention)
   let rwyColor: string | undefined;
   if (bay === Bay.Depart) {
     if (!runwayCleared) {
-      rwyColor = "var(--color-strip-dep-bg)";
+      rwyColor = arrival ? undefined : "var(--color-strip-dep-bg)";
     } else if (runwayConfirmed) {
       rwyColor = "var(--color-runway-confirmed)";
     } else {

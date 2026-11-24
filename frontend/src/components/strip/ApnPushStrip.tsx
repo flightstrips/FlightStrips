@@ -32,7 +32,7 @@ import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
-import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatStripDeIceIndication } from "@/components/est/deiceIndication";
 
 // Height: 4.72dvh(51px at 1080p)
 const HALF_H = "50%";
@@ -130,7 +130,7 @@ export function ApnPushStrip({
   const hideNextFrequency = (displayedLayout === "AAAD" || displayedLayout === "AD")
     && (bay === Bay.Cleared || bay === Bay.Push);
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
-  const deiceIndication = formatDeIceIndication(deicePlatform);
+  const deiceIndication = formatStripDeIceIndication(deicePlatform, deicePlatformAcknowledged);
   const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
   return (

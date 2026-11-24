@@ -14,7 +14,6 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getDefaultExitTaxiway } from "./defaultExitTaxiway";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
 import { getRwyArrRunwayColor } from "./finalArrRunwayColor";
-import {InboundCtotFlag} from "./InboundCtotFlag";
 
 // Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
 const TOP_H = "66.6667%";
@@ -129,7 +128,6 @@ export function FinalArrStrip({
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}
           </span>
-          <InboundCtotFlag callsign={callsign} />
         </div>
         <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "0.57vw" }}>

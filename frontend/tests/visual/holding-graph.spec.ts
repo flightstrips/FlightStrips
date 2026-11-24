@@ -94,8 +94,9 @@ test("fills the dashboard height with outward-facing rulers and arrow connectors
   const dashboard = page.getByTestId("dashboard");
   const traffic = await dashboard.locator(".aman-tmt-traffic").boundingBox();
   const holdings = await dashboard.locator(".aman-tmt-holdings").boundingBox();
-  // Holdings occupy the middle two thirds of the column; the bottom third is reserved for the CDM list.
   expect(holdings!.height).toBeGreaterThan(traffic!.height);
+  const dashboardBox = (await dashboard.boundingBox())!;
+  expect(holdings!.y + holdings!.height).toBeCloseTo(dashboardBox.y + dashboardBox.height);
   await expect(dashboard.locator("svg line").first()).toHaveAttribute("stroke-width", "1");
   await expect(dashboard.locator("svg line").first()).toHaveAttribute("marker-end", /url\(#.+\)/);
   await expect(dashboard.locator("svg marker").first()).toHaveAttribute("orient", "0");

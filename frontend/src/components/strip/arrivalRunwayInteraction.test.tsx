@@ -5,8 +5,6 @@ import { ApnArrStrip } from "./ApnArrStrip";
 import { FinalArrStrip } from "./FinalArrStrip";
 
 const store = vi.hoisted(() => ({
-  strips: [],
-  inboundDepartures: null,
   runwayClearance: vi.fn(),
   runwayConfirmation: vi.fn(),
   resetRunwayClearance: vi.fn(),

@@ -421,9 +421,11 @@ function makeGallery(): GalleryItem[] {
 }
 
 export default function StripGalleryPage() {
+  const params = new URLSearchParams(window.location.search);
+  const showInboundCtot = params.get("inboundCtot") === "1";
   const [store] = useState(() => {
     const nextStore = createWebSocketStore(new WebSocketClient("ws://127.0.0.1/unused"));
-    const galleryFlights = [baseFlight];
+    const galleryFlight = showInboundCtot ? flight({ origin: "ESSA", destination: "EKCH" }) : baseFlight;
     const rejectPreviewStandRequest = (action: ActionType, callsign: string) => {
       nextStore.setState({
         standActionRejection: {
@@ -444,7 +446,19 @@ export default function StripGalleryPage() {
         { callsign: "EKCH_A_GND", position: "121.905", identifier: "AD", section: "AD", owned_sectors: ["AD"] },
         { callsign: "EKCH_TWR", position: "118.100", identifier: "TW", section: "TW", owned_sectors: ["TW"] },
       ],
-      strips: galleryFlights,
+      strips: [galleryFlight],
+      amanConnectionState: "connected",
+      inboundDepartures: showInboundCtot ? {
+        session_id: 1,
+        airport: "EKCH",
+        enabled: true,
+        updated_at: "2026-11-07T14:00:00Z",
+        stale: false,
+        flights: [{
+          callsign: galleryFlight.callsign, departure: galleryFlight.origin, arrival: galleryFlight.destination,
+          ctot: "1300", atot: "1242", eta: "1355", status: "early", deviation_seconds: -1080, outside_window_seconds: 780,
+        }],
+      } : null,
       tacticalStrips: [tacticalBase],
       runwaySetup: { departure: ["22R"], arrival: ["22L"], runway_status: {} },
       metar: "EKCH 160950Z 24008KT CAVOK 18/10 Q1013",
@@ -459,7 +473,7 @@ export default function StripGalleryPage() {
     return nextStore;
   });
   const gallery = makeGallery();
-  const requestedShot = new URLSearchParams(window.location.search).get("shot");
+  const requestedShot = params.get("shot");
   const visibleGallery = requestedShot ? gallery.filter((item) => item.id === requestedShot) : gallery;
 
   if (requestedShot) {

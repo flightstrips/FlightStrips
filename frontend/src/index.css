@@ -213,20 +213,12 @@ body.public-content-page {
 
   .aman-tmt-dashboard {
     display: grid;
-    grid-template-rows: minmax(0, 28%) auto minmax(0, 1fr) calc(100% / 3);
+    grid-template-rows: minmax(0, 28%) auto minmax(0, 1fr);
     @apply h-full min-h-0;
   }
 
   .aman-tmt-dashboard-acc {
     grid-template-rows: minmax(0, 1fr);
-  }
-
-  .aman-tmt-non-compliance {
-    @apply min-h-0 overflow-hidden pt-1;
-  }
-
-  .aman-tmt-non-compliance > * {
-    @apply h-full;
   }
 
   .aman-tmt-traffic {

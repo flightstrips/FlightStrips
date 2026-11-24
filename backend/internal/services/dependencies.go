@@ -65,7 +65,7 @@ type StripFieldStore interface {
 }
 
 type StripOwnerStore interface {
-	AcceptCoordination(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, owner string, nextOwners, previousOwners []string) (bool, error)
+	CommitStripAssumption(ctx context.Context, session int32, strip *internalModels.Strip, coordination *internalModels.Coordination, owner string, nextOwners, previousOwners []string) (bool, error)
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
 	SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error
 	SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
@@ -78,7 +78,7 @@ type StripCdmStore interface {
 type StripValidationStatusStore interface {
 	SetValidationStatus(ctx context.Context, session int32, callsign string, status *internalModels.ValidationStatus) error
 	CompareAndSetStandValidation(ctx context.Context, session int32, callsign string, update internalModels.StandValidationUpdate) (bool, error)
-	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
+	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error)
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 }
 

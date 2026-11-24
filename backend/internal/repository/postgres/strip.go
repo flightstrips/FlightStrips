@@ -1490,10 +1490,9 @@ func matchesValidationObservation(current, previous *models.ValidationStatus) bo
 }
 
 // AcknowledgeValidationStatus sets active=false for the strip's validation status using a
-// conditional SQL update (no read-modify-write race). Returns rows affected (0 = key mismatch
-// or already inactive).
-func (r *stripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
-	return r.queries.AcknowledgeValidationStatus(ctx, session, callsign, activationKey)
+// conditional SQL update that checks the activation and current ownership.
+func (r *stripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error) {
+	return r.queries.AcknowledgeValidationStatus(ctx, session, callsign, activationKey, requestingPosition)
 }
 
 // ClearValidationStatus removes the validation status from the strip.

@@ -1,5 +1,6 @@
 import { isTextPilot, stationController, TEXT_STATIONS } from "@/lib/text-pilot";
 import { airborneHandoverLabel } from "@/lib/airborneHandover";
+import { isValidationBlocking } from "@/lib/validation-status";
 import { Bay } from "@/api/models";
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
@@ -74,6 +75,8 @@ export function SIBox({
   const hasActiveHandover = !!transferFrom && !isTagRequest;
   const isUnownedAndNext = !owner && isConcerned;
   const isStand = bay === "STAND";
+  const canAssumeLockedStrip = !isStand && !owner && (isUnownedAndNext || isReceivingTransfer) &&
+    isValidationBlocking(strip?.validation_status);
 
   // Tag request states
   const isTagRequestOwner = initiatedByMe && !!transferringTo && isTagRequest;
@@ -106,6 +109,10 @@ export function SIBox({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (assumePending) return;
+    if (canAssumeLockedStrip) {
+      assumeStrip(callsign);
+      return;
+    }
     if (hasActiveHandover && !isStand) {
       if (isSendingTransfer) {
         openStripContextMenu(callsign, { x: e.clientX, y: e.clientY });
@@ -174,6 +181,7 @@ export function SIBox({
   return (
     <div
       aria-busy={assumePending}
+      data-assume-unowned={canAssumeLockedStrip || undefined}
       className="flex items-center justify-center font-normal [-webkit-text-stroke:0.5px_currentColor]"
       style={{
         flex: `${flexGrow} 0 0%`,

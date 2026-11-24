@@ -11,13 +11,9 @@ export function ValidationStatusDialogOverlay() {
   const callsign = useValidationDialogCallsign();
   const closeValidationDialog = useCloseValidationDialog();
   const myPosition = useMyPosition();
-  const status = useWebSocketStore((state) =>
-    callsign
-      ? state.strips.find((strip) => strip.callsign === callsign)?.validation_status
-      : undefined,
-  );
-
-  const liveStatus = status && isValidationActiveForPosition(status, myPosition) ? status : undefined;
+  const strip = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign));
+  const status = strip?.validation_status;
+  const liveStatus = isValidationActiveForPosition(status, myPosition, strip?.owner) ? status : undefined;
 
   if (!callsign || !liveStatus) {
     return null;

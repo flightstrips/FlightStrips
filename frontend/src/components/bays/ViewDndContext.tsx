@@ -177,7 +177,7 @@ export function ViewDndContext({
     if (strip && isFlight(strip) && (
       strip.owner !== myPosition || isActiveStripTransfer(stripTransfers[strip.callsign])
     )) return;
-    if (strip && isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition)) {
+    if (strip && isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition, strip.owner)) {
       setValidationDialogCallsign(strip.callsign);
       setValidationDialogOpen(true);
       return;

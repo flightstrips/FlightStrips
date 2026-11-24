@@ -508,10 +508,11 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	const position = "GND_N"
 
 	strip := &models.Strip{
-		ID:       50,
-		Callsign: callsign,
-		Owner:    nil,
-		Version:  int32(2),
+		ID:         50,
+		Callsign:   callsign,
+		Owner:      nil,
+		NextOwners: []string{position},
+		Version:    int32(2),
 	}
 	var getByCallsignCalls int
 

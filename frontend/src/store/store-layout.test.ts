@@ -519,6 +519,29 @@ describe("manual companion layout behavior", () => {
     expect(store.getState().tacticalStrips).toEqual([unrelated]);
   });
 
+  it.each(["PDC INVALID", "TSAT START REQUEST"])("assumes a locked unowned strip with %s", (issueType) => {
+    const position = "118.580";
+    store.setState({
+      position,
+      strips: [{
+        ...foreignStrip(), owner: "",
+        validation_status: {
+          issue_type: issueType, message: "Review warning",
+          active: true, activation_key: "key", owning_position: "121.730",
+        },
+      }],
+    });
+    store.getState().assumeStrip("SAS123");
+    expect(client.send).toHaveBeenCalledExactlyOnceWith({ type: ActionType.FrontendCoordinationAssumeRequest, callsign: "SAS123" });
+
+    client._emit(EventType.FrontendOwnersUpdate, {
+      callsign: "SAS123", owner: position, next_owners: [], previous_owners: [],
+    });
+    store.getState().generateSquawk("SAS123");
+    expect(store.getState().validationDialogCallsign).toBe("SAS123");
+    expect(client.send).toHaveBeenCalledTimes(1);
+  });
+
   it("allows the current owner to accept an incoming ES coordination", () => {
     const position = "118.580";
     store.setState({ position, strips: [{ ...foreignStrip(), owner: position }],

@@ -103,29 +103,13 @@ func TestHandleCoordinationForceAssumeRequest_ReturnsRecalculatedRoute(t *testin
 	assert.Equal(t, []string{"EKCH_B_GND"}, forceAssumeResult.NextOwners)
 }
 
-func TestHandleCoordinationAssumeRequest_ValidationLocked_Rejected(t *testing.T) {
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign: callsign,
-				ValidationStatus: &models.ValidationStatus{
-					Active: true,
-				},
-			}, nil
-		},
-	}
-
+func TestHandleCoordinationAssumeRequest_DelegatesAssumption(t *testing.T) {
 	spy := &coordinationSpyStripService{}
-	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
+	hub := buildFrontendTestHub(mockServerWithStripRepo(&testutil.MockStripRepository{}), spy)
 	client := buildFrontendTestClient(hub, 42, "EKCH")
 	client.position = "EKCH_A_TWR"
 
-	msg := marshalMessage(t, frontendEvents.CoordinationAssumeRequestEvent{
-		Callsign: "SAS123",
-	})
-
-	err := handleCoordinationAssumeRequest(context.Background(), client, msg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "strip is locked by an active validation")
-	assert.False(t, spy.assumeCalled, "normal assume must still be blocked while validation is active")
+	msg := marshalMessage(t, frontendEvents.CoordinationAssumeRequestEvent{Callsign: "SAS123"})
+	require.NoError(t, handleCoordinationAssumeRequest(context.Background(), client, msg))
+	assert.True(t, spy.assumeCalled)
 }

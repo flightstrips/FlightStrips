@@ -65,7 +65,7 @@ type StripRepository interface {
 
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
-	AcceptCoordination(ctx context.Context, session int32, strip *models.Strip, coordination *models.Coordination, owner string, nextOwners, previousOwners []string) (bool, error)
+	CommitStripAssumption(ctx context.Context, session int32, strip *models.Strip, coordination *models.Coordination, owner string, nextOwners, previousOwners []string) (bool, error)
 	SetRouteState(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error
 	SetNextControllerSelection(ctx context.Context, session int32, callsign, owner, sector string, nextOwners []string, nextDisplay *models.NextDisplay) (int64, error)
 	SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error
@@ -109,7 +109,7 @@ type StripRepository interface {
 	// Validation status
 	SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
 	CompareAndSetStandValidation(ctx context.Context, session int32, callsign string, update models.StandValidationUpdate) (bool, error)
-	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
+	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error)
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 
 	// WithTx returns a repository bound to the supplied transaction for

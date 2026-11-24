@@ -230,12 +230,16 @@ UPDATE strips
 SET validation_status = jsonb_set(validation_status, '{active}', 'false'), version = version + 1
 WHERE session = $1 AND callsign = $2
   AND validation_status->>'activation_key' = $3
-  AND (validation_status->>'active')::boolean = true`
+  AND (validation_status->>'active')::boolean = true
+  AND (
+    validation_status->>'issue_type' IN ('PDC INVALID', 'CUSTOM PDC')
+    OR COALESCE(NULLIF(owner, ''), validation_status->>'owning_position') = $4
+  )`
 
-// AcknowledgeValidationStatus sets active=false on validation_status if the activation_key
-// matches and the status is currently active. Returns the number of rows updated (0 = no-op).
-func (q *Queries) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
-	result, err := q.db.Exec(ctx, acknowledgeValidationStatusSQL, session, callsign, activationKey)
+// AcknowledgeValidationStatus clears an active warning for the matching activation
+// and authorized position. Returns the number of rows updated (0 = no-op).
+func (q *Queries) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey, requestingPosition string) (int64, error) {
+	result, err := q.db.Exec(ctx, acknowledgeValidationStatusSQL, session, callsign, activationKey, requestingPosition)
 	if err != nil {
 		return 0, err
 	}

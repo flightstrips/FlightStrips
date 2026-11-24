@@ -187,7 +187,7 @@ export function TwyDepStrip({
         <TextPilotIndicator type={communicationType} borderColor={cellBorderColor} />
         <div
           className="flex items-center pl-[0.42vw] overflow-hidden"
-          style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, isSelected && isTagRequest ? "black" : callsignStyle.color ?? (textWhite ? "white" : "black")) }}
+          style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: isSelected && isTagRequest ? "black" : undefined, ...getValidationBlinkStyle(validationStatus, myPosition, isSelected ? SELECTION_COLOR : undefined, isSelected && isTagRequest ? "black" : callsignStyle.color ?? (textWhite ? "white" : "black"), owner) }}
         >
           <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "normal", WebkitTextStroke: SEMI_BOLD_STROKE, fontSize: "1.04vw" }}>
             {callsign}

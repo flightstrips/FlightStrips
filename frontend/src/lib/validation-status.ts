@@ -42,14 +42,17 @@ export function isPdcValidationStatus(validationStatus: ValidationStatus | undef
   return validationStatus != null && PDC_VALIDATION_ISSUE_TYPES.has(validationStatus.issue_type);
 }
 
-export function isValidationActiveForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string): boolean {
+export function isValidationActiveForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string, owner?: string): boolean {
   return validationStatus?.active === true
-    && (isPdcValidationStatus(validationStatus) || validationStatus.owning_position === myPosition);
+    && (isPdcValidationStatus(validationStatus) || (owner || validationStatus.owning_position) === myPosition);
 }
 
-export function isValidationBlockingForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string): boolean {
-  return isValidationActiveForPosition(validationStatus, myPosition)
-    && !NON_BLOCKING_VALIDATION_ISSUE_TYPES.has(validationStatus?.issue_type ?? "");
+export function isValidationBlocking(validationStatus: ValidationStatus | undefined): boolean {
+  return validationStatus?.active === true && !NON_BLOCKING_VALIDATION_ISSUE_TYPES.has(validationStatus.issue_type);
+}
+
+export function isValidationBlockingForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string, owner?: string): boolean {
+  return isValidationBlocking(validationStatus) && isValidationActiveForPosition(validationStatus, myPosition, owner);
 }
 
 function hasCustomAction(validationStatus: ValidationStatus | undefined, actionKind: string): boolean {

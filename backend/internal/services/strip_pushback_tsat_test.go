@@ -140,7 +140,7 @@ func TestPushbackOverrideLogOnlyFollowsSuccessfulAcknowledgement(t *testing.T) {
 			strip := &models.Strip{ValidationStatus: &models.ValidationStatus{IssueType: pushbackTsatValidationIssueType, OwningPosition: "EKCH_GND", ActivationKey: "current", Active: true}}
 			svc := &StripValidationService{
 				stripReader:     &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }},
-				validationStore: &validationStoreFake{acknowledgeValidationStatusFn: func(context.Context, int32, string, string) (int64, error) { return rows, nil }},
+				validationStore: &validationStoreFake{acknowledgeValidationStatusFn: func(context.Context, int32, string, string, string) (int64, error) { return rows, nil }},
 				publisher:       &testutil.MockFrontendHub{},
 			}
 			require.NoError(t, svc.AcknowledgeValidationStatus(context.Background(), 779, "SAS779", "current", "EKCH_GND"))

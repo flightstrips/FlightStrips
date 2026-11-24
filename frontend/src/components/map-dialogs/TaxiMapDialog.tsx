@@ -89,9 +89,7 @@ export function TaxiMapDialog({
       openTextPilotMenu({ callsign, variant: strip?.destination === airport && strip?.origin !== airport ? "tower-in" : "tower-out", point: label, splitTowerDefaults: ["GEGW", "TWTE"].includes(layout), actions: textTaxiActions(callsign, label, moveOnSelect ? Bay.TaxiLwr : undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
     }
-    if (label !== strip?.release_point) {
-      setReleasePoint(callsign, label);
-    }
+    setReleasePoint(callsign, label);
     if (moveOnSelect) {
       move(callsign, Bay.TaxiLwr);
     }
@@ -102,9 +100,7 @@ export function TaxiMapDialog({
   };
 
   const handleErase = () => {
-    if (strip?.release_point) {
-      setReleasePoint(callsign, "");
-    }
+    setReleasePoint(callsign, "");
     if (shouldAcknowledgeReleasePoint) {
       acknowledgeUnexpectedChange(callsign, "release_point");
     }

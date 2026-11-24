@@ -613,6 +613,27 @@ describe("manual companion layout behavior", () => {
     expect(store.getState().strips[0]).toMatchObject({ owner: strip.owner, release_point: releasePoint });
   });
 
+  it("sends a release point reversal before the server echoes the first change", () => {
+    const strip = { ...foreignStrip(), bay: Bay.TwyArr, release_point: "K1" };
+    store.setState({ position: "EKCH_B_GND", strips: [strip] });
+
+    store.getState().setReleasePoint(strip.callsign, "K2");
+    store.getState().setReleasePoint(strip.callsign, "K1");
+    store.getState().setReleasePoint(strip.callsign, "K1");
+
+    expect(client.send).toHaveBeenCalledTimes(2);
+    expect(client.send).toHaveBeenNthCalledWith(2, {
+      type: ActionType.FrontendReleasePoint,
+      callsign: strip.callsign,
+      release_point: "K1",
+    });
+    client._emit(EventType.FrontendReleasePoint, { callsign: strip.callsign, release_point: "K2" });
+    store.getState().setReleasePoint(strip.callsign, "K1");
+    expect(client.send).toHaveBeenCalledTimes(2);
+    client._emit(EventType.FrontendReleasePoint, { callsign: strip.callsign, release_point: "K1" });
+    expect(store.getState().strips[0].release_point).toBe("K1");
+  });
+
   it("skips unchanged edits and keeps owner-only field changes blocked after handoff", () => {
     const strip = { ...foreignStrip(), owner: "EKCH_B_GND", route: "DCT LANGO", eobt: "1450" };
     store.setState({ position: "EKCH_B_GND", strips: [strip] });

@@ -4,7 +4,7 @@ import { CommunicationType } from "@/api/models";
 import { TaxiMapDialog } from "./TaxiMapDialog";
 
 const state = vi.hoisted(() => ({
-  strip: { communication_type: "V", aircraft_type: "A35K", aircraft_category: "H", origin: "EKCH" },
+  strip: { communication_type: "V", aircraft_type: "A35K", aircraft_category: "H", origin: "EKCH", release_point: "F2" },
   openTextPilotMenu: vi.fn(),
   setReleasePoint: vi.fn(),
   acknowledgeUnexpectedChange: vi.fn(),
@@ -80,5 +80,18 @@ describe("TaxiMapDialog free-text holding points", () => {
     fireEvent.click(okButton);
 
     expect(state.setReleasePoint).toHaveBeenCalledWith("SAS123", "F1");
+  });
+
+  it("forwards a selection that reverses an unconfirmed change", () => {
+    render(<TaxiMapDialog open onOpenChange={vi.fn()} callsign="SAS123" />);
+    const input = screen.getByRole("textbox");
+    const ok = screen.getByRole("button", { name: "OK" });
+
+    fireEvent.change(input, { target: { value: "F1" } });
+    fireEvent.click(ok);
+    fireEvent.change(input, { target: { value: "F2" } });
+    fireEvent.click(ok);
+
+    expect(state.setReleasePoint.mock.calls).toEqual([["SAS123", "F1"], ["SAS123", "F2"]]);
   });
 });

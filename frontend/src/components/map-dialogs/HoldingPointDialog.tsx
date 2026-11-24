@@ -51,9 +51,7 @@ export function HoldingPointDialog({
       openTextPilotMenu({ callsign, variant: "tower-out", point: label, holdingPoint: true, actions: textTaxiActions(callsign, label, undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
     }
-    if (label !== strip?.release_point) {
-      setReleasePoint(callsign, label);
-    }
+    setReleasePoint(callsign, label);
     if (shouldAcknowledgeReleasePoint) {
       acknowledgeUnexpectedChange(callsign, "release_point");
     }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.10.0...frontend/v2.11.0) (2026-11-24)
+
+
+### Features
+
+* **cdm:** show DONE on strips once the de-ice platform is acknowledged ([#1215](https://github.com/flightstrips/FlightStrips/issues/1215)) ([55467a7](https://github.com/flightstrips/FlightStrips/commit/55467a7b7b2fb876b398098a9062f11b16dd012e))
+
 ## [2.10.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v2.9.2...frontend/v2.10.0) (2026-11-22)
 
 

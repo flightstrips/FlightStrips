@@ -154,3 +154,12 @@ test("the apron-arrival strip shows the aircraft registration", async ({ page })
 
   await expect(page.getByTestId("strip-fixture-apron-arrival")).toContainText("PH-PJK");
 });
+
+test("arrival strips omit CTOT flags even when a flight has an inbound finding", async ({ page }) => {
+  for (const stripType of ["apron-arrival", "final-arrival", "compact-flight"]) {
+    await page.goto(`/strip-gallery?shot=${stripType}&inboundCtot=1`);
+    const strip = page.getByTestId(`strip-fixture-${stripType}`);
+    await expect(strip.getByText("KLM18X", { exact: true })).toBeVisible();
+    await expect(strip.getByText(/^CTOT\b/i)).toHaveCount(0);
+  }
+});

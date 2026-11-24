@@ -39,7 +39,6 @@ vi.mock("./RunwayDialog", () => ({ RunwayDialog: () => null }));
 vi.mock("./AltSelectDialog", () => ({ AltSelectDialog: () => null }));
 vi.mock("./HdgSelectDialog", () => ({ HdgSelectDialog: () => null }));
 vi.mock("./ValidationStatusDialog", () => ({ ValidationStatusDialog: () => null }));
-vi.mock("./InboundCtotFlag", () => ({ InboundCtotFlag: () => null }));
 vi.mock("@/components/map-dialogs/PushbackMapDialog", () => ({ PushbackMapDialog: () => null }));
 vi.mock("@/components/map-dialogs/ApronTaxiMapDialog", () => ({ ApronTaxiMapDialog: () => null }));
 vi.mock("@/components/map-dialogs/TaxiMapDialog", () => ({ TaxiMapDialog: () => null }));

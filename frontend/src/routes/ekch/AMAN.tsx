@@ -239,9 +239,17 @@ export default function AMAN() {
             {activeTmtTab === "excluded" && <div aria-labelledby="tmt-excluded-tab" className="aman-tmt-notices" id="tmt-excluded-panel" role="tabpanel" tabIndex={0}>
               <AMANExcludedFlights flights={state?.flights ?? []} disabled={mutationBlockReason !== null} pendingCommands={pendingCommands} commandRejections={commandRejections} onCommand={sendCommand} />
             </div>}
-            {activeTmtTab === "ctot" && <div aria-labelledby="tmt-ctot-tab" className="aman-tmt-notices" id="tmt-ctot-panel" role="tabpanel" tabIndex={0}>
-              <AMANInboundDepartures snapshot={inboundDepartures ?? null} connected={connectionState === "connected"} />
-            </div>}
+            <div
+              aria-labelledby="tmt-ctot-tab"
+              className="aman-tmt-notices grid grid-rows-[minmax(0,2fr)_minmax(0,1fr)] gap-1"
+              hidden={activeTmtTab !== "ctot"}
+              id="tmt-ctot-panel"
+              role="tabpanel"
+              tabIndex={0}
+            >
+              {activeTmtTab === "ctot" && <AMANInboundDepartures snapshot={inboundDepartures ?? null} connected={connectionState === "connected"} />}
+              <AMANCdmNonCompliance snapshot={inboundDepartures ?? null} connected={connectionState === "connected"} />
+            </div>
             {activeTmtTab === "warnings" && <div aria-labelledby="tmt-warnings-tab" className="aman-tmt-notices" id="tmt-warnings-panel" role="tabpanel" tabIndex={0}>
               <AMANWarningPanel
               connectionState={connectionState}
@@ -251,7 +259,6 @@ export default function AMAN() {
               presentationStatus={presentationStatus}
               />
             </div>}
-            {!accActive && <div className="aman-tmt-non-compliance"><AMANCdmNonCompliance connected={connectionState === "connected"} snapshot={inboundDepartures ?? null} /></div>}
           </div>
         )}
       />

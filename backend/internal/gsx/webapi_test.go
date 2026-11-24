@@ -281,10 +281,10 @@ func TestHandleStandDisclosesOnlyTheAssignment(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(payload) != 3 {
-		t.Fatalf("expected exactly stand, pushback and revision, got %v", payload)
+	if len(payload) != 5 {
+		t.Fatalf("expected exactly stand, pushback, point, target and revision, got %v", payload)
 	}
-	for _, key := range []string{"stand", "pushback", "revision"} {
+	for _, key := range []string{"stand", "pushback", "point", "target", "revision"} {
 		if _, ok := payload[key]; !ok {
 			t.Fatalf("missing %q in %v", key, payload)
 		}
@@ -347,8 +347,52 @@ func TestDepartureGetsAPushbackAndNoStand(t *testing.T) {
 	if response.Stand != nil {
 		t.Fatalf("a departing aircraft is already parked; must not be moved, got %v", *response.Stand)
 	}
-	if response.Revision != "push:Z2 Face E" {
+	if response.Point == nil || *response.Point != "Z/L" {
+		t.Fatalf("point: got %v want Z/L", response.Point)
+	}
+	if response.Revision != "push:A31:Z/L:Z2 Face E" {
 		t.Fatalf("revision: got %q", response.Revision)
+	}
+}
+
+func TestDepartureForAnUnmappedSceneryGetsTheBarePoint(t *testing.T) {
+	// Any GSX profile can be used: an unmapped scenery, or none at all, still
+	// learns the controller's point and finds its own routes to it by name.
+	for _, path := range []string{
+		"/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=RW-Profiles",
+		"/gsx/stand?callsign=SAS1401&icao=EKCH",
+	} {
+		response := decode(t, get(t, withSceneries(departing("A31", "Z/L")), path, nil))
+		if response.Point == nil || *response.Point != "Z/L" {
+			t.Fatalf("%s: point: got %v want Z/L", path, response.Point)
+		}
+		if len(response.Pushback) != 0 {
+			t.Fatalf("%s: no labels for an unmapped scenery, got %v", path, response.Pushback)
+		}
+		if response.Stand != nil {
+			t.Fatalf("%s: a departing aircraft must not be moved, got %v", path, *response.Stand)
+		}
+		if response.Revision != "push:A31:Z/L" {
+			t.Fatalf("%s: revision: got %q", path, response.Revision)
+		}
+	}
+}
+
+func TestMovingTheStandChangesTheDepartureRevision(t *testing.T) {
+	// The target depends on the stand (facing rules), so a stand change with
+	// the same point and no labels must not be answered 304.
+	path := "/gsx/stand?callsign=SAS1401&icao=EKCH"
+	before := decode(t, get(t, withSceneries(departing("A31", "Z/L")), path, nil))
+	after := decode(t, get(t, withSceneries(departing("A32", "Z/L")), path, nil))
+	if before.Revision == after.Revision {
+		t.Fatalf("revision unchanged across stands: %q", before.Revision)
+	}
+}
+
+func TestArrivalGetsNoPoint(t *testing.T) {
+	response := decode(t, get(t, withSceneries(arriving("A31", "Z/L")), sonnich, nil))
+	if response.Point != nil {
+		t.Fatalf("an arrival's release point belongs to its later departure, got %v", *response.Point)
 	}
 }
 

@@ -17,8 +17,10 @@ package gsx
 import (
 	"FlightStrips/internal/models"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -64,13 +66,25 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 }
 
 // standResponse is the whole contract. revision is the value the handler script
-// compares between polls: it is the stand itself, so an unrelated strip update
-// does not look like a reassignment and make the script re-select the same
-// stand.
+// compares between polls: it is the assignment itself, so an unrelated strip
+// update does not look like a reassignment and make the script re-apply it.
+//
+// A departure carries the controller's release point in two forms. Point is the
+// bare point (S1), sent whatever the scenery, so a handler for any GSX profile
+// can find its own routes to it by name. Pushback is the point translated into
+// the requesting scenery's route labels (S1 Face N), sent only where
+// gsx_sceneries.json maps it - which is also how a scenery gets a facing.
+//
+// Target is where the push should end: the point's position, with a facing
+// where the airport has a rule for this stand, or for a bare direction just
+// the heading. A handler matches it against its own routes' end positions,
+// which works for any profile whatever it calls its routes.
 type standResponse struct {
-	Stand    *string `json:"stand"`
+	Stand    *string  `json:"stand"`
 	Pushback []string `json:"pushback"`
-	Revision string  `json:"revision"`
+	Point    *string  `json:"point"`
+	Target   *Target  `json:"target"`
+	Revision string   `json:"revision"`
 }
 
 const noStandRevision = "none"
@@ -94,8 +108,9 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Which add-on the pilot is running. Their handler script is bound to one
-	// GSX profile, so it always knows; without it we answer in the controller's
-	// own vocabulary and publish no pushback point.
+	// GSX profile, so it always knows. An unmapped scenery, or none at all, is
+	// answered in the controller's own vocabulary: the stand as the controller
+	// named it, and the bare release point without scenery labels.
 	scenery := strings.TrimSpace(r.URL.Query().Get("scenery"))
 
 	assigned, err := a.lookupStand(r.Context(), callsign, airport)
@@ -110,7 +125,7 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 	if assigned != nil {
 		// The stand is needed either way: for an arrival it is the answer, and
 		// for a departure it is what decides which pushback routes exist.
-		stand, pushback := a.sceneries.Resolve(airport, assigned.stand, scenery, assigned.releasePoint)
+		stand, pushback := a.sceneries.Resolve(assigned.airport, assigned.stand, scenery, assigned.releasePoint)
 
 		if assigned.departure {
 			// Leaving. Never move an aircraft that is already parked and
@@ -121,9 +136,25 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 			// narrowing the menu to both still guarantees the aircraft leaves
 			// via the taxiway the controller named, which is the part that
 			// matters; the pilot keeps the facing.
-			if len(pushback) > 0 {
+			if assigned.releasePoint != "" {
+				point := assigned.releasePoint
+				response.Point = &point
+				response.Target = a.sceneries.Target(assigned.airport, assigned.stand, point)
 				response.Pushback = pushback
-				response.Revision = "push:" + strings.Join(pushback, "|")
+				// The stand is in the revision because the target depends on
+				// it (facing rules are per stand), even when nothing else does.
+				response.Revision = "push:" + assigned.stand + ":" + point
+				if len(pushback) > 0 {
+					response.Revision += ":" + strings.Join(pushback, "|")
+				}
+				if response.Target != nil {
+					targetJSON, err := json.Marshal(response.Target)
+					if err != nil {
+						writeJSONError(w, http.StatusInternalServerError, "invalid pushback target")
+						return
+					}
+					response.Revision += fmt.Sprintf(":%x", sha256.Sum256(targetJSON))
+				}
 			}
 		} else {
 			// Arriving. Where to park; the pushback point is somebody else's
@@ -154,6 +185,7 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 // point is how departing traffic leaves the stand it is already on. Which one
 // applies is decided here, not by the script.
 type assignment struct {
+	airport      string
 	stand        string
 	releasePoint string
 	departure    bool
@@ -197,7 +229,10 @@ func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*as
 		}
 		// Same rule the PDC lookup uses: a strip whose origin is this airport
 		// is leaving it.
-		found := assignment{stand: stand, departure: strings.EqualFold(strip.Origin, session.Airport)}
+		found := assignment{
+			airport: session.Airport, stand: stand,
+			departure: strings.EqualFold(strip.Origin, session.Airport),
+		}
 		if strip.ReleasePoint != nil {
 			found.releasePoint = strings.TrimSpace(*strip.ReleasePoint)
 		}

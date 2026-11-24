@@ -37,14 +37,24 @@
 #
 #       EKCH-Simnord-Sonnich.ini  ->  EKCH-Simnord-Sonnich_handler.py
 #
-#   SCENERY must match the scenery key in the server's gsx_sceneries.json, which
-#   is how the server knows to answer "Gate A31" and "Z2 Face E" rather than
-#   whatever another add-on calls the same concrete.
+#   Works with any GSX profile, whatever it calls its routes. The server sends
+#   where the controller's point is (target), and the script picks this stand's
+#   route that ends nearest it - by position, never by name, because profiles
+#   name routes differently and sometimes wrongly. A facing rule for the stand
+#   picks between two routes ending at the same point. A bare direction (the
+#   N/E/S/W buttons, for a bare taxiway) picks the route facing that way.
+#   Only when the server has no position for the point does the name decide.
+#   A stand is sent as the controller named it (D2); GSX matches "Gate D2".
+#
+#   SCENERY is optional and only matters for stand names a profile spells in
+#   its own way: set it to a scenery key in the server's gsx_sceneries.json.
 #
 #   Endpoint: GET /api/gsx/stand?callsign=&icao=&scenery=
-#     arriving here  -> { "stand": "Gate A31", "pushback": null }
-#     leaving here   -> { "stand": null, "pushback": ["Z2 Face E"] }
-#     nothing to do  -> { "stand": null, "pushback": null }
+#     arriving here -> { "stand": "D2", "point": null, "target": null, ... }
+#     leaving here  -> { "stand": null, "point": "S1",
+#                        "target": { "lat": 55.62603, "lon": 12.65322,
+#                                    "heading": null, "radius_m": 40 }, ... }
+#     nothing to do -> { "stand": null, "point": null, "target": null, ... }
 
 API_BASE = "https://api.flightstrips.dk"
 SCENERY = "Simnord-Sonnich"
@@ -255,6 +265,200 @@ def _standRoutes(value):
     return [str(v) for v in value if v]
 
 
+def _standTokens(text):
+    """Upper-case alphanumeric words: "Face N on S1" -> ["FACE", "N", "ON", "S1"]."""
+    words, word = [], []
+    for ch in str(text or "").upper():
+        if ch.isalnum():
+            word.append(ch)
+        elif word:
+            words.append("".join(word))
+            word = []
+    if word:
+        words.append("".join(word))
+    return words
+
+
+def _standContainsPoint(name, pointTokens):
+    """Match complete, consecutive words, including points such as Z/L."""
+    words = _standTokens(name)
+    size = len(pointTokens)
+    return bool(size) and any(words[i:i + size] == pointTokens
+                              for i in range(len(words) - size + 1))
+
+
+def _standRoutesForPoint(self, gate, point):
+    """Every route at this stand whose name contains the point.
+
+    How a profile nobody has mapped still works: GSX route names nearly always
+    carry the taxiway point - "S1 Face N", "Face N on S1", "Release point S1
+    (N)" - so the controller's bare point finds them. In menu order, so with
+    two facings the first the menu lists is the one taken.
+    """
+    wanted = _standTokens(point)
+    snapshot = _standSnapshot(self, gate)
+    return [name for _, name, _, _, _ in _standSnapshotRoutes(snapshot)
+            if _standContainsPoint(name, wanted)]
+
+
+def _standFloat(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _standMetres(lat1, lon1, lat2, lon2):
+    """Distance on the ground, flat-earth: exact enough across one apron."""
+    dLat = (lat1 - lat2) * 111320.0
+    dLon = (lon1 - lon2) * 111320.0 * _standCosDeg(lat1)
+    return (dLat * dLat + dLon * dLon) ** 0.5
+
+
+def _standCosDeg(degrees):
+    """cos() without the math module: GSX's sandbox does not promise it."""
+    x = (degrees % 360.0) * 3.141592653589793 / 180.0
+    if x > 3.141592653589793:
+        x -= 2 * 3.141592653589793
+    term, total = 1.0, 1.0
+    for n in range(1, 12):
+        term *= -x * x / ((2 * n - 1) * (2 * n))
+        total += term
+    return total
+
+
+def _standTurn(a, b):
+    """The smaller angle between two headings, 0-180 degrees."""
+    d = abs((a - b) % 360.0)
+    return 360.0 - d if d > 180.0 else d
+
+
+def _standStandRoutes(self, gate):
+    """(name, lat, lon, heading, index) for every route with geometry."""
+    snapshot = _standSnapshot(self, gate)
+    out = []
+    for index, name, pos, _, _ in _standSnapshotRoutes(snapshot):
+        try:
+            lat, lon = float(pos[0]), float(pos[1])
+            heading = _standFloat(pos[2]) if len(pos) > 2 else None
+        except Exception:
+            continue
+        out.append((name, lat, lon, heading, index))
+    return out
+
+
+def _standRouteForTarget(self, gate, target, point):
+    """The name of this stand's route to the target, or None.
+
+    A position: the route ending nearest it, within the radius and closer to
+    it than to any other point. Prefer routes that meet a facing rule.
+    A bare direction (no position): the route whose heading is nearest, if
+    within 90 degrees, preferring one that does not end at a named point -
+    "face west" means the taxiway, not W2.
+    """
+    lat = _standFloat(target.get("lat"))
+    lon = _standFloat(target.get("lon"))
+    heading = _standFloat(target.get("heading"))
+    radius = _standFloat(target.get("radius_m")) or 40.0
+    routes = _standStandRoutes(self, gate)
+    avoid = []
+    for spot in target.get("avoid") or []:
+        if isinstance(spot, dict):
+            a, b = _standFloat(spot.get("lat")), _standFloat(spot.get("lon"))
+            if a is not None and b is not None:
+                avoid.append((a, b))
+
+    if lat is not None and lon is not None:
+        near = [(_standMetres(r[1], r[2], lat, lon), r) for r in routes]
+        near = [(d, r) for d, r in near if d <= radius
+                and not any(_standMetres(r[1], r[2], a, b) <= d for a, b in avoid)]
+        if heading is not None:
+            facing = [(d, r) for d, r in near
+                      if r[3] is not None and _standTurn(r[3], heading) < 90.0]
+            if facing:
+                near = facing
+        if not near:
+            _standGeometryNote(self, "no route matches %s by position here"
+                               % (point or "the target"))
+            return None
+        near.sort(key=lambda pair: pair[0])
+        chosen = near[0][1]
+        name = chosen[0]
+        self._standPick = chosen[4]
+        wanted = _standTokens(point)
+        if wanted and not _standContainsPoint(name, wanted):
+            # Trust the position over the name, and show the pilot the point
+            # rather than a scenery name that says something else.
+            self._standShownNames[name] = point
+            _standGeometryNote(self, "%s is \"%s\" at this stand, by position"
+                               % (point, name))
+        return name
+
+    if heading is None:
+        return None
+    turning = [(_standTurn(r[3], heading), r) for r in routes if r[3] is not None]
+    turning = [(t, r) for t, r in turning if t < 90.0]
+    open_ = [(t, r) for t, r in turning
+             if not any(_standMetres(r[1], r[2], a, b) <= radius for a, b in avoid)]
+    pool = open_ or turning
+    if not pool:
+        _standGeometryNote(self, "no route faces %s here" % point)
+        return None
+    pool.sort(key=lambda pair: pair[0])
+    chosen = pool[0][1]
+    self._standPick = chosen[4]
+    return chosen[0]
+
+
+def _standGeometryNote(self, text):
+    """Log a geometry decision once, not every poll."""
+    if text != self._standGeometryLast:
+        self._standGeometryLast = text
+        print("[stands] " + text)
+
+
+def _standShownName(self, name):
+    """What to call a route to the pilot: the point when the name misleads."""
+    shown = (self._standShownNames or {}).get(name)
+    return shown if shown else _standPointName(name)
+
+
+def _standPayloadRoutes(self, payload):
+    """The routes to look for at this stand, from one feed answer.
+
+    Geometry first. With a target, the route is the one that ends nearest the
+    point, whatever this profile calls it, and a route merely named after the
+    point is never taken instead: profiles mislabel routes (EKCH E20's "S1 Face
+    S" ends at S2), and the position is the controller's actual instruction.
+
+    Without a target - a point the server has no position for, or an old
+    server - the scenery's labels if they exist here, else the routes named
+    after the bare point. Nothing found: whatever was sent, so "no route" can
+    name it.
+
+    _standPick keeps the selected slot. _standTargetMiss holds the point to
+    announce when there is no eligible route.
+    """
+    routes = _standRoutes(payload.get("pushback"))
+    point = str(payload.get("point") or "").strip()
+    gate = getGate()
+    self._standShownNames = {}
+    self._standPick = None
+    self._standTargetMiss = None
+    target = payload.get("target")
+    if gate is not None and isinstance(target, dict):
+        picked = _standRouteForTarget(self, gate, target, point)
+        if picked:
+            return [picked]
+        self._standTargetMiss = point
+        return []
+    if not point or gate is None:
+        return routes or ([point] if point else [])
+    if routes and _standRouteMatch(self, gate, routes)[0]:
+        return routes
+    return _standRoutesForPoint(self, gate, point) or routes or [point]
+
+
 def _standWantedTest(wanted):
     def isWanted(label):
         return any(_standSame(label, route) for route in wanted)
@@ -402,8 +606,14 @@ def _standResetDeparture(self):
     self._standPushCommittedLatch = False    # GSX has built the route menu
     self._standMenuRestored = False          # ...and handed them back for the push
     self._standMenuRoute = None              # what the menu was built from
+    self._standMenuPick = None               # exact slot for a geometry-selected menu
     self._standMenuReminded = False          # the point was named as the menu opened
     self._standPresentNote = None            # last read-back mismatch logged
+    self._standShownNames = {}              # route name -> what to call it
+    self._standPick = None                  # the route chosen by position, see _standPayloadRoutes
+    self._standTargetMiss = None            # geometry rejected the assigned target
+    self._standEntryLost = None             # assignment whose entry GSX dropped, told once
+    self._standGeometryLast = None          # last geometry decision logged
 
 
 # --------------------------------------------------------------------------
@@ -441,10 +651,9 @@ def _standMarked(original, alone=True):
 def _standSnapshot(self, gate):
     """The parking's route names as the scenery defines them.
 
-    Marking renames in place, so the originals have to be remembered to restore
-    from. Re-taken when GSX hands back more extra slots than we remember, which
-    is how a rebuild after a re-request shows up - but never while our own label
-    is on the gate, or we would record the mark as a scenery name.
+    ATC entry mode reads the current routes, since the profile can change them
+    without changing the gate name or route count. Legacy marking and narrowing
+    keep a snapshot of the original menu so our own edits can be undone.
     """
     name = gate.uiGateName or ""
     # Never our own entry: it is not a scenery route, and once it is named for
@@ -454,13 +663,13 @@ def _standSnapshot(self, gate):
     labels = _standLabels(gate)
     remembered = self._standGateSnapshot
 
-    ours = bool(MARK_LABEL) and (
+    ours = not ATC_ENTRY and bool(MARK_LABEL) and (
         any(_standMarked_is(label) for label in labels)
         or any(isinstance(s, dict) and _standMarked_is(s.get("label"))
                for s in current))
 
-    if (not ours and (remembered is None or remembered["gate"] != name
-                      or len(current) > len(remembered["addPos"]))):
+    if not ours and (ATC_ENTRY or remembered is None or remembered["gate"] != name
+                     or len(current) > len(remembered["addPos"])):
         def read(attr):
             try:
                 return getattr(gate, attr)
@@ -506,18 +715,47 @@ def _standRouteMatch(self, gate, wanted):
     the one the server listed first - and the name returned is that route's, so
     a label built from it describes where the entry actually goes.
     """
-    snapshot = _standSnapshot(self, gate)
+    pos, approach, name, _ = _standRouteSlot(self, gate, wanted)
+    return pos, approach, name
+
+
+def _standSnapshotRoutes(snapshot):
+    """(index, name, pos, approach, extra settings) in the original slot order."""
     labels = snapshot["labels"]
+    for index, (pos, approach) in enumerate((snapshot["left"], snapshot["right"])):
+        if index < len(labels) and pos and _standDefaultEnabled(snapshot, index):
+            yield index, labels[index], pos, approach, None
+    for index, (slot, label) in enumerate(zip(snapshot["addPos"], snapshot["addPosLabels"]), 2):
+        if label and isinstance(slot, dict):
+            yield index, label, slot.get("pos"), slot.get("approach"), slot
+
+
+def _standDefaultEnabled(snapshot, index):
+    """The original GSX offer mask: bit 0 is left, bit 1 is right."""
+    mask = snapshot["pushback"]
+    return mask is None or bool(mask & (1 << index))
+
+
+def _standRouteTest(wanted, pick):
+    """Match the selected slot for geometry, or the assigned names for legacy labels."""
+    isWanted = _standWantedTest(wanted)
+
+    def matches(index, label):
+        return (pick is None or index == pick) and isWanted(label)
+
+    return matches
+
+
+def _standRouteSlot(self, gate, wanted):
+    """(pos, approach, name, extra slot or None) for the first assigned route."""
+    snapshot = _standSnapshot(self, gate)
+    slots = list(_standSnapshotRoutes(snapshot))
     for route in wanted:
-        isWanted = _standWantedTest([route])
-        if len(labels) > 0 and isWanted(labels[0]) and snapshot["left"][0]:
-            return snapshot["left"][0], snapshot["left"][1], labels[0]
-        if len(labels) > 1 and isWanted(labels[1]) and snapshot["right"][0]:
-            return snapshot["right"][0], snapshot["right"][1], labels[1]
-        for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
-            if was and isWanted(was) and isinstance(slot, dict):
-                return slot.get("pos"), slot.get("approach"), was
-    return None, None, None
+        matches = _standRouteTest([route], self._standPick)
+        for index, name, pos, approach, slot in slots:
+            if matches(index, name):
+                return pos, approach, name, slot
+    return None, None, None, None
 
 
 def _standIsAtcEntry(slot):
@@ -566,7 +804,7 @@ def _standApplyAtcEntry(self, wanted):
     if not pos:
         print("[stands] no route to %s at this stand" % ", ".join(wanted))
         return False
-    return _standAtcEntryTo(self, gate, pos, approach, _standAtcEntryLabel([name]),
+    return _standAtcEntryTo(self, gate, pos, approach, _standAtcEntryLabel([_standShownName(self, name)]),
                             _standRouteShape(self, gate, wanted))
 
 
@@ -576,16 +814,10 @@ def _standRouteShape(self, gate, wanted):
     An extra slot carries them, so the entry takes that route's. A default
     route has none in this form, so it gets _standDefaultShape.
     """
-    snapshot = _standSnapshot(self, gate)
-    labels = snapshot["labels"]
-    for route in wanted:
-        isWanted = _standWantedTest([route])
-        if any(i < len(labels) and isWanted(labels[i]) for i in (0, 1)):
-            break
-        for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
-            if was and isWanted(was) and isinstance(slot, dict):
-                return dict((k, v) for k, v in slot.items()
-                            if k not in ("label", "pos", "approach"))
+    slot = _standRouteSlot(self, gate, wanted)[3]
+    if slot is not None:
+        return dict((k, v) for k, v in slot.items()
+                    if k not in ("label", "pos", "approach"))
     return _standDefaultShape(self, gate)
 
 
@@ -605,8 +837,8 @@ def _standDefaultGeometry(self, gate):
     clearance, they go where GSX would have taken them anyway.
     """
     snapshot = _standSnapshot(self, gate)
-    for pos, approach in (snapshot["left"], snapshot["right"]):
-        if pos:
+    for index, (pos, approach) in enumerate((snapshot["left"], snapshot["right"])):
+        if pos and _standDefaultEnabled(snapshot, index):
             return pos, approach
     for slot in snapshot["addPos"]:
         if isinstance(slot, dict) and slot.get("pos"):
@@ -719,7 +951,7 @@ def _standAtcEntryPresent(self, wanted):
         return False                         # never added, or GSX rebuilt the parking
     try:
         pos, approach, name = _standRouteMatch(self, gate, wanted)
-        label = _standAtcEntryLabel([name])
+        label = _standAtcEntryLabel([_standShownName(self, name)])
         # The label is frozen once the menu is built; only the route counts.
         ok = (bool(pos) and _standSamePos(entry.get("pos"), pos)
               and _standSameApproach(entry.get("approach"), approach)
@@ -784,17 +1016,17 @@ def _standNarrowMenu(self, gate, wanted):
         return
 
     snapshot = _standSnapshot(self, gate)
-    isWanted = _standWantedTest(wanted)
+    matches = _standRouteTest(wanted, self._standPick)
     labels = snapshot["labels"]
 
     direction = 0
-    if len(labels) > 0 and isWanted(labels[0]):
+    if len(labels) > 0 and _standDefaultEnabled(snapshot, 0) and matches(0, labels[0]):
         direction += 1
-    if len(labels) > 1 and isWanted(labels[1]):
+    if len(labels) > 1 and _standDefaultEnabled(snapshot, 1) and matches(1, labels[1]):
         direction += 2
     # Match on the scenery's own names: the assigned slot has been renamed.
-    keep = [slot for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"])
-            if was and isWanted(was)]
+    keep = [slot for i, (slot, was) in enumerate(zip(snapshot["addPos"], snapshot["addPosLabels"]), 2)
+            if was and matches(i, was)]
 
     if direction == 0 and not keep:
         return
@@ -805,7 +1037,7 @@ def _standNarrowMenu(self, gate, wanted):
         print("[stands] could not narrow the menu: %s" % err)
 
 
-def _standRestoreMenu(self, gate):
+def _standRestoreMenu(self, gate, clearExtras=False):
     """Give the scenery's own routes back, before GSX has to drive one.
 
     Called the moment the menu has been built. What the pilot is looking at is
@@ -825,8 +1057,11 @@ def _standRestoreMenu(self, gate):
     # moved. What matters is whether the menu differs from the scenery's own,
     # whoever made it so.
     try:
-        if (gate.pushback == snapshot["pushback"]
-                and len(gate.pushbackAddPos or []) == len(snapshot["addPos"])):
+        liveExtras = gate.pushbackAddPos or []
+        markedExtra = clearExtras and SHOW_ONLY_ASSIGNED and any(
+            isinstance(slot, dict) and _standMarked_is(slot.get("label")) for slot in liveExtras)
+        if (not markedExtra and gate.pushback == snapshot["pushback"]
+                and len(liveExtras) == len(snapshot["addPos"])):
             return
     except Exception:
         return
@@ -836,8 +1071,11 @@ def _standRestoreMenu(self, gate):
     # Kept from the first attempt, so a retried restore cannot replace it.
     if self._standMenuRoute is None:
         self._standMenuRoute = self._standPushback
+        self._standMenuPick = self._standAppliedPick
 
     try:
+        if clearExtras:
+            _standUnmarkExtras(snapshot)
         gate.pushbackAddPos = snapshot["addPos"]
         gate.pushback = snapshot["pushback"]
         # Only now: a half-done restore must be retried on the next poll.
@@ -872,21 +1110,21 @@ def _standRedirect(self, wanted):
 
     snapshot = _standSnapshot(self, gate)
     labels = snapshot["labels"]
-    wasOffered = _standWantedTest(self._standMenuRoute.split("|"))
+    wasOffered = _standRouteTest(self._standMenuRoute.split("|"), self._standMenuPick)
 
     try:
-        if len(labels) > 0 and wasOffered(labels[0]):
+        if len(labels) > 0 and _standDefaultEnabled(snapshot, 0) and wasOffered(0, labels[0]):
             gate.pushbackLeftPos = pos
             if approach:
                 gate.pushbackLeftApproachPos = approach
-        elif len(labels) > 1 and wasOffered(labels[1]):
+        elif len(labels) > 1 and _standDefaultEnabled(snapshot, 1) and wasOffered(1, labels[1]):
             gate.pushbackRightPos = pos
             if approach:
                 gate.pushbackRightApproachPos = approach
         else:
             slot = None
-            for candidate, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
-                if was and wasOffered(was) and isinstance(candidate, dict):
+            for i, (candidate, was) in enumerate(zip(snapshot["addPos"], snapshot["addPosLabels"]), 2):
+                if was and wasOffered(i, was) and isinstance(candidate, dict):
                     slot = candidate
                     break
             if slot is None:
@@ -934,13 +1172,14 @@ def _standApplyPushback(self, wanted):
 
     snapshot = _standSnapshot(self, gate)
     labels = list(snapshot["labels"])
-    isWanted = _standWantedTest(wanted)
+    matches = _standRouteTest(wanted, self._standPick)
 
     # Every assigned route, not just the first: the menu keeps all of them, and
     # marking one of two left the other sitting there under its scenery name.
-    defaults = [i for i in (0, 1) if i < len(labels) and isWanted(labels[i])]
-    extras = [slot for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"])
-              if was and isWanted(was) and isinstance(slot, dict)]
+    defaults = [i for i in (0, 1) if i < len(labels) and _standDefaultEnabled(snapshot, i)
+                and matches(i, labels[i])]
+    extras = [i for i, (slot, was) in enumerate(zip(snapshot["addPos"], snapshot["addPosLabels"]), 2)
+              if was and matches(i, was) and isinstance(slot, dict)]
 
     if not defaults and not extras:
         print("[stands] no route to %s at this stand" % ", ".join(wanted))
@@ -955,14 +1194,12 @@ def _standApplyPushback(self, wanted):
             labels[index] = _standMarked(labels[index], alone)
         gate.pushbackLabels = tuple(labels)
 
-        _standUnmarkExtras(self, gate, keep=extras)
-        for slot, was in zip(snapshot["addPos"], snapshot["addPosLabels"]):
-            if slot in extras:
-                # Mutate the slot in place. Assigning a new pushbackAddPos list
-                # is the write that breaks the push; changing a dict inside the
-                # list GSX already holds is not that write. Name it from the
-                # scenery's own label so re-marking cannot compound.
-                slot["label"] = _standMarked(was, alone)
+        _standUnmarkExtras(snapshot, keep=extras)
+        for i in extras:
+            slot = snapshot["addPos"][i - 2]
+            was = snapshot["addPosLabels"][i - 2]
+            # Name it from the scenery's own label so re-marking cannot compound.
+            slot["label"] = _standMarked(was, alone)
 
         _standNarrowMenu(self, gate, wanted)
         return True
@@ -971,11 +1208,10 @@ def _standApplyPushback(self, wanted):
         return False
 
 
-def _standUnmarkExtras(self, gate, keep=()):
+def _standUnmarkExtras(snapshot, keep=()):
     """Give every extra slot its scenery name back, in place."""
-    snapshot = _standSnapshot(self, gate)
-    for slot, original in zip(snapshot["addPos"], snapshot["addPosLabels"]):
-        if slot not in keep and isinstance(slot, dict) and slot.get("label") != original:
+    for i, (slot, original) in enumerate(zip(snapshot["addPos"], snapshot["addPosLabels"]), 2):
+        if i not in keep and isinstance(slot, dict) and slot.get("label") != original:
             slot["label"] = original
 
 
@@ -994,12 +1230,15 @@ def _standPushbackMarked(self, wanted):
         return False
 
     snapshot = _standSnapshot(self, gate)
-    isWanted = _standWantedTest(wanted)
+    matches = _standRouteTest(wanted, self._standPick)
+    extraLabels = list(enumerate(snapshot["addPosLabels"], 2))
 
     # The same count the marking used, so both agree on which form of the name
     # the assigned route should be carrying.
-    alone = (len([n for n in snapshot["labels"] if isWanted(n)])
-             + len([w for w in snapshot["addPosLabels"] if w and isWanted(w)])) == 1
+    defaults = [i for i, name in enumerate(snapshot["labels"])
+                if _standDefaultEnabled(snapshot, i) and matches(i, name)]
+    alone = (len(defaults)
+             + len([w for i, w in extraLabels if w and matches(i, w)])) == 1
 
     try:
         live = _standLabels(gate)
@@ -1007,14 +1246,18 @@ def _standPushbackMarked(self, wanted):
                   for s in (gate.pushbackAddPos or [])]
 
         for index, name in enumerate(snapshot["labels"]):
-            want = _standMarked(name, alone) if isWanted(name) else name
+            want = _standMarked(name, alone) if index in defaults else name
             if index >= len(live) or live[index] != want:
                 return False
 
-        for name, was in zip(extras, snapshot["addPosLabels"]):
+        if SHOW_ONLY_ASSIGNED and not self._standMenuRestored and len(extras) != len(extraLabels):
+            extraLabels = [(i, was) for i, was in extraLabels if was and matches(i, was)]
+        if len(extras) != len(extraLabels):
+            return False
+        for name, (i, was) in zip(extras, extraLabels):
             if was is None:
                 continue
-            want = _standMarked(was, alone) if isWanted(was) else was
+            want = _standMarked(was, alone) if matches(i, was) else was
             if name != want:
                 return False
         return True
@@ -1046,23 +1289,29 @@ def _standCheck(self):
     elif self._standSeenIdleDeparture:
         _standNoteDeparture(self, "GSX departure state")
 
-    # Hand the menu back here, on the state itself, and not from anything
-    # further down. Everything below returns early when the assignment has not
-    # changed - which is the normal case, and exactly the flight where the
-    # restore has to happen. Putting it behind that early return meant it never
-    # ran at all, and cost a test flight that proved nothing.
-    if state >= PUSHBACK_COMMITTED_STATE:
-        _standRestoreMenu(self, getGate())
+    rejected = False
+    try:
+        payload = _standFetch(self)
+        stand = payload.get("stand") if payload is not None else None
+        pushback = _standPayloadRoutes(self, payload) if payload is not None and not stand else []
+        rejected = payload is not None and not stand and self._standTargetMiss is not None
+    finally:
+        # Restore even on a failed poll or an unchanged assignment. If the new
+        # target was rejected, restore the extras with their original labels in
+        # the same write; GSX hands out copies, which cannot be unmarked in place.
+        state = _standDepartureState(self)
+        if state >= PUSHBACK_COMMITTED_STATE:
+            _standRestoreMenu(self, getGate(), clearExtras=rejected)
 
-    payload = _standFetch(self)
     if payload is None:
         return True                          # transient error - keep polling
 
-    stand = payload.get("stand")
     if stand:
         return _standCheckArrival(self, stand)
 
-    pushback = _standRoutes(payload.get("pushback"))
+    if rejected:
+        _standReportTargetMiss(self)
+        return True
     if pushback:
         result = _standCheckDeparture(self, pushback)
         _standRemindAtMenu(self, state)
@@ -1123,9 +1372,43 @@ def _standWithdrawAtcEntry(self):
             return False                     # keep the point; retried next poll
     print("[stands] pushback point withdrawn (was %s)" % self._standPushback)
     self._standPushback = None
+    self._standAppliedPick = None
     self._standPushPoint = None
     _standClearVdgs(self)
     return True
+
+
+def _standReportTargetMiss(self):
+    point = self._standTargetMiss
+    stage = _standPushStage(self) if self._standPushback and not ATC_ENTRY else PUSH_OPEN
+    if point and point != self._standUnroutable:
+        self._standUnroutable = point
+        message = "ATC assigned %s - no route to it from this stand" % point
+        if stage != PUSH_OPEN:
+            message += " - disregard the old mark, cancel and request pushback again"
+        _standSay(self, message)
+    if not self._standPushback:
+        return
+    if ATC_ENTRY:
+        _standWithdrawAtcEntry(self)
+        return
+
+    gate = getGate()
+    if gate is not None:
+        snapshot = _standSnapshot(self, gate)
+        try:
+            gate.pushbackLabels = tuple(snapshot["labels"])
+            _standUnmarkExtras(snapshot)
+            if (SHOW_ONLY_ASSIGNED and stage == PUSH_OPEN
+                    and snapshot["pushback"] is not None):
+                gate.pushbackAddPos = snapshot["addPos"]
+                gate.pushback = snapshot["pushback"]
+        except Exception as err:
+            print("[stands] could not clear the old pushback mark: %s" % err)
+            return
+    self._standPushback = None
+    self._standAppliedPick = None
+    _standClearVdgs(self)
 
 
 def _standCheckArrival(self, stand):
@@ -1175,13 +1458,14 @@ def _standCheckDeparture(self, pushback):
         return _standCheckDepartureEntry(self, pushback)
 
     key = "|".join(pushback)
-    changed = self._standPushback is not None and key != self._standPushback
+    same = key == self._standPushback and self._standPick == self._standAppliedPick
+    changed = self._standPushback is not None and not same
 
-    if key == (self._standPushback or "") and _standPushbackMarked(self, pushback):
+    if same and _standPushbackMarked(self, pushback):
+        self._standUnroutable = None
         return True                          # marked, and still in force
 
     stage = _standPushStage(self)
-    reasserting = key == (self._standPushback or "")
 
     if not _standApplyPushback(self, pushback):
         # Nothing at this stand reaches the assigned point. Say so once: ATC has
@@ -1194,14 +1478,16 @@ def _standCheckDeparture(self, pushback):
 
     self._standUnroutable = None
     self._standPushback = key
+    self._standAppliedPick = self._standPick
 
-    if reasserting:
+    if same:
         print("[stands] re-marked %s - GSX had restored the menu"
               % " or ".join(pushback))
         return True
 
+    shown = [_standShownName(self, name) for name in pushback] if self._standPick is not None else pushback
     what = ("ATC changed your push to %s" if changed else "ATC pushback: %s") \
-        % " or ".join(pushback)
+        % " or ".join(shown)
 
     # Past the menu the label is fixed, so move where the chosen route leads
     # instead. This is the only way to change the push without cancelling it.
@@ -1222,7 +1508,7 @@ def _standCheckDeparture(self, pushback):
     else:
         _standSay(self, what)
 
-    _standShowOnVdgs(self, pushback)
+    _standShowOnVdgs(self, shown)
     return True
 
 
@@ -1234,7 +1520,8 @@ def _standCheckDepartureEntry(self, pushback):
     scenery's own; the entry goes on at the request, already leading here.
     """
     key = "|".join(pushback)
-    changed = self._standPushback is not None and key != self._standPushback
+    same = key == self._standPushback and self._standPick == self._standAppliedPick
+    changed = self._standPushback is not None and not same
 
     gate = getGate()
     if gate is None:
@@ -1255,29 +1542,30 @@ def _standCheckDepartureEntry(self, pushback):
         return True
     self._standUnroutable = None
 
-    point = _standPointName(name)
-    label = _standAtcEntryLabel([name])
+    point = _standShownName(self, name)
+    label = _standAtcEntryLabel([_standShownName(self, name)])
     what = ("ATC changed your push to %s" if changed else "ATC pushback: %s") % point
 
     if not self._standDepartureRequested:
-        if key != self._standPushback:
+        if not same or point != self._standPushPoint:
             self._standPushback = key
+            self._standAppliedPick = self._standPick
             self._standPushPoint = point
             _standSay(self, '%s - pick "%s" when GSX asks which way to push'
                       % (what, label))
             _standShowOnVdgs(self, [point])
         return True
 
-    if key == self._standPushback and _standAtcEntryPresent(self, pushback):
+    if same and _standAtcEntryPresent(self, pushback):
         return True                          # on the menu, and still in force
 
-    reasserting = key == self._standPushback
     stage = _standPushStage(self)
 
     if stage == PUSH_ROLLING:
         # Never move the entry now: the tug is driving whatever it leads to.
-        if not reasserting:
+        if not same:
             self._standPushback = key
+            self._standAppliedPick = self._standPick
             self._standPushPoint = point
             _standSay(self, "%s - too late for this tug, cancel the pushback and "
                             "request it again" % what)
@@ -1287,18 +1575,26 @@ def _standCheckDepartureEntry(self, pushback):
     applied = _standAtcEntryTo(self, gate, pos, approach, label,
                                _standRouteShape(self, gate, pushback))
     self._standPushback = key
+    self._standAppliedPick = self._standPick
     self._standPushPoint = point
 
     if not applied:
-        # The menu was built without our entry - a reload mid-departure, say.
-        # The scenery's own route still goes there, so name that instead.
+        # The menu was built without our entry - a reload mid-departure, or GSX
+        # rebuilt the parking after the entry went on. The scenery's own route
+        # still goes there, so name that instead: once per assignment, even an
+        # unchanged one, since the pilot was told to pick an entry now gone.
         self._standMenuReminded = True       # no entry to remind them of
-        if not reasserting:
+        # The full assignment: a new point can select a slot with the same
+        # name as the last one, so the label key alone would stay silent.
+        lost = "%s|%r|%s" % (key, self._standPick, point)
+        if self._standEntryLost != lost:
+            self._standEntryLost = lost
             _standSay(self, '%s - pick "%s" in the pushback menu' % (what, name))
             _standShowOnVdgs(self, [point])
         return True
+    self._standEntryLost = None
 
-    if reasserting:
+    if same:
         print("[stands] re-applied the %s entry" % label)
         return True
 
@@ -1386,6 +1682,7 @@ def _standResetAll(self):
     self._standUserOverride = False
     self._standAssigned = None
     self._standPushback = None
+    self._standAppliedPick = None
     self._standPushPoint = None              # the assigned point, as the pilot reads it
     self._standUnroutable = None
     self._standPoll = None
@@ -1410,8 +1707,57 @@ def _standInit(self):
         _standResetAll(self)
 
 
+# This file can be dropped into the end of another profile's handler script
+# (gsx-client/tools/embed.js does it). That script may define the same GSX
+# callbacks - for its own operators, say - and a later definition replaces an
+# earlier one. So each is captured here before ours replaces it, and ours calls
+# it first. Standalone, there is nothing to capture. Ours carry "[FlightStrips]"
+# in their docstring, so a reload into the same namespace never chains to itself.
+
+def _standProfileOwn(callback):
+    return callback is not None and "[FlightStrips]" in (getattr(callback, "__doc__", None) or "")
+
+
+def _standChain(callback, self, *args):
+    """Run the profile script's own version of a callback, if it has one."""
+    if callback is None or _standProfileOwn(callback):
+        return
+    try:
+        callback(self, *args)
+    except Exception as err:
+        print("[stands] the profile's own %s failed: %s"
+              % (getattr(callback, "__name__", "callback"), err))
+
+
+try:
+    _standProfileEnterAirport = onEnterAirport
+except Exception:
+    _standProfileEnterAirport = None
+try:
+    _standProfileBeforeVehicleSelect = onAirportBeforeVehicleSelect
+except Exception:
+    _standProfileBeforeVehicleSelect = None
+try:
+    _standProfileDepartureRequested = onAirportDepartureRequested
+except Exception:
+    _standProfileDepartureRequested = None
+try:
+    _standProfileBypassPinConnected = onAirportBypassPinConnected
+except Exception:
+    _standProfileBypassPinConnected = None
+try:
+    _standProfileGateReset = onAirportGateReset
+except Exception:
+    _standProfileGateReset = None
+try:
+    _standProfileExitAirport = onExitAirport
+except Exception:
+    _standProfileExitAirport = None
+
+
 def onEnterAirport(self):
-    """Fires once the airport handler activates: on the ground, at low speed."""
+    """[FlightStrips] Fires once the airport handler activates: on the ground, at low speed."""
+    _standChain(_standProfileEnterAirport, self)
     _standInit(self)
     _standAnchor(self)
 
@@ -1452,7 +1798,8 @@ def _standOnAssignedStand(self, stand):
 
 
 def onAirportBeforeVehicleSelect(self, *args):
-    """Fires whenever the gate is set, including right after onEnterAirport."""
+    """[FlightStrips] Fires whenever the gate is set, including right after onEnterAirport."""
+    _standChain(_standProfileBeforeVehicleSelect, self, *args)
     try:
         _standEnsurePolling(self)
     except Exception as err:
@@ -1462,7 +1809,7 @@ def onAirportBeforeVehicleSelect(self, *args):
 
 
 def onAirportDepartureRequested(self, *args):
-    """The pilot asked for pushback - possibly before ATC has assigned one.
+    """[FlightStrips] The pilot asked for pushback - possibly before ATC has assigned one.
 
     That is the expected order. GSX does not ask which way to push until the tug
     is connected, over a minute later, so this only marks whatever is assigned
@@ -1471,6 +1818,7 @@ def onAirportDepartureRequested(self, *args):
     Note the onAirport prefix: airport handlers use it for every service
     callback, and a plain onDepartureRequested would never be called.
     """
+    _standChain(_standProfileDepartureRequested, self, *args)
     try:
         _standInit(self)
         if not self._standUserOverride:
@@ -1478,8 +1826,10 @@ def onAirportDepartureRequested(self, *args):
             _standEnsurePolling(self)
             _standEnsureAtcEntry(self, getGate())
             payload = _standFetch(self)
-            routes = _standRoutes(payload.get("pushback")) if payload else []
-            if routes and ATC_ENTRY:
+            routes = _standPayloadRoutes(self, payload) if payload else []
+            if payload and self._standTargetMiss is not None:
+                _standReportTargetMiss(self)
+            elif routes and ATC_ENTRY:
                 # Announce afresh even if this point was told before the
                 # request: then there was nothing on the menu to pick.
                 self._standPushback = None
@@ -1487,8 +1837,10 @@ def onAirportDepartureRequested(self, *args):
             elif routes:
                 if _standApplyPushback(self, routes):
                     self._standPushback = "|".join(routes)
-                    _standSay(self, "ATC pushback: %s" % " or ".join(routes))
-                    _standShowOnVdgs(self, routes)
+                    self._standAppliedPick = self._standPick
+                    shown = [_standShownName(self, name) for name in routes] if self._standPick is not None else routes
+                    _standSay(self, "ATC pushback: %s" % " or ".join(shown))
+                    _standShowOnVdgs(self, shown)
             elif ANNOUNCE_WAITING and payload is not None:
                 _standSay(self, "No ATC pushback yet - it is marked when it arrives")
                 _standVdgs(self, ["PUSH", "WAIT ATC"], ["PUSH - AWAIT ATC"])
@@ -1499,12 +1851,13 @@ def onAirportDepartureRequested(self, *args):
 
 
 def onAirportBypassPinConnected(self, *args):
-    """The ground crew has fitted the pin: the route menu is about to be built.
+    """[FlightStrips] The ground crew has fitted the pin: the route menu is about to be built.
 
     The last fixed point before GSX reads the menu, so check now rather than
     leave a clearance that has just arrived to the next poll, up to five
     seconds away.
     """
+    _standChain(_standProfileBypassPinConnected, self, *args)
     try:
         _standInit(self)
         if not self._standUserOverride and self._standDepartureRequested:
@@ -1516,12 +1869,13 @@ def onAirportBypassPinConnected(self, *args):
 
 
 def onAirportGateReset(self, reason):
-    """The pilot took control: back off for the rest of this visit.
+    """[FlightStrips] The pilot took control: back off for the rest of this visit.
 
     Nothing is written back to FlightStrips. The controller's board is the
     source of truth, and a pilot parking elsewhere is a discrepancy they should
     see rather than have the simulator quietly overwrite.
     """
+    _standChain(_standProfileGateReset, self, reason)
     _standInit(self)
     if reason in ("user_changed", "user_revoked") and (self._standAssigned or self._standPushback):
         self._standUserOverride = True
@@ -1531,6 +1885,8 @@ def onAirportGateReset(self, reason):
 
 
 def onExitAirport(self):
+    """[FlightStrips] Leaving the airport: stop, and forget this visit."""
+    _standChain(_standProfileExitAirport, self)
     _standInit(self)
     _standCancelPoll(self)
     _standClearVdgs(self)

@@ -8,7 +8,7 @@ LOG = []
 
 
 class Gate(object):
-    """[gate b 8] from EKCH-Simnord-Sonnich.ini, double spaces included."""
+    """A stand with two default routes and two extras, one label double-spaced."""
 
     uiGateName = "Gate B8"
 
@@ -84,7 +84,14 @@ class Env(object):
              "addVdgsMessage": vdgs, "removeVdgsMessage": lambda i: None,
              "executeCalculatorCode": calc,
              "getSimbrief": lambda: type("S", (), {"last_error": None,
-                                                   "callsign": "DAT99"})()}
+                                                   "callsign": "DAT99"})(),
+             # What a profile script the block is embedded in may use, for its
+             # own operator selection, say.
+             "aircraft": type("Aircraft", (), {"icaoAirline": "SAS", "icaoType": "A20N"})(),
+             "getGlobalPersistentVariable": lambda name, default=None: "auto",
+             "setGlobalPersistentVariable": lambda name, value: None,
+             "choiceBox": lambda *a, **k: 0,
+             "Distance": type("Distance", (), {"fromMeters": staticmethod(lambda m: m)})}
         if restricted:
             # GSX hands a handler a restricted builtins set - globals() is not
             # in it, which once stopped the whole script loading.
@@ -235,6 +242,7 @@ for base, expect in (("https://x.app", "https://x.app/api/gsx/stand"),
     e = Env()
     gg = e.globals()
     gg["fetchJson"] = lambda u, timeout=0, etag=False: seen.append(u)
+    # FS_API_BASE once embedded in a profile's script by tools/embed.js.
     exec(compile(SRC.replace('API_BASE = "https://api.flightstrips.dk"',
                              'API_BASE = "%s"' % base), "h.py", "exec"), gg)
     h = Handler()
@@ -784,6 +792,22 @@ g["_standCheck"](h)
 assert len(env.gate.pushbackAddPos) == 2, env.gate.menu()
 case("no entry is appended to a menu already built")
 
+# The entry was on, then GSX rebuilt the parking after the menu was built:
+# the same assignment now has no entry, so the pilot is told the scenery
+# route instead - once, not every poll.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
+g["_standCheck"](h)
+env.state = 5
+g["_standCheck"](h)
+env.gate.rebuild()                              # GSX dropped our slot
+del LOG[:]
+g["_standCheck"](h)
+assert said() == ['ATC pushback: Y2 Face W - pick "Y2  Face W" in the pushback menu'], LOG
+g["_standCheck"](h)
+assert said() == [], "told once"
+case("an entry lost after the menu is built names the scenery route, once")
+
 # A refused withdrawal is retried, not forgotten.
 env, g, h = departing()
 env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
@@ -812,5 +836,369 @@ env.payload = {"stand": None, "pushback": ["Z7 Face W"]}
 g["_standCheck"](h)
 assert atc(env)["pos"] == LEFT, "the push was caught, and the entry left alone"
 case("a push is still caught when no position was readable at the request")
+
+
+# -- any profile ---------------------------------------------------------------
+# An unmapped scenery gets only the bare point; the script finds its own routes
+# to it by name, whatever naming the profile uses.
+
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": None, "point": "Z7"}
+g["_standCheck"](h)
+assert atc(env)["pos"] == (4, 5, 6), atc(env)
+assert env.gate.menu()[-1] == "ATC Assigned: Z7 Face W", env.gate.menu()
+case("the bare point finds this stand's route named after it")
+
+env, g, h = departing()
+env.gate.pushbackLabels = ("Face E on Y1", "Release point Y2 (W)")
+h._standGateSnapshot = None
+env.payload = {"stand": None, "pushback": None, "point": "Y2"}
+g["_standCheck"](h)
+assert atc(env)["pos"] == RIGHT, atc(env)
+assert env.gate.menu()[-1] == "ATC Assigned: Release point Y2 (W)", env.gate.menu()
+case("other profiles' naming styles are found too")
+
+# Labels mapped for another profile, absent at this stand: fall back to the point.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Z7 EAST"], "point": "Z7"}
+g["_standCheck"](h)
+assert atc(env)["pos"] == (4, 5, 6), atc(env)
+case("labels this stand lacks fall back to the point")
+
+# A point with no route here: nothing moves, and the pilot hears its name.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": None, "point": "Z1"}
+del LOG[:]
+g["_standCheck"](h)
+assert atc(env)["pos"] == LEFT and atc(env)["label"] == "ATC Assigned", atc(env)
+assert said() == ["ATC assigned Z1 - no route to it from this stand"], LOG
+case("a point this stand has no route to says so, by its own name")
+
+
+# -- embedded in another profile's script ------------------------------------------
+# The block may sit at the end of a profile's own script, which defines the same
+# callbacks. The profile's runs first; ours still runs; a reload never loops.
+
+PROFILE = ('def onAirportBeforeVehicleSelect(self):\n'
+           '    print("profile gate setup")\n'
+           'def onExitAirport(self):\n'
+           '    print("profile exit")\n')
+# Already embedded in a profile script: its own callbacks are the ones to see.
+EMBEDDED = ">>> FlightStrips" in SRC
+env = Env()
+g = load(env, src=SRC if EMBEDDED else PROFILE + SRC)
+h = Handler()
+del LOG[:]
+g["onAirportBeforeVehicleSelect"](h)
+if EMBEDDED:
+    assert any(not l.startswith("[stands]") for l in LOG), LOG
+else:
+    assert "profile gate setup" in LOG, LOG
+assert h._standPoll == "h", "and FlightStrips started its watch"
+assert not any("failed" in l for l in LOG), LOG
+g["onExitAirport"](h)
+if not EMBEDDED:
+    assert "profile exit" in LOG, LOG
+case("a profile's own callbacks still run, before FlightStrips'")
+
+exec(compile(SRC, "handler.py", "exec"), g)     # F5: the same namespace again
+del LOG[:]
+g["onAirportBeforeVehicleSelect"](h)
+assert LOG.count("profile gate setup") <= 1, LOG
+assert not any("failed" in l for l in LOG), LOG
+case("reloading into the same namespace never chains FlightStrips to itself")
+
+
+# -- by position ---------------------------------------------------------------
+# Made-up stands on FlightStrips' own release point positions. Profiles name
+# routes in different styles and sometimes after the wrong point; the server
+# sends where the point is, and the route ending there is the answer.
+
+# From backend/config/ekch/gsx_sceneries.json.
+POINTS = {
+    "S1": (55.626033, 12.653217), "S2": (55.625207, 12.653250),
+    "Y0": (55.626680, 12.640100), "Y1": (55.626254, 12.641250),
+    "Z1": (55.627813, 12.631736), "Z2": (55.627587, 12.632347),
+    "W2": (55.624398, 12.654864),
+}
+RADIUS = 40
+COMPASS = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
+
+
+def at(point, heading, north=0.0):
+    """A route end at a point (optionally nudged north, in degrees)."""
+    lat, lon = POINTS[point]
+    return (lat + north, lon, heading)
+
+
+class PlannedGate(CopyingGate):
+    """A stand from a list of (label, (lat, lon, heading)): two defaults, extras."""
+
+    def __init__(self, routes):
+        self.routes = routes
+        self.uiGateName = "Gate X1"
+        self.rebuild()
+
+    def rebuild(self):
+        defaults, extras = self.routes[:2], self.routes[2:]
+        self.pushbackLabels = tuple(label for label, _ in defaults)
+        self.pushback = 3
+        self.pushbackLeftPos = defaults[0][1]
+        self.pushbackRightPos = defaults[1][1]
+        self.pushbackAddPos = [{"label": label, "pos": pos, "snap": False, "approach": [],
+                                "wws": 2, "startEngines": 0.0} for label, pos in extras]
+
+
+def planned(routes, src=SRC):
+    """A departure under way at a made-up stand."""
+    env = Env(copying=True)
+    env.gate = PlannedGate(routes)
+    g = load(env, src=src)
+    h = Handler()
+    g["onEnterAirport"](h)
+    g["onAirportDepartureRequested"](h)
+    env.state = 4
+    return env, g, h
+
+
+def target(point, facing=None):
+    """What the server sends for a point, as it would."""
+    if point in COMPASS:
+        return {"lat": None, "lon": None, "heading": COMPASS[point], "radius_m": RADIUS,
+                "avoid": [{"lat": lat, "lon": lon} for lat, lon in POINTS.values()]}
+    lat, lon = POINTS[point]
+    return {"lat": lat, "lon": lon, "radius_m": RADIUS,
+            "heading": COMPASS[facing] if facing else None,
+            "avoid": [{"lat": a, "lon": b} for name, (a, b) in POINTS.items() if name != point]}
+
+
+def assign(env, g, h, point, facing=None):
+    env.payload = {"stand": None, "pushback": None, "point": point,
+                   "target": target(point, facing)}
+    del LOG[:]
+    g["_standCheck"](h)
+    return env.gate.menu()[-1]
+
+
+SHORT = [("R1 Face N", at("Y0", 0)), ("S1 Face N", at("S1", 0)),
+         ("S2 Face S", at("S2", 180))]
+LONG = [("Release Point S2 (SOUTH)", at("S2", 180)),
+        ("Release Point S1 (NORTH)", at("S1", 0))]
+for routes, want in ((SHORT, "S1 Face N"), (LONG, "Release Point S1 (NORTH)")):
+    env, g, h = planned(routes)
+    assert assign(env, g, h, "S1") == "ATC Assigned: " + want, env.gate.menu()
+case("the route ending at the point, in each naming style")
+
+env = Env(copying=True)
+env.gate = PlannedGate([("S1 Left", at("S1", 270)), ("S1 Right", at("S1", 90))])
+env.gate.pushback = 2
+g = load(env)
+h = Handler()
+g["onEnterAirport"](h)
+g["onAirportDepartureRequested"](h)
+assert atc(env)["pos"] == at("S1", 90), atc(env)
+assert assign(env, g, h, "S1", facing="W") == "ATC Assigned: S1 Right"
+assert atc(env)["pos"] == at("S1", 90), atc(env)
+case("the placeholder and geometry matching honor the profile's default route mask")
+
+env = Env(copying=True)
+env.gate = PlannedGate([("S1 Left", at("S1", 270)), ("S2 Right", at("S2", 90)),
+                        ("S2 Extra", at("S2", 270))])
+g = load(env)
+h = Handler()
+g["onEnterAirport"](h)
+assign(env, g, h, "S1")  # Poll once before the host configures this departure.
+
+
+def profile_departure_requested(_):
+    env.gate.pushbackLeftPos = at("S2", 270)
+    slots = env.gate.pushbackAddPos
+    slots[0].update(label="S1 Profile Extra", pos=at("S1", 0), wws=1)
+    env.gate.pushbackAddPos = slots
+
+
+g["_standProfileDepartureRequested"] = profile_departure_requested
+g["onAirportDepartureRequested"](h)
+assert atc(env)["label"] == "ATC Assigned: S1 Profile Extra", env.gate.menu()
+assert atc(env)["pos"] == at("S1", 0) and atc(env)["wws"] == 1, atc(env)
+case("embedded departure callbacks can replace routes without changing the slot count")
+
+env, g, h = planned([("Z main L Face E", at("S2", 90)), ("Z/L Face E", at("S1", 90))])
+env.payload = {"stand": None, "pushback": None, "point": "Z/L"}
+g["_standCheck"](h)
+assert atc(env)["label"] == "ATC Assigned: Z/L Face E" and atc(env)["pos"] == at("S1", 90), atc(env)
+case("name fallback matches consecutive point tokens separated by punctuation")
+
+# Named after S1, ends at S2: by position it is S2's route, and the pilot is
+# told S2 - the name would have said S1.
+MISLABEL = [("S1 Face N", at("S1", 0)), ("S1 Face S", at("S2", 180))]
+env, g, h = planned(MISLABEL)
+assert assign(env, g, h, "S2") == "ATC Assigned: S2", env.gate.menu()
+assert said() == ['ATC pushback: S2 - pick "ATC Assigned: S2" when GSX asks which way to push'], LOG
+env, g, h = planned(MISLABEL)
+assert assign(env, g, h, "S1") == "ATC Assigned: S1 Face N", env.gate.menu()
+case("a mislabelled route is used for where it goes, not what it is called")
+
+# Two routes end at Y1, one of them named after Y0. Y0 is only the one that
+# ends there; the facing rule picks between the two at Y1.
+TWO = [("Y0 Face E", at("Y0", 123)), ("Y1 Face E", at("Y1", 123)),
+       ("Y0 Face W", at("Y1", -57))]
+env, g, h = planned(TWO)
+assert assign(env, g, h, "Y0") == "ATC Assigned: Y0 Face E", env.gate.menu()
+env, g, h = planned(TWO)
+assert assign(env, g, h, "Y1", facing="E") == "ATC Assigned: Y1 Face E", env.gate.menu()
+env, g, h = planned(TWO)
+assert assign(env, g, h, "Y1", facing="W") == "ATC Assigned: Y1", env.gate.menu()
+case("two routes ending at one point: the facing rule picks, by heading")
+
+# The rule wants east; this profile only offers the point facing west.
+# Position still wins - the push goes to the point - and the facing yields.
+WEST_ONLY = [("Z1 Face W", at("Z1", -57)), ("S1 Face N", at("S1", 0))]
+env, g, h = planned(WEST_ONLY)
+assert assign(env, g, h, "Z1", facing="E") == "ATC Assigned: Z1 Face W", env.gate.menu()
+case("a facing the profile cannot offer falls back to the route at the point")
+
+# A bare direction is the taxiway: a route ending away from every point beats
+# one ending at W2, where both face that way.
+BARE = [("Face West", at("Z1", 270, north=0.004)), ("W2 Face W", at("W2", 270)),
+        ("S1 Face N", at("S1", 0))]
+env, g, h = planned(BARE)
+assert assign(env, g, h, "W") == "ATC Assigned: Face West", env.gate.menu()
+env, g, h = planned(BARE[1:])
+assert assign(env, g, h, "W") == "ATC Assigned: W2 Face W", env.gate.menu()
+case("a direction takes the bare-taxiway route, or the only route that way")
+
+# No route at the point: a route merely named after it is never taken.
+NAMED_ONLY = [("Z1 Face E", at("S1", 0)), ("S2 Face S", at("S2", 180))]
+env, g, h = planned(NAMED_ONLY)
+assign(env, g, h, "Z1")
+assert env.gate.menu()[-1] == "ATC Assigned", env.gate.menu()
+assert said() == ["ATC assigned Z1 - no route to it from this stand"], LOG
+case("no route at the point: nothing is guessed, whatever the names say")
+
+# Exactly named after the point, but ending elsewhere: position rejected it,
+# so its name must not bring it back.
+EXACT = [("S1", at("S2", 180)), ("S2 Face S", at("S2", 180))]
+env, g, h = planned(EXACT)
+assign(env, g, h, "S1")
+assert env.gate.menu()[-1] == "ATC Assigned", env.gate.menu()
+assert said() == ["ATC assigned S1 - no route to it from this stand"], LOG
+case("a route called exactly the point, ending elsewhere, is still not taken")
+
+# Two routes share a name; position picks the second, and the entry goes there
+# rather than to the first route with that name.
+TWINS = [("Push", at("S2", 180)), ("S2 Face S", at("S2", 180)),
+         ("Push", at("S1", 0))]
+env, g, h = planned(TWINS)
+assert assign(env, g, h, "S1") == "ATC Assigned: S1", env.gate.menu()
+entry = env.gate._addPos[-1]
+assert tuple(entry["pos"][:2]) == POINTS["S1"], entry
+case("two routes with one name: the entry goes where position chose")
+
+# The entry is lost after the menu is built, then ATC moves the point to
+# another route with the same name: still a change, so the pilot is told.
+TWIN_PUSH = [("S2 Face S", at("S2", 180)), ("Y0 Face E", at("Y0", 123)),
+             ("Push", at("S1", 0)), ("Push", at("Z1", 90))]
+env, g, h = planned(TWIN_PUSH)
+assign(env, g, h, "S1")
+env.state = 5
+g["_standCheck"](h)
+env.gate.rebuild()                              # GSX dropped our slot
+assign(env, g, h, "S1")
+assert said() == ['ATC pushback: S1 - pick "Push" in the pushback menu'], LOG
+assign(env, g, h, "S1")
+assert said() == [], "told once"
+assign(env, g, h, "Z1")
+assert said() == ['ATC changed your push to Z1 - pick "Push" in the pushback menu'], LOG
+case("a lost entry is re-announced when the point moves to a same-named route")
+
+COINCIDENT = [("Push", at("S1", 90)), ("S2 Face S", at("S2", 180)),
+              ("Push", at("S1", 270))]
+for point, facing in (("S1", "W"), ("W", None)):
+    env, g, h = planned(COINCIDENT)
+    extra = env.gate.pushbackAddPos[0]
+    extra["approach"] = [(55.626, 12.653, 270)]
+    extra["wws"] = 1
+    env.gate.pushbackAddPos = [extra] + env.gate.pushbackAddPos[1:]
+    assign(env, g, h, point, facing)
+    entry = env.gate.pushbackAddPos[-1]
+    assert entry["pos"] == at("S1", 270), entry
+    assert entry["approach"] == extra["approach"] and entry["wws"] == 1, entry
+case("duplicate names and endpoints preserve the slot, heading, approach and settings")
+
+OVERLAP = [("Z1", (55.62762638, 12.63224052, 270)), ("S2 Face S", at("S2", 180))]
+env, g, h = planned(OVERLAP)
+assert assign(env, g, h, "Z1") == "ATC Assigned", env.gate.menu()
+assert said() == ["ATC assigned Z1 - no route to it from this stand"]
+assert assign(env, g, h, "Z2") == "ATC Assigned: Z2", env.gate.menu()
+case("a route in two matching radii belongs only to the nearer point")
+
+for src in (MARK_ONLY, NARROW_ONLY):
+    env, g, h = planned(EXACT, src=src)
+    original = env.gate.menu()
+    assign(env, g, h, "S2")
+    assert env.gate.menu() != original, env.gate.menu()
+    assign(env, g, h, "S1")
+    assert env.gate.menu() == original, env.gate.menu()
+    assert said() == ["ATC assigned S1 - no route to it from this stand"]
+case("geometry rejection clears the previous mark and never marks an exact-name match")
+
+for already_restored in (False, True):
+    env, g, h = planned([("S2 Left", at("S2", 180)), ("S2 Right", at("S2", 0)),
+                         ("S1 Extra", at("S1", 90))], src=NARROW_ONLY)
+    original = env.gate.menu()
+    assign(env, g, h, "S1")
+    assert env.gate.menu() == ["ATC Assigned"], env.gate.menu()
+    env.state = 5
+    if already_restored:
+        g["_standCheck"](h)
+    assign(env, g, h, "Z1")
+    if not already_restored:
+        assert env.gate.menu() == original, env.gate.menu()
+    assert env.gate.pushback == 3 and env.gate.pushbackAddPos[0]["pos"] == at("S1", 90)
+    assert said() == ["ATC assigned Z1 - no route to it from this stand - "
+                      "disregard the old mark, cancel and request pushback again"]
+    g["_standCheck"](h)
+    assert not said(), "report a rejected reassignment only once"
+case("commitment restores rejected extras cleanly and warns when the visible menu may be stale")
+
+env, g, h = planned([("S2 Left", at("S2", 180)), ("S2 Right", at("S2", 0)),
+                     ("S1 Extra", at("S1", 90))], src=NARROW_ONLY)
+assign(env, g, h, "S1")
+assert env.gate.pushback == 0
+env.state = 5
+
+
+def fail_fetch(*args, **kwargs):
+    raise RuntimeError("timed out")
+
+
+g["fetchJson"] = fail_fetch
+try:
+    g["_standCheck"](h)
+except RuntimeError:
+    pass
+assert env.gate.pushback == 3 and h._standMenuRestored
+case("a failed poll still restores the narrowed menu at commitment")
+
+env, g, h = planned([("Push", at("S1", 90)), ("Push", at("S1", 270))], src=MARK_ONLY)
+assign(env, g, h, "S1", facing="W")
+assert env.gate.pushbackLabels == ("Push", "ATC Assigned"), env.gate.pushbackLabels
+assert g["_standPushbackMarked"](h, ["Push"])
+env, g, h = planned(COINCIDENT, src=NARROW_ONLY)
+assign(env, g, h, "S1", facing="W")
+assert env.gate.pushback == 0 and len(env.gate.pushbackAddPos) == 1, env.gate.menu()
+assert env.gate.pushbackAddPos[0]["pos"] == at("S1", 270)
+case("marking and narrowing use the selected slot for coincident routes")
+
+env, g, h = planned([("Push", at("S1", 90)), ("Push", at("S1", 270))], src=NARROW_ONLY)
+assign(env, g, h, "S1", facing="W")
+assert env.gate.pushback == 2, env.gate.menu()
+env.state = 5
+g["_standCheck"](h)
+assign(env, g, h, "S1", facing="E")
+assert env.gate.pushbackRightPos == at("S1", 90)
+assert any("your push now goes there" in message for message in said())
+case("after narrowing, a same-label reassignment redirects the slot offered")
 
 print("\nall passed")

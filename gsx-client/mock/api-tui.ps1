@@ -18,20 +18,21 @@ param([int]$Port = 8787)
 $TestStand = "Gate D2"
 $TestAirport = "EKCH"
 
-# Key -> the route label published, exactly as the scenery names it. The handler
-# matches labels ignoring case and spacing, nothing more, so "Face N" and
-# "Face North" are different routes.
-#
-# [gate d 2] in EKCH-Simnord-Sonnich.ini offers exactly these four:
-#   pushbacklabels = R1 Face N|S1 Face N     (the two defaults)
-#   pushbackaddpos = S2 Face S, S3 Face N    (extras)
-# S2 only faces south, and there is no R2.
+# Key -> the release point a controller would assign. D2 has a route to each in
+# both EKCH Simnord profiles (Sonnich calls them "S1 Face N", RW Profiles
+# "Release Point S1 (NORTH)"). Each is sent as the real server sends it to an
+# unmapped scenery: the bare point and where it is, so the handler has to find
+# the route by position - the path every profile relies on.
 $Points = [ordered]@{
-    "1" = "S1 Face N"
-    "2" = "S2 Face S"
-    "3" = "R1 Face N"
-    "4" = "S3 Face N"
+    "1" = "S1"
+    "2" = "S2"
+    "3" = "R1"
+    "4" = "S3"
 }
+
+# Positions and the match radius, from the server's own config.
+$ConfigPath = Join-Path $PSScriptRoot "..\..\backend\config\ekch\gsx_sceneries.json"
+$Config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
 
 $state = @{ Route = $null; Revision = "none"; Since = Get-Date }
 $requests = New-Object System.Collections.Generic.List[string]
@@ -49,11 +50,28 @@ function ConvertTo-JsonString([string]$value) {
 }
 
 function Get-Body {
-    # Assembled by hand so an empty assignment is "null" rather than "[]" or a
-    # missing field, and one route stays a list - ConvertTo-Json in 5.1 unwraps
-    # a one-item array. Each string still goes through the serializer.
-    $push = if ($state.Route) { "[" + (ConvertTo-JsonString $state.Route) + "]" } else { "null" }
-    return '{"stand":null,"pushback":' + $push + ',"revision":' + (ConvertTo-JsonString $state.Revision) + '}'
+    # Assembled by hand so an empty assignment is "null" rather than a missing
+    # field. Each string still goes through the serializer.
+    $point = "null"
+    $target = "null"
+    if ($state.Route) {
+        $point = ConvertTo-JsonString $state.Route
+        $spot = $Config.release_points.($state.Route)
+        if ($spot) {
+            $avoid = @($Config.release_points.PSObject.Properties |
+                Where-Object { $_.Name -ne $state.Route } |
+                ForEach-Object { $_.Value })
+            $target = ConvertTo-Json -Compress -Depth 4 -InputObject @{
+                lat = $spot.lat
+                lon = $spot.lon
+                heading = $null
+                radius_m = $Config.release_point_radius_m
+                avoid = $avoid
+            }
+        }
+    }
+    return '{"stand":null,"pushback":null,"point":' + $point + ',"target":' + $target +
+        ',"revision":' + (ConvertTo-JsonString $state.Revision) + '}'
 }
 
 function Show-Screen {

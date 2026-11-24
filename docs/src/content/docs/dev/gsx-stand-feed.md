@@ -36,8 +36,8 @@ not already available.
 | Parameter | Required | Notes |
 | --- | --- | --- |
 | `callsign` | yes | Alphanumeric, up to 12 characters. Normalised to upper case. |
-| `icao` | no | 3-4 characters. Restricts the lookup to the LIVE session at that airport. |
-| `scenery` | no | Which add-on the pilot is running. Without it the answer uses the controller's own stand name and carries no pushback point. |
+| `icao` | no | 3–4 characters. Restricts the lookup to the LIVE session at that airport. If omitted, the matched session supplies the airport for scenery and target lookup. |
+| `scenery` | no | Which add-on the pilot is running. Unknown or missing, the answer uses the controller's own stand name and the bare pushback point, with no scenery labels. |
 
 ```
 GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
@@ -45,11 +45,27 @@ GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
 
 ```json
 // arriving at EKCH
-{ "stand": "Gate A31", "pushback": null, "revision": "stand:Gate A31" }
+{ "stand": "Gate A31", "pushback": null, "point": null, "target": null,
+  "revision": "stand:Gate A31" }
 
-// departing EKCH
-{ "stand": null, "pushback": ["Z2 Face E"], "revision": "push:Z2 Face E" }
+// departing EKCH: a named point
+{ "stand": null, "pushback": ["Z2 Face E"], "point": "Z2",
+  "target": { "lat": 55.627587, "lon": 12.632347, "heading": null, "radius_m": 40,
+              "avoid": [{ "lat": 55.627813, "lon": 12.631736 }, ...] },
+  "revision": "push:A32:Z2:Z2 Face E:<target hash>" }
+
+// departing EKCH: a direction button (a bare taxiway)
+{ "stand": null, "pushback": null, "point": "W",
+  "target": { "lat": null, "lon": null, "heading": 270, "radius_m": 40,
+              "avoid": [{ "lat": 55.627813, "lon": 12.631736 }, ...] },
+  "revision": "push:A32:W:<target hash>" }
 ```
+
+| Field | Departures | What it is for |
+| --- | --- | --- |
+| `point` | always | The release point as FlightStrips stores it: a named point (`Z2`) or a direction (`N`, `E`, `S`, `W`). |
+| `target` | when the point has a position, or is a direction | Where the push should end. Handlers match it against their own routes' end positions. See [Release points](#release-points). |
+| `pushback` | mapped sceneries only | The point in that scenery's labels. Kept for handlers older than `target`. |
 
 `400` for a missing or malformed `callsign` or `icao`. `503` when the lookup
 fails, which tells the script to keep its current stand and retry. Everything
@@ -65,7 +81,9 @@ has changed.
 `revision` is the assignment itself, deliberately, not `strips.version`. A
 strip's version changes for reasons that have nothing to do with parking, and
 each of those would otherwise look like a reassignment and make the script
-re-apply what is already applied.
+re-apply what is already applied. A departure's revision depends on the stand,
+point, scenery labels and target. A change to the target configuration therefore
+invalidates the cached response even when the strip assignment stays the same.
 
 ## Arrivals and departures
 
@@ -122,6 +140,63 @@ menu is opened, and the plan stays loaded for the session, so it is available in
 type matches the loaded aircraft and whose ETD has not passed, unless the pilot
 enables **Simbrief Ignore Time** in GSX settings.
 
+## Release points
+
+Every GSX profile names its pushback routes its own way, and some name them
+wrongly. Two profiles for the same EKCH scenery call one route `S1 Face N` and
+`Release Point S1 (NORTH)`, and between them three routes are named for a
+point they don't end at. Where a route ends doesn't vary: across both
+profiles, the routes to one point end within a few metres of each other.
+
+So FlightStrips places each release point on the ground, and the handler
+picks the route that ends there. This lives in `gsx_sceneries.json`, beside
+the per-scenery mapping:
+
+```json
+{
+  "icao": "EKCH",
+  "release_point_radius_m": 40,
+  "release_points": {
+    "S1": { "lat": 55.626033, "lon": 12.653220 }
+  },
+  "facings": {
+    "A14": { "Y1": "E" }
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `release_points` | Each named point's position. Seeded from the median end position of every route to it in both EKCH Simnord profiles. |
+| `release_point_radius_m` | How far a route may end from its closest named point and still match it. |
+| `facings` | Gate, then point, then compass direction (`N` to `NW`), for a stand that leaves one point in two facings. It's an airport rule, so it applies to every profile. |
+| `release_points_review` | Free-text notes on points without a position or with doubtful data. Ignored by the server. |
+
+How the handler uses `target`:
+
+- **Named point:** the nearest route ending within `radius_m` of the assigned
+  point and closer to it than to every other named point in `avoid`. With a
+  `heading`, it takes the nearest of those within
+  90° of that heading when there are any. A route is never chosen by its name
+  while `target` is present. When the chosen route's name says another point,
+  the pilot is shown the controller's point instead.
+- **Direction:** the route whose end heading is closest, within 90°. It prefers
+  routes that don't end at any point in `avoid`, so `W` means the taxiway, not
+  W2.
+- **No `target`** (a point with no position yet, or an older server): the
+  scenery's `pushback` labels if they exist at the stand, else routes whose
+  names contain the point as a word.
+
+`gsx-client/tools/audit.js` checks a profile's `.ini` against these positions,
+and reports every route whose name and end point disagree.
+
+### Still to place
+
+K1, L2, L3, Z8, R3 and S4 have no route in either Simnord profile, so they
+have no position yet. Y3 uses label matching while the two surveyed B19
+endpoints, 46 m apart, are reconciled. These points are recorded under
+`release_points_review`.
+
 ## Gate and scenery configuration
 
 The same physical gate is not the same object in every add-on. Developers number
@@ -154,11 +229,14 @@ Read it as **gate → scenery → what that scenery calls it**:
   the controller's own name.
 - `points` maps a FlightStrips release point to every GSX route that reaches
   it. It is a list because a stand often offers the same taxiway in two
-  facings; order is preferred-first, so a known default can lead.
+  facings; order is preferred-first, so a known default can lead. It only feeds
+  the `pushback` field, for handlers older than `target`. New work belongs in
+  [Release points](#release-points): one position serves every profile, where
+  a label serves one. Once older handlers have been replaced, `points` can go.
 
 Everything is optional and everything degrades quietly. A missing file, an
-unknown scenery, an unmapped release point: the feed still publishes the stand,
-just without translation or a pushback point. Lookups ignore case and extra
+unknown scenery, an unmapped release point: the feed still publishes the stand
+and the bare point, just without translation. Lookups ignore case and extra
 spacing, which matters because scenery labels are hand-typed — one EKCH profile
 contains both `Y1 Face E` and `Y1  Face E`.
 

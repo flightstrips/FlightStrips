@@ -612,6 +612,7 @@ def _standResetDeparture(self):
     self._standShownNames = {}              # route name -> what to call it
     self._standPick = None                  # the route chosen by position, see _standPayloadRoutes
     self._standTargetMiss = None            # geometry rejected the assigned target
+    self._standEntryLost = None             # assignment whose entry GSX dropped, told once
     self._standGeometryLast = None          # last geometry decision logged
 
 
@@ -1578,13 +1579,17 @@ def _standCheckDepartureEntry(self, pushback):
     self._standPushPoint = point
 
     if not applied:
-        # The menu was built without our entry - a reload mid-departure, say.
-        # The scenery's own route still goes there, so name that instead.
+        # The menu was built without our entry - a reload mid-departure, or GSX
+        # rebuilt the parking after the entry went on. The scenery's own route
+        # still goes there, so name that instead: once per assignment, even an
+        # unchanged one, since the pilot was told to pick an entry now gone.
         self._standMenuReminded = True       # no entry to remind them of
-        if not same:
+        if self._standEntryLost != key:
+            self._standEntryLost = key
             _standSay(self, '%s - pick "%s" in the pushback menu' % (what, name))
             _standShowOnVdgs(self, [point])
         return True
+    self._standEntryLost = None
 
     if same:
         print("[stands] re-applied the %s entry" % label)

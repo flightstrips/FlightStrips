@@ -792,6 +792,22 @@ g["_standCheck"](h)
 assert len(env.gate.pushbackAddPos) == 2, env.gate.menu()
 case("no entry is appended to a menu already built")
 
+# The entry was on, then GSX rebuilt the parking after the menu was built:
+# the same assignment now has no entry, so the pilot is told the scenery
+# route instead - once, not every poll.
+env, g, h = departing()
+env.payload = {"stand": None, "pushback": ["Y2 Face W"]}
+g["_standCheck"](h)
+env.state = 5
+g["_standCheck"](h)
+env.gate.rebuild()                              # GSX dropped our slot
+del LOG[:]
+g["_standCheck"](h)
+assert said() == ['ATC pushback: Y2 Face W - pick "Y2  Face W" in the pushback menu'], LOG
+g["_standCheck"](h)
+assert said() == [], "told once"
+case("an entry lost after the menu is built names the scenery route, once")
+
 # A refused withdrawal is retried, not forgotten.
 env, g, h = departing()
 env.payload = {"stand": None, "pushback": ["Y2 Face W"]}

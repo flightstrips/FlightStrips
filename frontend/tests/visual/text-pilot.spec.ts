@@ -30,7 +30,7 @@ test("push composer opens above the map and ESC retains the map", async ({ page 
   await map.getByRole("button", { name: "J4", exact: true }).click();
   const composer = page.getByRole("dialog", { name: "SAS123 text message" });
   await expect(composer).toBeVisible();
-  await expect(composer.getByRole("textbox")).toHaveValue("Push and start approved, Release point J4.");
+  await expect(composer.getByRole("textbox")).toHaveValue("Push and start approved, QNH 1013, Release point J4.");
   await page.screenshot({ path: testInfo.outputPath("composer-over-map.png") });
   await composer.getByRole("button", { name: "ERASE", exact: true }).click();
   await expect(composer.getByRole("textbox")).toHaveValue("");

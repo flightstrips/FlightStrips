@@ -2,9 +2,9 @@ import { useState, type CSSProperties } from "react";
 import { ActionType, type FrontendSendEvent } from "@/api/models";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useWebSocketStore } from "@/store/store-hooks";
-import { clearancePreview, defaultTextSelections, stationController, airportTextPilotPhrases, togglePhraseText, type TextPilotDraft, type Phrase } from "@/lib/text-pilot";
+import { clearancePreview, defaultPushApproval, defaultTextSelections, stationController, airportTextPilotPhrases, togglePhraseText, type TextPilotDraft, type Phrase } from "@/lib/text-pilot";
+import { isFractionalFlightLevel, WHOLE_FLIGHT_LEVEL_ERROR } from "@/lib/utils";
 import "./TextPilotDialog.css";
-
 
 export function TextPilotDialog() {
   const draft = useWebSocketStore(s => s.textPilotDraft);
@@ -15,6 +15,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
   const strip = useWebSocketStore(s => s.strips.find(s => s.callsign === draft.callsign));
   const metar = useWebSocketStore(s => s.metar);
   const inputs = useWebSocketStore(s => s.textPilotInputs);
+  const transitionAltitude = useWebSocketStore(s => s.transitionAltitude);
   const ekchPresets = inputs?.airport === "EKCH" && inputs.preset_provider === "ekch/v1";
   const controllers = useWebSocketStore(s => s.controllers);
   const position = useWebSocketStore(s => s.position);
@@ -24,20 +25,36 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
   const sendMessage = useWebSocketStore(s => s.sendFrequencyMessage);
   const markReadback = useWebSocketStore(s => s.markTextPilotReadback);
   const phrases = airportTextPilotPhrases(inputs, draft, { runway: strip?.runway ?? "", stand: strip?.stand }, metar);
+  const ekchPush = ekchPresets && draft.variant === "push";
   const initial = ekchPresets ? [...defaultTextSelections(draft)] : [...(draft.initialSelected ?? [])];
   if (ekchPresets && draft.variant === "runway" && strip?.runway) initial.push(`rwy:${strip.runway}`);
   const [selected, setSelected] = useState(initial);
-  const [text, setText] = useState(() => draft.initialText ?? (ekchPresets && draft.variant === "clearance" && strip ? clearancePreview(strip) : undefined) ?? initial.map(id => phrases.find(p => p.id === id)?.text).filter(Boolean).join(" "));
+  const [draftText, setText] = useState(() => {
+    if (draft.initialText != null) return draft.initialText;
+    if (ekchPresets && draft.variant === "clearance") return undefined;
+    return initial.map(id => ekchPush && id === "push" ? defaultPushApproval(metar) : phrases.find(p => p.id === id)?.text).filter(Boolean).join(" ");
+  });
+  const text = draftText ?? (strip ? clearancePreview(strip, transitionAltitude) : "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [remainingActions, setRemainingActions] = useState(draft.actions ?? []);
   const [actionsApplied, setActionsApplied] = useState(false);
   const controlsLocked = pending || actionsApplied;
+  const invalidClimb = draft.variant === "clearance" && strip && isFractionalFlightLevel(strip.cleared_altitude, transitionAltitude);
+  const visibleError = invalidClimb ? WHOLE_FLIGHT_LEVEL_ERROR : error;
+  const canSend = !pending && !!strip && !invalidClimb && !!text.trim();
+
+  const editText = (value: string) => setText(value.replace(/[\r\n]/g, " "));
+
+  const erase = () => {
+    setText("");
+    setSelected([]);
+  };
 
   const toggle = (p: Phrase) => {
     if (controlsLocked) return;
     const removing = isSelected(p);
-    if (ekchPresets && draft.variant === "push" && /^(limit$|release:|number:|face:)/.test(p.id)) {
+    if (ekchPush && /^(limit$|release:|number:|face:)/.test(p.id)) {
       const tokenFor = (ids: string[]) => {
         if (ids.includes("limit")) return phrases.find(p => p.id === "limit")?.text ?? "";
         const face = ids.find(id => id.startsWith("face:"))?.slice(5);
@@ -86,7 +103,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
     else {
       const suffix = next.map(id => phrases.find(p => p.id === id)).reverse().find(p => p?.id === "limit" || p?.id === "stand" || p?.id.startsWith("hp:") || p?.id.startsWith("hold-") && p.id !== "hold-short");
       const at = suffix ? nextText.lastIndexOf(suffix.text) : -1;
-      if (p.id === "taxi") nextText = `${p.text} ${nextText}`.trim();
+      if (p.id === "taxi" || (ekchPush && p.id === "push")) nextText = `${p.text} ${nextText}`.trim();
       else if (at >= 0 && p.id !== "limit" && p.id !== "stand" && !p.id.startsWith("hp:")) nextText = `${nextText.slice(0,at).trim()} ${p.text} ${nextText.slice(at)}`.trim();
       else nextText = togglePhraseText(nextText, p.text, false);
     }
@@ -95,7 +112,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
   };
 
   const send = async () => {
-    if (pending || !strip || !text.trim()) return;
+    if (!canSend || !strip) return;
     let actions: FrontendSendEvent[] = remainingActions;
     if (draft.variant === "push") {
       const face = selected.find(id => id.startsWith("face:"))?.slice(5);
@@ -164,9 +181,9 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
           {storyboard.boxes.map((box, index) => {
             const style = placement(box as LayoutBox);
             if (box.label === "CALLSIGN") return <DialogTitle key={index} style={style} className="fs-text-pilot-stage-title">{draft.callsign}{draft.variant === "tower-out" ? <span className="sr-only"> text message</span> : " text message"}</DialogTitle>;
-            if (box.label === "text field" || (box.label ?? "").startsWith("PUSH AND START APPROVED,")) return <textarea key={index} style={style} className="fs-text-pilot-stage-editor" aria-label="Text message" autoFocus value={text} disabled={controlsLocked} onChange={e => setText(e.target.value.replace(/[\r\n]/g," "))} />;
-            if (box.label === "ERASE") return <button key={index} style={style} className="fs-text-pilot-erase" disabled={controlsLocked} onClick={() => { setText(""); setSelected([]); }}>ERASE</button>;
-            if (box.label === "SEND" || box.label === "ESC") return <button key={index} style={style} className="fs-text-pilot-stage-action" disabled={pending || box.label === "SEND" && (!strip || !text.trim())} onClick={box.label === "SEND" ? () => void send() : close}>{box.label === "SEND" && pending ? "SENDING…" : box.label}</button>;
+            if (box.label === "text field" || (box.label ?? "").startsWith("PUSH AND START APPROVED,")) return <textarea key={index} style={style} className="fs-text-pilot-stage-editor" aria-label="Text message" autoFocus value={text} disabled={controlsLocked} onChange={e => editText(e.target.value)} />;
+            if (box.label === "ERASE") return <button key={index} style={style} className="fs-text-pilot-erase" disabled={controlsLocked} onClick={erase}>ERASE</button>;
+            if (box.label === "SEND" || box.label === "ESC") return <button key={index} style={style} className="fs-text-pilot-stage-action" disabled={box.label === "SEND" ? !canSend : pending} onClick={box.label === "SEND" ? () => void send() : close}>{box.label === "SEND" && pending ? "SENDING…" : box.label}</button>;
             if (box.label === "------>") return <span key={index} style={style} className="fs-text-pilot-stage-group" aria-hidden>{"------>"}</span>;
             if (["RELEASE POINT", "FACE TO THE", "CONTACT"].includes(box.label ?? "")) {
               const contactSelected = box.label === "CONTACT" && selected.some(id => id.startsWith("freq:"));
@@ -176,7 +193,7 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
             const p = "phraseId" in box ? phrases.find(p => p.id === box.phraseId) : box.label === "ASSIGNED STAND" ? phrases.find(p => p.id === "stand") : phrases.find(p => normalized(p.label) === normalized(box.label));
             return p ? <span key={index}>{button(p, style, p.id === "limit" || p.id === "stand" ? p.label : box.label)}</span> : null;
           })}
-          {error && <p className="fs-text-pilot-stage-error" role="alert">{error}</p>}
+          {visibleError && <p className="fs-text-pilot-stage-error" role="alert">{visibleError}</p>}
         </div>
       </DialogContent>
     </Dialog>;
@@ -187,8 +204,8 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
         <div className="fs-text-pilot-outline">
           <DialogTitle>{draft.callsign} text message</DialogTitle>
           <div className="fs-text-pilot-editor">
-            <textarea aria-label="Text message" autoFocus value={text} disabled={controlsLocked} onChange={e => setText(e.target.value.replace(/[\r\n]/g," "))} />
-            <button className="fs-text-pilot-erase" disabled={controlsLocked} onClick={() => { setText(""); setSelected([]); }}>ERASE</button>
+            <textarea aria-label="Text message" autoFocus value={text} disabled={controlsLocked} onChange={e => editText(e.target.value)} />
+            <button className="fs-text-pilot-erase" disabled={controlsLocked} onClick={erase}>ERASE</button>
           </div>
           {si ? <div className="fs-text-pilot-si">
             <div className="fs-text-pilot-si-phrases">{phrases.filter(p => !p.id.startsWith("freq:")).map(p => button(p))}</div>
@@ -199,11 +216,11 @@ function Composer({ draft }: { draft: TextPilotDraft }) {
             <div className="fs-text-pilot-runways">{phrases.filter(p => p.id.startsWith("rwy:")).map(p => button(p))}</div>
             <div className="fs-text-pilot-runway-extras">{phrases.filter(p => ["long-rollout","expedite-vacating","wake","rolling"].includes(p.id)).map(p => button(p))}</div>
           </div> : <div className="fs-text-pilot-phrases">{phrases.map(p => button(p))}</div>}
-          {error && <p className="fs-text-pilot-error" role="alert">{error}</p>}
+          {visibleError && <p className="fs-text-pilot-error" role="alert">{visibleError}</p>}
           {!strip && <p role="alert">Aircraft is no longer available</p>}
           <div className="fs-text-pilot-actions">
             <button disabled={pending} onClick={close}>ESC</button>
-            <button disabled={pending || !strip || !text.trim()} onClick={() => void send()}>{pending ? "SENDING…" : "SEND"}</button>
+            <button disabled={!canSend} onClick={() => void send()}>{pending ? "SENDING…" : "SEND"}</button>
           </div>
         </div>
       </DialogContent>

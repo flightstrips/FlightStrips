@@ -6,7 +6,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatAltitude } from "@/lib/utils";
+import { formatAltitude, isFractionalFlightLevel, WHOLE_FLIGHT_LEVEL_ERROR } from "@/lib/utils";
 import { useTransitionAltitude } from "@/store/store-hooks";
 import { scalePx, toDvh, toVw } from "@/lib/viewportScale";
 
@@ -113,7 +113,7 @@ export function AltSelectDialog({
   const currentAlt = value && value > 0 ? value : undefined;
   const transitionAltitude = useTransitionAltitude();
   const [customInput, setCustomInput] = useState("");
-  const [customInvalid, setCustomInvalid] = useState(false);
+  const [customError, setCustomError] = useState("");
   const [prevOpen, setPrevOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -125,7 +125,7 @@ export function AltSelectDialog({
       setCustomInput(
         currentAlt != null && !presetMatch ? String(currentAlt) : "",
       );
-      setCustomInvalid(false);
+      setCustomError("");
     }
   }
 
@@ -146,14 +146,16 @@ export function AltSelectDialog({
   }
 
   function handleCustomSubmit() {
-    const parsed = parseAlt(customInput.trim());
-    if (parsed != null) {
-      setCustomInvalid(false);
-      onSelect(parsed);
-      onOpenChange(false);
-    } else {
-      setCustomInvalid(customInput.trim() !== "");
+    const parsed = parseAlt(customInput);
+    if (parsed == null) {
+      setCustomError(customInput.trim() ? "Enter 0–50000 ft" : "");
+      return;
     }
+    if (isFractionalFlightLevel(parsed, transitionAltitude)) {
+      setCustomError(WHOLE_FLIGHT_LEVEL_ERROR);
+      return;
+    }
+    handleSelect(parsed);
   }
 
   return (
@@ -189,7 +191,7 @@ export function AltSelectDialog({
               onChange={(e) => {
                 const v = e.target.value.replace(/\D/g, "").slice(0, 5);
                 setCustomInput(v);
-                setCustomInvalid(false);
+                setCustomError("");
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleCustomSubmit();
@@ -197,20 +199,20 @@ export function AltSelectDialog({
               style={{
                 ...customInputStyle,
                 fontFamily: "var(--font-bay)",
-                ...(customInvalid
+                ...(customError
                   ? { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" }
                   : {}),
               }}
-              aria-invalid={customInvalid}
-              aria-describedby={customInvalid ? "alt-custom-error" : undefined}
+              aria-invalid={!!customError}
+              aria-describedby={customError ? "alt-custom-error" : undefined}
             />
-            {customInvalid && (
+            {customError && (
               <p
                 id="alt-custom-error"
                 className="text-red-700 text-center"
                 style={{ fontSize: scalePx(14), marginTop: scalePx(4) }}
               >
-                Enter 0–50000 ft
+                {customError}
               </p>
             )}
           </div>

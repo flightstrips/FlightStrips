@@ -1584,8 +1584,11 @@ def _standCheckDepartureEntry(self, pushback):
         # still goes there, so name that instead: once per assignment, even an
         # unchanged one, since the pilot was told to pick an entry now gone.
         self._standMenuReminded = True       # no entry to remind them of
-        if self._standEntryLost != key:
-            self._standEntryLost = key
+        # The full assignment: a new point can select a slot with the same
+        # name as the last one, so the label key alone would stay silent.
+        lost = "%s|%r|%s" % (key, self._standPick, point)
+        if self._standEntryLost != lost:
+            self._standEntryLost = lost
             _standSay(self, '%s - pick "%s" in the pushback menu' % (what, name))
             _standShowOnVdgs(self, [point])
         return True

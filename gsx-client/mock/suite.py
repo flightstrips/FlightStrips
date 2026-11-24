@@ -1095,6 +1095,23 @@ entry = env.gate._addPos[-1]
 assert tuple(entry["pos"][:2]) == POINTS["S1"], entry
 case("two routes with one name: the entry goes where position chose")
 
+# The entry is lost after the menu is built, then ATC moves the point to
+# another route with the same name: still a change, so the pilot is told.
+TWIN_PUSH = [("S2 Face S", at("S2", 180)), ("Y0 Face E", at("Y0", 123)),
+             ("Push", at("S1", 0)), ("Push", at("Z1", 90))]
+env, g, h = planned(TWIN_PUSH)
+assign(env, g, h, "S1")
+env.state = 5
+g["_standCheck"](h)
+env.gate.rebuild()                              # GSX dropped our slot
+assign(env, g, h, "S1")
+assert said() == ['ATC pushback: S1 - pick "Push" in the pushback menu'], LOG
+assign(env, g, h, "S1")
+assert said() == [], "told once"
+assign(env, g, h, "Z1")
+assert said() == ['ATC changed your push to Z1 - pick "Push" in the pushback menu'], LOG
+case("a lost entry is re-announced when the point moves to a same-named route")
+
 COINCIDENT = [("Push", at("S1", 90)), ("S2 Face S", at("S2", 180)),
               ("Push", at("S1", 270))]
 for point, facing in (("S1", "W"), ("W", None)):

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.10.0...docs/v1.10.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **strip:** allow assumption of locked unowned strips ([#1224](https://github.com/flightstrips/FlightStrips/issues/1224)) ([14b95df](https://github.com/flightstrips/FlightStrips/commit/14b95dfd25a95cf3dc49a806ff4b10c3f7c9bdd6))
+
 ## [1.10.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.9.1...docs/v1.10.0) (2026-11-24)
 
 

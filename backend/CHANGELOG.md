@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.11.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.11.0...backend/v3.11.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **clearance:** correct text climb and pushback QNH ([#1225](https://github.com/flightstrips/FlightStrips/issues/1225)) ([79387f4](https://github.com/flightstrips/FlightStrips/commit/79387f4eec2b3277de561348e738170f1a598a52))
+* **strip:** allow assumption of locked unowned strips ([#1224](https://github.com/flightstrips/FlightStrips/issues/1224)) ([14b95df](https://github.com/flightstrips/FlightStrips/commit/14b95dfd25a95cf3dc49a806ff4b10c3f7c9bdd6))
+
 ## [3.11.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.10.0...backend/v3.11.0) (2026-11-24)
 
 

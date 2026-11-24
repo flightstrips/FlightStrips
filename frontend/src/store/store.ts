@@ -886,7 +886,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     },
     setReleasePoint: (callsign, releasePoint) => {
       const strip = findStrip(callsign);
-      if (!strip || strip.release_point === releasePoint || (strip.owner && strip.owner !== get().position)) return;
+      if (!strip || strip.release_point === releasePoint) return;
+      // A non-owner can coordinate a change to an existing assignment.
+      if (!strip.release_point && strip.owner && strip.owner !== get().position) return;
       if (!sendGuardedStripEvent(callsign, { type: "release_point" }, {type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})) {
         return;
       }

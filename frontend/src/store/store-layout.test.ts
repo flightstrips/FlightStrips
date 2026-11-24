@@ -598,7 +598,22 @@ describe("manual companion layout behavior", () => {
     expect(store.getState().pendingAssumptions).toEqual({});
   });
 
-  it("skips unchanged edits and checks current ownership before any field edit", () => {
+  it.each(["B/C", "K2"])("coordinates release point %s on an arrival owned by another controller", (releasePoint) => {
+    const strip = { ...foreignStrip(), origin: "ENGM", destination: "EKCH", bay: Bay.TwyArr, release_point: "K1" };
+    store.setState({ position: "EKCH_B_GND", strips: [strip] });
+
+    store.getState().setReleasePoint(strip.callsign, releasePoint);
+
+    expect(client.send).toHaveBeenCalledExactlyOnceWith({
+      type: ActionType.FrontendReleasePoint,
+      callsign: strip.callsign,
+      release_point: releasePoint,
+    });
+    client._emit(EventType.FrontendReleasePoint, { callsign: strip.callsign, release_point: releasePoint });
+    expect(store.getState().strips[0]).toMatchObject({ owner: strip.owner, release_point: releasePoint });
+  });
+
+  it("skips unchanged edits and keeps owner-only field changes blocked after handoff", () => {
     const strip = { ...foreignStrip(), owner: "EKCH_B_GND", route: "DCT LANGO", eobt: "1450" };
     store.setState({ position: "EKCH_B_GND", strips: [strip] });
     store.getState().updateStrip("SAS123", { route: strip.route, eobt: " 1450 " });

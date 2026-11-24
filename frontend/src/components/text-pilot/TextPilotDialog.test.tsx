@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, Bay } from "@/api/models";
 import { TextPilotDialog } from "./TextPilotDialog";
 import layouts from "./storyboard-layouts.json";
@@ -9,8 +9,10 @@ import type { TextPilotDraft } from "@/lib/text-pilot";
 const state = vi.hoisted(() => ({
   textPilotInputs: null as TextPilotInputs | null,
   textPilotDraft: null as TextPilotDraft | null,
-  strips: [{ callsign: "SAS123", runway: "22R", communication_type: "T", owner: "121.905", stand: undefined as string | undefined }],
-  metar: "EKCH 101220Z 24012KT CAVOK 12/10 Q1013",
+  strips: [{ callsign: "SAS123", runway: "22R", communication_type: "T", owner: "121.905", stand: undefined as string | undefined,
+    destination: "LTFJ", sid: "SALO1C", assigned_squawk: "2326", cleared_altitude: 7000 }],
+  transitionAltitude: 5000,
+  metar: "",
   controllers: [{ callsign: "EKCH_AD_GND", position: "121.730", owned_sectors: ["AD"] }],
   position: "121.905", stripTransfers: {} as Record<string, { from?: string; to?: string }>,
   openValidationDialog: vi.fn(), closeTextPilotMenu: vi.fn(), markTextPilotReadback: vi.fn(), sendFrequencyMessage: vi.fn(),
@@ -18,25 +20,125 @@ const state = vi.hoisted(() => ({
 vi.mock("@/store/store-hooks", () => ({ useWebSocketStore: (selector: (s: typeof state) => unknown) => selector(state) }));
 
 beforeEach(() => {
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-10T13:05:00Z"));
   state.textPilotInputs = { airport: "EKCH", preset_provider: "ekch/v1", layouts };
+  state.metar = "EKCH 101220Z 24012KT CAVOK 12/10 Q1013";
+  state.strips[0].cleared_altitude = 7000;
   vi.clearAllMocks(); state.stripTransfers = {}; state.strips[0].stand = undefined;
   state.sendFrequencyMessage.mockResolvedValue({ submitted: true, applied_actions: 0 });
   state.textPilotDraft = { callsign: "SAS123", variant: "apron-out", point: "A/B", actions: [{ type: ActionType.FrontendMove, callsign: "SAS123", bay: Bay.Taxi }] };
 });
+afterEach(() => vi.restoreAllMocks());
 describe("text pilot composer", () => {
+  it.each([[4950, "4950 feet"], [5000, "5000 feet"], [7000, "FL70"]])("formats a clearance preview for an initial climb of %i", (altitude, initialClimb) => {
+    state.strips[0].cleared_altitude = altitude;
+    state.textPilotDraft = { callsign: "SAS123", variant: "clearance" };
+    render(<TextPilotDialog />);
+    expect(screen.getByRole("textbox")).toHaveValue(`Cleared to LTFJ, via SALO1C Departure, Initial climb ${initialClimb}, Squawk 2326.`);
+  });
+
+  it("regenerates the clearance preview and enables SEND when a fractional climb is corrected", async () => {
+    state.strips[0].cleared_altitude = 5050;
+    const clear = { type: ActionType.FrontendMove, callsign: "SAS123", bay: Bay.Cleared, clearance: true } as const;
+    state.textPilotDraft = { callsign: "SAS123", variant: "clearance", actions: [clear] };
+    const { rerender } = render(<TextPilotDialog />);
+    const textbox = screen.getByRole("textbox");
+    const send = screen.getByRole("button", { name: "SEND" });
+    expect(textbox).toHaveValue("");
+    expect(screen.getByRole("alert")).toHaveTextContent("whole flight level");
+    expect(send).toBeDisabled();
+
+    state.strips[0].cleared_altitude = 5100;
+    rerender(<TextPilotDialog />);
+    const clearance = "Cleared to LTFJ, via SALO1C Departure, Initial climb FL51, Squawk 2326.";
+    expect(textbox).toHaveValue(clearance);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(send).toBeEnabled();
+    fireEvent.click(send);
+    await waitFor(() => expect(state.closeTextPilotMenu).toHaveBeenCalledOnce());
+    expect(state.sendFrequencyMessage).toHaveBeenCalledExactlyOnceWith("SAS123", clearance, [clear], true);
+  });
+
+  it("preserves manual clearance text while an invalid climb is corrected", () => {
+    state.strips[0].cleared_altitude = 5050;
+    state.textPilotDraft = { callsign: "SAS123", variant: "clearance" };
+    const { rerender } = render(<TextPilotDialog />);
+    const textbox = screen.getByRole("textbox");
+    const send = screen.getByRole("button", { name: "SEND" });
+    const manualText = "Cleared to LTFJ.";
+    fireEvent.change(textbox, { target: { value: manualText } });
+    expect(send).toBeDisabled();
+    expect(state.sendFrequencyMessage).not.toHaveBeenCalled();
+
+    state.strips[0].cleared_altitude = 5100;
+    rerender(<TextPilotDialog />);
+    expect(textbox).toHaveValue(manualText);
+    expect(send).toBeEnabled();
+  });
+
   it("combines push letters and digits and toggles a direction off", () => {
     state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4" };
     render(<TextPilotDialog />);
     fireEvent.click(screen.getByRole("button", { name: "P" }));
-    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, Release point P4.");
+    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, QNH 1013, Release point P4.");
     fireEvent.click(screen.getByRole("button", { name: "2" }));
-    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, Release point P2.");
+    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, QNH 1013, Release point P2.");
     fireEvent.click(screen.getByRole("button", { name: "NORTH" }));
-    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, Face North.");
+    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, QNH 1013, Face North.");
     fireEvent.click(screen.getByRole("button", { name: "NORTH" }));
-    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved,");
+    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, QNH 1013,");
   });
-  it("sends the edited push point with the matching strip update", async () => {
+  it.each([
+    ["no pressure", "EKCH 101220Z 24012KT CAVOK 12/10"],
+    ["another airport", "EKBI 101220Z 24012KT CAVOK 12/10 Q1005"],
+    ["a stale observation", "EKCH 101204Z 24012KT CAVOK 12/10 Q1013"],
+  ])("leaves QNH out of push approval with %s", (_, metar) => {
+    state.metar = metar;
+    state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4" };
+    render(<TextPilotDialog />);
+    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, Release point J4.");
+  });
+  it("takes the QNH from the report available when the draft opens", async () => {
+    state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4" };
+    const { rerender } = render(<TextPilotDialog />);
+    const text = "Push and start approved, QNH 1013, Release point J4.";
+    expect(screen.getByRole("textbox")).toHaveValue(text);
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-11-10T13:30:00Z"));
+    state.metar = "EKCH 101325Z 24012KT CAVOK 12/10 Q1014";
+    rerender(<TextPilotDialog />);
+    expect(screen.getByRole("textbox")).toHaveValue(text);
+    fireEvent.click(screen.getByRole("button", { name: "SEND" }));
+    await waitFor(() => expect(state.closeTextPilotMenu).toHaveBeenCalledOnce());
+    expect(state.sendFrequencyMessage).toHaveBeenCalledExactlyOnceWith("SAS123", text, [], false);
+  });
+  it.each([
+    "Push and start approved, QNH 1014. Release point J4.",
+    "Push and start approved, Release point J4.",
+  ])("sends the edited push text as entered", async manualText => {
+    state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4" };
+    const { rerender } = render(<TextPilotDialog />);
+    const textbox = screen.getByRole("textbox");
+    fireEvent.change(textbox, { target: { value: manualText } });
+    state.metar = "EKCH 101250Z 24012KT CAVOK 12/10 Q1014";
+    rerender(<TextPilotDialog />);
+    expect(textbox).toHaveValue(manualText);
+    fireEvent.click(screen.getByRole("button", { name: "SEND" }));
+    await waitFor(() => expect(state.closeTextPilotMenu).toHaveBeenCalledOnce());
+    expect(state.sendFrequencyMessage).toHaveBeenCalledExactlyOnceWith("SAS123", manualText, [], false);
+  });
+  it("toggles the approval without changing the controller's QNH", () => {
+    state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4" };
+    render(<TextPilotDialog />);
+    const textbox = screen.getByRole("textbox");
+    const pressureAndRelease = "QNH 1014 hectopascals, Release point J4.";
+    fireEvent.change(textbox, { target: { value: `Push and start approved, ${pressureAndRelease}` } });
+    const approval = screen.getByRole("button", { name: "PUSH AND START APPROVED" });
+    fireEvent.click(approval);
+    expect(textbox).toHaveValue(pressureAndRelease);
+    fireEvent.click(approval);
+    expect(textbox).toHaveValue(`Push and start approved, ${pressureAndRelease}`);
+  });
+  it("sends QNH with the edited push point and matching strip update", async () => {
     const move = { type: ActionType.FrontendMove, callsign: "SAS123", bay: Bay.Push } as const;
     state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4", actions: [
       { type: ActionType.FrontendReleasePoint, callsign: "SAS123", release_point: "J4" }, move,
@@ -54,12 +156,12 @@ describe("text pilot composer", () => {
     expect(screen.getByRole("button", { name: "ERASE" })).toBeDisabled();
     expect(screen.getByRole("textbox")).toBeDisabled();
     expect(state.sendFrequencyMessage.mock.calls[0]).toEqual([
-      "SAS123", "Push and start approved, Release point P2.",
+      "SAS123", "Push and start approved, QNH 1013, Release point P2.",
       [{ type: ActionType.FrontendReleasePoint, callsign: "SAS123", release_point: "P2" }, move], false,
     ]);
     fireEvent.click(screen.getByRole("button", { name: "SEND" }));
     await waitFor(() => expect(state.closeTextPilotMenu).toHaveBeenCalledOnce());
-    expect(state.sendFrequencyMessage.mock.calls[1][2]).toEqual([move]);
+    expect(state.sendFrequencyMessage.mock.calls[1]).toEqual(["SAS123", "Push and start approved, QNH 1013, Release point P2.", [move], false]);
   });
   it.each([["NORTH", "N"], ["EAST", "E"], ["WEST", "W"], ["SOUTH", "S"]])("stages %s using the map direction code", async (label, point) => {
     state.textPilotDraft = { callsign: "SAS123", variant: "push", point: "J4", actions: [
@@ -81,7 +183,7 @@ describe("text pilot composer", () => {
     fireEvent.click(screen.getByRole("button", { name: "NORTH" }));
     fireEvent.click(screen.getByRole("button", { name: "SEND" }));
     await waitFor(() => expect(state.closeTextPilotMenu).toHaveBeenCalledOnce());
-    expect(state.sendFrequencyMessage.mock.calls[0][1]).toBe("Push and start approved,");
+    expect(state.sendFrequencyMessage.mock.calls[0][1]).toBe("Push and start approved, QNH 1013,");
     expect(state.sendFrequencyMessage.mock.calls[0][2]).toEqual([
       { type: ActionType.FrontendReleasePoint, callsign: "SAS123", release_point: "" },
     ]);
@@ -92,7 +194,7 @@ describe("text pilot composer", () => {
     expect(screen.getByRole("button", { name: "J" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "4" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "J" }));
-    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, Release point 4.");
+    expect(screen.getByRole("textbox")).toHaveValue("Push and start approved, QNH 1013, Release point 4.");
     expect(screen.getByRole("button", { name: "J" })).toHaveAttribute("aria-pressed", "false");
   });
   it("offers the apron-specific hold and continue instructions", () => {

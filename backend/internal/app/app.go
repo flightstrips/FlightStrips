@@ -401,6 +401,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	euroscopeHub := realtime.euroscope
 	euroscopeHub.SetAirportRegistry(cfg.Airports)
+	frontendHub.SetAirportRegistry(cfg.Airports)
 	euroscopeHub.SetWorkflowRegistry(workflows)
 	coverageOptions := euroscope.CoverageOptions{Network: vatsimGraph.source, Now: satNow, Authorize: deps.CoverageAuthorize, Simulated: deps.CoverageSimulated}
 	if transceiverCache != nil {

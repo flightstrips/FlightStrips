@@ -23,11 +23,13 @@ const requested = new URLSearchParams(location.search).get("variant") as TextPil
 const variant = variants.includes(requested) ? requested : "runway";
 const indicatorEntry = new URLSearchParams(location.search).get("entry") === "indicators";
 const mapEntry = new URLSearchParams(location.search).get("entry") === "push-map";
+const utc = new Date().toISOString();
+const observationTime = `${utc.slice(8, 10)}${utc.slice(11, 13)}${utc.slice(14, 16)}Z`;
 const store = createWebSocketStore({ on() {}, send() { return false; }, isConnected() { return false; } } as unknown as WebSocketClient);
 store.setState({
   textPilotInputs: { airport: "EKCH", preset_provider: "ekch/v1", layouts },
   ...(mapEntry ? { sendFrequencyMessage: async () => ({ type: "frequency_message_result" as const, request_id: "preview", callsign: "SAS123", submitted: false, prepared: true, applied_actions: 0 }) } : {}),
-  readOnly: false, position: "121.905", metar: "EKCH 101220Z 24012KT CAVOK 12/10 Q1013",
+  readOnly: false, position: "121.905", metar: `EKCH ${observationTime} 24012KT CAVOK 12/10 Q1013`,
   strips: [{
     callsign: "SAS123", origin: "EKCH", destination: "EGLL", alternate: "", route: "", remarks: "",
     runway: "22R", squawk: "", assigned_squawk: "", sid: "", star: "", cleared_altitude: 0,

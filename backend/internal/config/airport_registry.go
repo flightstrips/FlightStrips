@@ -140,6 +140,10 @@ func (d *AirportDefinition) Document() AirportDocument {
 }
 func (d *AirportDefinition) DomainConfig() Config { return d.Document().DomainConfig() }
 
+func (d *AirportDefinition) TransitionAltitude() int {
+	return d.document.Geography.TransitionAltitudeFT
+}
+
 func (d *AirportDefinition) InitialCFLForRunway(runway string) (int, bool) {
 	cfl, ok := d.document.Geography.InitialCFLFT[strings.ToUpper(strings.TrimSpace(runway))]
 	return cfl, ok

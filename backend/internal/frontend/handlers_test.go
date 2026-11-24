@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
@@ -727,6 +728,23 @@ func TestHandleStripUpdate_DecodesAndDelegatesToUseCase(t *testing.T) {
 	assert.Equal(t, callsign, useCase.req.Event.Callsign)
 	require.NotNil(t, useCase.req.Event.Route)
 	assert.Equal(t, route, *useCase.req.Event.Route)
+}
+
+func TestHandleStripUpdate_RejectsFractionalFlightLevel(t *testing.T) {
+	airports, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: "../../.."})
+	require.NoError(t, err)
+	useCase := &recordingStripUpdateUseCase{}
+	client := buildFrontendTestClient(&Hub{airports: airports, stripUpdateService: useCase}, 7, "EKCH")
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+	altitude := int32(5050)
+	req := frontendEvents.UpdateStripDataEvent{Callsign: "SAS123", Altitude: &altitude}
+	err = handleStripUpdate(t.Context(), client, marshalMessage(t, req))
+	require.ErrorContains(t, err, "whole flight level")
+	require.Empty(t, useCase.req.Event.Callsign)
+
+	altitude = 5100
+	require.NoError(t, handleStripUpdate(t.Context(), client, marshalMessage(t, req)))
+	require.Equal(t, &altitude, useCase.req.Event.Altitude)
 }
 
 func TestHandleStripUpdate_UsesHubWiringForServiceDependencies(t *testing.T) {

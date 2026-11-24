@@ -48,6 +48,15 @@ export interface MetarDecoded {
   parsed: IMetar | null;
 }
 
+/** Resolve the METAR's UTC day and time against the current or previous month. */
+export function metarObservationTime({ day, hour, minute }: IMetar, now: number): number | undefined {
+  if (day == null || day < 1 || day > 31 || hour == null || hour < 0 || hour > 23 || minute == null || minute < 0 || minute > 59) return;
+  const reference = new Date(now);
+  const month = reference.getUTCMonth() - Number(day > reference.getUTCDate());
+  const observedAt = Date.UTC(reference.getUTCFullYear(), month, day, hour, minute);
+  if (new Date(observedAt).getUTCDate() === day && observedAt <= now) return observedAt;
+}
+
 function visibilityToKm(vis: IMetar["visibility"]): number | null {
   if (!vis) return null;
   const v = vis.value;

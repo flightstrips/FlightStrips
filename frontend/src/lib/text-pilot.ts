@@ -1,5 +1,6 @@
 import { ActionType, Bay, CommunicationType, type FrontendController, type FrontendSendEvent, type TextPilotInputs, type FrontendStrip as Strip } from "@/api/models";
-import { decodeMetar } from "@/lib/metarDecode";
+import { decodeMetar, metarObservationTime } from "@/lib/metarDecode";
+import { formatAltitude, isFractionalFlightLevel } from "@/lib/utils";
 
 export type TextPilotVariant = "push" | "apron-out" | "apron-in" | "tower-out" | "tower-in" | "si" | "runway" | "clearance";
 export interface TextPilotDraft {
@@ -34,6 +35,8 @@ export interface FrequencyMessageResult {
   runway_confirmed?: boolean;
 }
 export interface Phrase { id: string; label: string; text: string; tone: "light" | "phrase" | "point"; disabled?: boolean; }
+const PUSH_APPROVAL = "Push and start approved,";
+const PUSH_QNH_MAX_AGE_MS = 60 * 60_000;
 export const TEXT_STATIONS = [
   { name: "Kastrup Delivery", frequency: "119.905", sectors: ["DEL"] },
   { name: "Kastrup Apron", frequency: "121.905", sectors: ["SEQ"] },
@@ -79,6 +82,15 @@ export function taxiLimit(draft: TextPilotDraft, runway: string): string {
   return point ? `TWY ${point}.` : "";
 }
 
+export function defaultPushApproval(metar: string): string {
+  const { parsed, qnh, qnhUnit } = decodeMetar(metar);
+  if (parsed?.station !== "EKCH" || qnh == null || qnh <= 0 || qnhUnit !== "hPa") return PUSH_APPROVAL;
+  const now = Date.now();
+  const observedAt = metarObservationTime(parsed, now);
+  if (observedAt === undefined || now - observedAt >= PUSH_QNH_MAX_AGE_MS) return PUSH_APPROVAL;
+  return `${PUSH_APPROVAL} QNH ${String(qnh).padStart(4, "0")},`;
+}
+
 export function textPilotPhrases(draft: TextPilotDraft, strip: Pick<Strip, "runway"> & { stand?: string }, metar: string): Phrase[] {
   if (draft.variant === "si") return [
     phrase("readback", "READBACK CORRECT.", "Readback correct."),
@@ -99,7 +111,8 @@ export function textPilotPhrases(draft: TextPilotDraft, strip: Pick<Strip, "runw
   if (draft.variant === "push") {
     const direction = ({ N: "North", E: "East", W: "West", S: "South" } as Record<string,string>)[draft.point ?? ""];
     const end = direction ? `Face ${direction}.` : `Release point ${draft.point ?? ""}.`;
-    return [phrase("push", "PUSH AND START APPROVED", "Push and start approved,"), phrase("limit", direction ? `FACE ${direction.toUpperCase()}` : `RELEASE POINT ${draft.point ?? ""}`, end, "point"),
+    return [phrase("push", "PUSH AND START APPROVED", PUSH_APPROVAL),
+      phrase("limit", direction ? `FACE ${direction.toUpperCase()}` : `RELEASE POINT ${draft.point ?? ""}`, end, "point"),
       ...["J", "P", "Q", "R", "S", "T", "V", "W", "Y", "Z"].map(p => phrase(`release:${p}`, p, `Release point ${p}`, "light")),
       ...Array.from({ length: 9 }, (_, i) => phrase(`number:${i+1}`, String(i+1), String(i+1), "light")),
       ...["North", "East", "West", "South"].map(d => phrase(`face:${d}`, d.toUpperCase(), `Face ${d}.`, "point")),
@@ -158,10 +171,15 @@ export function textTaxiActions(callsign: string, point: string, bay?: Bay, ackn
 }
 export const isTextPilot = (strip?: Pick<Strip, "communication_type">) => strip?.communication_type === CommunicationType.Text;
 
-export function clearancePreview(strip: Strip): string {
+export function clearancePreview(strip: Strip, transitionAltitude: number): string {
+  const altitude = strip.cleared_altitude;
+  if (isFractionalFlightLevel(altitude, transitionAltitude)) return "";
   const straightAhead = /^SA(?:\s|$)/i.test(strip.sid ?? "");
   const via = strip.sid && !straightAhead ? `${strip.sid} Departure` : strip.route?.trim() ? "Flight plan route" : "Radar vectors";
-  let text = `Cleared to ${strip.destination}, via ${via}, Initial climb ${strip.cleared_altitude ?? ""} feet, Squawk ${strip.assigned_squawk ?? ""}.`;
+  const initialClimb = transitionAltitude > 0 && altitude > transitionAltitude
+    ? formatAltitude(altitude, transitionAltitude)
+    : `${altitude ?? ""} feet`;
+  let text = `Cleared to ${strip.destination}, via ${via}, Initial climb ${initialClimb}, Squawk ${strip.assigned_squawk ?? ""}.`;
   if (straightAhead) text += " After departure, Climb straight ahead.";
   else if (!strip.sid && strip.heading && strip.heading > 0) text += ` After departure, Fly heading ${String(strip.heading).padStart(3,"0")}.`;
   return text;

@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -49,34 +50,80 @@ func TestFrequencyMessageValidation(t *testing.T) {
 }
 
 func TestTextClearanceUsesAcceptedValues(t *testing.T) {
-	altitude := int32(4000)
+	const transitionAltitude = 5000
+	altitude := int32(4950)
 	heading := int32(90)
 	squawk := "0421"
 	sid := "VEDAR4A"
 	route := "DCT VEDAR"
 	strip := &models.Strip{Destination: "EGLL", ClearedAltitude: &altitude, AssignedSquawk: &squawk, Sid: &sid, Route: &route, Heading: &heading}
-	message, err := buildTextClearance(strip)
+	message, err := buildTextClearance(strip, transitionAltitude)
 	require.NoError(t, err)
-	require.Equal(t, "Cleared to EGLL, via VEDAR4A Departure, Initial climb 4000 feet, Squawk 0421.", message)
+	require.Equal(t, "Cleared to EGLL, via VEDAR4A Departure, Initial climb 4950 feet, Squawk 0421.", message)
+	altitude = 5000
+	message, err = buildTextClearance(strip, transitionAltitude)
+	require.NoError(t, err)
+	require.Contains(t, message, "Initial climb 5000 feet,")
 	strip.Sid = nil
-	message, err = buildTextClearance(strip)
+	message, err = buildTextClearance(strip, transitionAltitude)
 	require.NoError(t, err)
 	require.Contains(t, message, "Flight plan route")
 	require.Contains(t, message, "Fly heading 090.")
 	strip.Route = nil
-	message, err = buildTextClearance(strip)
+	message, err = buildTextClearance(strip, transitionAltitude)
 	require.NoError(t, err)
 	require.Contains(t, message, "Radar vectors")
 	sid = "SA 3000'"
 	strip.Sid = &sid
-	message, err = buildTextClearance(strip)
+	message, err = buildTextClearance(strip, transitionAltitude)
 	require.NoError(t, err)
 	require.Contains(t, message, "Climb straight ahead.")
 	require.NotContains(t, message, "Fly heading")
 	require.NotContains(t, message, "SA 3000' Departure")
 	strip.AssignedSquawk = nil
-	_, err = buildTextClearance(strip)
+	_, err = buildTextClearance(strip, transitionAltitude)
 	require.Error(t, err)
+}
+
+func TestFrequencyMessageUsesAirportTransitionAltitudeForClearance(t *testing.T) {
+	airports, err := config.LoadAirportFiles(config.ProductionAirportCatalog(), []string{"backend/config/airports/ekch.airport.yaml"}, config.AirportLoadOptions{RepositoryRoot: "../../.."})
+	require.NoError(t, err)
+	altitude, sid, squawk, communication := int32(7000), "SALO1C", "2326", "T"
+	strip := &models.Strip{
+		Callsign: "PGT36YP", Destination: "LTFJ", Cleared: true, CommunicationType: &communication,
+		ClearedAltitude: &altitude, Sid: &sid, AssignedSquawk: &squawk,
+	}
+	repo := &testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return strip, nil }}
+	router := &frequencyTestRouter{}
+	server := mockServerWithStripRepo(repo)
+	server.EuroscopeHubVal = router
+	hub := buildFrontendTestHub(server, &noOpStripService{})
+	hub.SetAirportRegistry(airports)
+	hub.handlers = shared.NewMessageHandlers[events.EventType, *Client]()
+	hub.handlers.Add(events.Move, func(context.Context, *Client, Message) error {
+		t.Fatal("invalid initial climb must be rejected before applying clearance actions")
+		return nil
+	})
+	client := buildFrontendTestClient(hub, 42, "EKCH")
+	client.SetUser(shared.NewAuthenticatedUser("1234567", 0, nil))
+	client.send = make(chan pkgEvents.OutgoingMessage, 1)
+	client.closed = make(chan struct{})
+	altitude = 5050
+	invalid := events.SendFrequencyMessageEvent{
+		RequestID: "invalid-clearance", Callsign: strip.Callsign, Clearance: true,
+		Actions: []json.RawMessage{[]byte(`{"type":"move","callsign":"PGT36YP","bay":"CLEARED","clearance":true}`)},
+	}
+	require.NoError(t, handleSendFrequencyMessage(t.Context(), client, marshalMessage(t, invalid)))
+	result := (<-client.send).(events.FrequencyMessageResultEvent)
+	require.Contains(t, result.Error, "whole flight level")
+	require.Zero(t, result.AppliedActions)
+	require.Empty(t, router.sent)
+
+	altitude = 7000
+	req := events.SendFrequencyMessageEvent{RequestID: "clearance", Callsign: strip.Callsign, Clearance: true}
+	require.NoError(t, handleSendFrequencyMessage(t.Context(), client, marshalMessage(t, req)))
+	require.Len(t, router.sent, 1)
+	require.Equal(t, "Cleared to LTFJ, via SALO1C Departure, Initial climb FL70, Squawk 2326.", router.sent[0].Message)
 }
 
 // The real move service owns validation exceptions and timing re-evaluation.

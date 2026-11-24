@@ -22,3 +22,9 @@ export function formatAltitude(feet: number, transitionAltitude: number): string
     ? `FL${Math.floor(feet / 100)}`
     : String(feet);
 }
+
+export const WHOLE_FLIGHT_LEVEL_ERROR = "Above the transition altitude, enter a whole flight level in feet (a multiple of 100 ft).";
+
+export function isFractionalFlightLevel(feet: number, transitionAltitude: number): boolean {
+  return transitionAltitude > 0 && feet > transitionAltitude && feet % 100 !== 0;
+}

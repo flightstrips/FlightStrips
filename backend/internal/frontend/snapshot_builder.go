@@ -28,6 +28,7 @@ type InitialSnapshotRequest struct {
 }
 
 type SnapshotBuilderDependencies struct {
+	Airports               *config.AirportRegistry
 	TextPilotInputs        func(string) *pkgModels.TextPilotInputs
 	ControllerRepo         repository.ControllerRepository
 	StripRepo              SnapshotStripStore
@@ -46,6 +47,7 @@ type SnapshotBuilderDependencies struct {
 }
 
 type SnapshotBuilder struct {
+	airports               *config.AirportRegistry
 	textPilotInputs        func(string) *pkgModels.TextPilotInputs
 	controllerRepo         repository.ControllerRepository
 	stripRepo              SnapshotStripStore
@@ -69,6 +71,7 @@ type pendingEuroscopeStripChecker interface {
 
 func NewSnapshotBuilder(deps SnapshotBuilderDependencies) *SnapshotBuilder {
 	return &SnapshotBuilder{
+		airports:               deps.Airports,
 		textPilotInputs:        deps.TextPilotInputs,
 		controllerRepo:         deps.ControllerRepo,
 		stripRepo:              deps.StripRepo,
@@ -204,7 +207,7 @@ func (b *SnapshotBuilder) build(ctx context.Context, request InitialSnapshotRequ
 		Messages:           storedMessages,
 		AvailableSids:      availableSids,
 		InitialCFLByRunway: initialCFLByRunway,
-		TransitionAltitude: int32(config.GetTransitionAltitude()),
+		TransitionAltitude: int32(airportTransitionAltitude(b.airports, request.Airport)),
 		ReadOnly:           request.ReadOnly,
 		PositionAvailable:  positionAvailable,
 		LocalIP:            localIP,
@@ -365,6 +368,13 @@ func (b *SnapshotBuilder) loadAvailableSIDs(ctx context.Context, sessionID int32
 		return pkgModels.AvailableSids{}
 	}
 	return sids
+}
+
+func airportTransitionAltitude(airports *config.AirportRegistry, airport string) int {
+	if definition, ok := airports.Lookup(airport); ok {
+		return definition.TransitionAltitude()
+	}
+	return config.GetTransitionAltitude()
 }
 
 func buildInitialCFLByRunway() map[string]int32 {

@@ -142,6 +142,11 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 	if event.Revision != nil && client.selection.board != nil && event.Revision.Definition != client.selection.board.DefinitionRevision {
 		return shared.RejectAction("stale definition revision")
 	}
+	if event.Altitude != nil {
+		if err := validateClimbFlightLevel(int(*event.Altitude), airportTransitionAltitude(client.hub.airports, identity.airport)); err != nil {
+			return shared.RejectAction(err.Error())
+		}
+	}
 	service := client.hub.getStripUpdateService()
 	if service == nil {
 		return errors.New("strip update service not available")

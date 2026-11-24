@@ -161,8 +161,10 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 	}
 	// Action handlers enforce validation and permit supported corrective actions
 	// and TSAT pushback retries; a blanket batch lock would prevent both.
+	var transitionAltitude int
 	if req.Clearance {
-		if _, err := buildTextClearance(strip); err != nil {
+		transitionAltitude = airportTransitionAltitude(client.hub.airports, identity.airport)
+		if _, err := buildTextClearance(strip, transitionAltitude); err != nil {
 			return reject(err)
 		}
 	}
@@ -202,7 +204,7 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 		if !strip.Cleared {
 			return reject(errors.New("clearance was not accepted"))
 		}
-		req.Message, err = buildTextClearance(strip)
+		req.Message, err = buildTextClearance(strip, transitionAltitude)
 		if err != nil {
 			return reject(err)
 		}
@@ -216,9 +218,13 @@ func handleSendFrequencyMessage(ctx context.Context, client *Client, message Mes
 	return nil
 }
 
-func buildTextClearance(strip *models.Strip) (string, error) {
+func buildTextClearance(strip *models.Strip, transitionAltitude int) (string, error) {
 	if strip.Destination == "" || strip.ClearedAltitude == nil || *strip.ClearedAltitude <= 0 || stringPtrValue(strip.AssignedSquawk) == "" {
 		return "", errors.New("destination, initial climb and assigned squawk are required")
+	}
+	altitude := int(*strip.ClearedAltitude)
+	if err := validateClimbFlightLevel(altitude, transitionAltitude); err != nil {
+		return "", err
 	}
 	sid := stringPtrValue(strip.Sid)
 	straightAhead := strings.EqualFold(sid, "SA") || strings.HasPrefix(strings.ToUpper(sid), "SA ")
@@ -232,8 +238,11 @@ func buildTextClearance(strip *models.Strip) (string, error) {
 	if sid != "" {
 		route = sid + " Departure"
 	}
-	// EuroScope's assigned altitude is stored in feet. Keep the unit explicit.
-	text := fmt.Sprintf("Cleared to %s, via %s, Initial climb %d feet, Squawk %s.", strip.Destination, route, *strip.ClearedAltitude, stringPtrValue(strip.AssignedSquawk))
+	initialClimb := fmt.Sprintf("%d feet", altitude)
+	if transitionAltitude > 0 && altitude > transitionAltitude {
+		initialClimb = fmt.Sprintf("FL%d", altitude/100)
+	}
+	text := fmt.Sprintf("Cleared to %s, via %s, Initial climb %s, Squawk %s.", strip.Destination, route, initialClimb, stringPtrValue(strip.AssignedSquawk))
 	if straightAhead {
 		text += " After departure, Climb straight ahead."
 	} else if sid == "" && strip.Heading != nil {
@@ -242,4 +251,11 @@ func buildTextClearance(strip *models.Strip) (string, error) {
 		}
 	}
 	return text, nil
+}
+
+func validateClimbFlightLevel(altitude, transitionAltitude int) error {
+	if transitionAltitude > 0 && altitude > transitionAltitude && altitude%100 != 0 {
+		return errors.New("altitude above the transition altitude must be a whole flight level (a multiple of 100 feet)")
+	}
+	return nil
 }

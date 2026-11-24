@@ -25,6 +25,7 @@ export function HoldingPointDialog({
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
+  const isNotOwner = !!myPosition && !!strip?.owner && strip.owner !== myPosition;
   const isPointDisabled = (label: string) =>
     isRestrictedTwrPoint(label, "hp", strip?.aircraft_type, strip?.aircraft_category);
   const disabledPointMessage = "Aircraft type not approved for this Taxiway";
@@ -47,7 +48,7 @@ export function HoldingPointDialog({
 
   const handleSelect = (label: string) => {
     if (isPointDisabled(label)) return;
-    if (isTextPilot(strip)) {
+    if (!isNotOwner && isTextPilot(strip)) {
       openTextPilotMenu({ callsign, variant: "tower-out", point: label, holdingPoint: true, actions: textTaxiActions(callsign, label, undefined, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
     }

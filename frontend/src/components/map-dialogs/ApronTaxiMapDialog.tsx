@@ -42,6 +42,7 @@ export function ApronTaxiMapDialog({
   const strip = useStrip(callsign);
   const airport = useWebSocketStore(s => s.airport);
   const myPosition = useMyPosition();
+  const isNotOwner = !!myPosition && !!strip?.owner && strip.owner !== myPosition;
   const restrictions = getAircraftMapRestrictions(strip?.aircraft_type, strip?.aircraft_category, "apron-taxi");
   const isPointDisabled = (label: string) => isRestrictedMapPoint(label, restrictions);
   const disabledMessage = "Aircraft type not approved for this Taxiway";
@@ -52,7 +53,7 @@ export function ApronTaxiMapDialog({
   const handleSelect = (label: string) => {
     if (isPointDisabled(label)) return;
     const preserveLowerBay = strip?.bay === Bay.TaxiLwr;
-    if (isTextPilot(strip)) {
+    if (!isNotOwner && isTextPilot(strip)) {
       const splitOps = apronOnline || twrOnline;
       const soloTwr = isTwr && !apronOnline;
       const targetBay = noMove ? undefined : (preserveLowerBay || soloTwr || (splitOps && LWR_HOLD_POINTS.has(label))) ? Bay.TaxiLwr : Bay.Taxi;
@@ -63,7 +64,7 @@ export function ApronTaxiMapDialog({
       setReleasePoint(callsign, label);
     }
 
-    if (!noMove) {
+    if (!isNotOwner && !noMove) {
       // AUTO-LOCAL routing:
       // - Solo TWR (no separate apron): all points → TWY DEP-LWR so TWR can see them.
       // - Apron scopes or split ops: final hold points → TWY DEP-LWR, others → TWY DEP-UPR.

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.9.1...docs/v1.10.0) (2026-11-24)
+
+
+### Features
+
+* **stand:** match pushback routes by position so any GSX profile works ([#1205](https://github.com/flightstrips/FlightStrips/issues/1205)) ([d759259](https://github.com/flightstrips/FlightStrips/commit/d759259efb47c08269ea255dda83d54117a10178))
+
 ## [1.9.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.9.0...docs/v1.9.1) (2026-11-19)
 
 

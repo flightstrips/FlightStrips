@@ -17,7 +17,7 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getGroundStopRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { computeTwyDepCTOTColors } from "@/lib/cdmColors";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
-import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatStripDeIceIndication } from "@/components/est/deiceIndication";
 import { HALF_STRIP_VARIANT_BG, LIGHT_GRAY_STRIP_FRAME } from "./halfStripFrame";
 import { AltSelectDialog } from "./AltSelectDialog";
 import { HdgSelectDialog, type HdgTurnDirection } from "./HdgSelectDialog";
@@ -142,7 +142,7 @@ export function TwyDepStrip({
   const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
 
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
-  const deiceIndication = formatDeIceIndication(deicePlatform);
+  const deiceIndication = formatStripDeIceIndication(deicePlatform, deicePlatformAcknowledged);
   const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
   // Cleared altitude display: use FL notation above transition altitude, feet below.

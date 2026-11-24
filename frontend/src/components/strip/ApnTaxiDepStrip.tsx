@@ -25,7 +25,7 @@ import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog"
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
-import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatDeIceIndication } from "@/components/est/deiceIndication";
+import { DEICE_INDICATION_BG, DEICE_INDICATION_FG, formatStripDeIceIndication } from "@/components/est/deiceIndication";
 const TOP_H  = "66.6667%";
 const BOT_H  = "33.3333%";
 const HALF_H = "50%";
@@ -97,7 +97,7 @@ export function ApnTaxiDepStrip({
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
   const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
-  const deiceIndication = formatDeIceIndication(deicePlatform);
+  const deiceIndication = formatStripDeIceIndication(deicePlatform, deicePlatformAcknowledged);
   const deiceIndicationActive = !!deiceIndication && !deicePlatformAcknowledged;
 
   const hpValue = holdingPoint ?? "";

@@ -59,9 +59,7 @@ export function ApronTaxiMapDialog({
       openTextPilotMenu({ callsign, variant: strip?.destination === airport && strip?.origin !== airport ? "apron-in" : "apron-out", point: label, actions: textTaxiActions(callsign, label, targetBay, shouldAcknowledgeReleasePoint), onSubmitted: () => onOpenChange(false) });
       return;
     }
-    if (label !== strip?.release_point) {
-      setReleasePoint(callsign, label);
-    }
+    setReleasePoint(callsign, label);
 
     if (!noMove) {
       // AUTO-LOCAL routing:
@@ -84,9 +82,7 @@ export function ApronTaxiMapDialog({
 
   const handleErase = () => {
     // Erase only clears the stored route; it intentionally leaves the strip in its current bay.
-    if (strip?.release_point) {
-      setReleasePoint(callsign, "");
-    }
+    setReleasePoint(callsign, "");
 
     if (shouldAcknowledgeReleasePoint) {
       acknowledgeUnexpectedChange(callsign, "release_point");

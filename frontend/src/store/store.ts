@@ -370,6 +370,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   const pendingFrequencyMessages = new Map<string, { callsign: string; session: number | null; position: string; resolve: (result: FrequencyMessageResult) => void; timeout: ReturnType<typeof setTimeout> }>();
   const dismissedMessageIds = new Set<number>();
   const assumptionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const pendingReleasePoints = new Map<string, string[]>();
   const reconciliationToastID = `action-reconciliation-${crypto.randomUUID()}`;
   let reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
   let reconciliationRequested = false;
@@ -886,17 +887,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     },
     setReleasePoint: (callsign, releasePoint) => {
       const strip = findStrip(callsign);
-      if (!strip || strip.release_point === releasePoint || (strip.owner && strip.owner !== get().position)) return;
-      if (!sendGuardedStripEvent(callsign, { type: "release_point" }, {type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})) {
-        return;
+      if (!strip) return;
+      const pending = pendingReleasePoints.get(callsign) ?? [];
+      if ((pending.at(-1) ?? strip.release_point) === releasePoint) return;
+      // A non-owner can coordinate a change to an existing assignment.
+      if (!strip.release_point && strip.owner && strip.owner !== get().position) return;
+      if (sendGuardedStripEvent(callsign, { type: "release_point" }, {type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})) {
+        pending.push(releasePoint);
+        pendingReleasePoints.set(callsign, pending);
       }
-
-      return produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
-        if (stripIndex !== -1) {
-          state.strips[stripIndex].release_point = releasePoint
-        }
-      })
     },
     setStartReq: (callsign, startReq) => {
       if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: startReq })) {
@@ -1335,6 +1334,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     reconciliationRequestID = null;
     for (const timer of assumptionTimers.values()) clearTimeout(timer);
     assumptionTimers.clear();
+    pendingReleasePoints.clear();
     store.setState({ reconciling: false, pendingAssumptions: {} });
   };
   const reconciliationFailed = () => {
@@ -1675,6 +1675,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleAircraftDisconnectEvent = (data: FrontendAircraftDisconnectEvent) => {
+    pendingReleasePoints.delete(data.callsign);
     store.setState(
       produce((state: WebSocketState) => {
         state.strips = state.strips.filter(strip => strip.callsign !== data.callsign);
@@ -1859,6 +1860,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
   }
 
   const handleReleasePointEvent = (data: FrontendReleasePointEvent) => {
+    const pending = pendingReleasePoints.get(data.callsign);
+    if (pending?.[0] === data.release_point) {
+      pending.shift();
+      if (pending.length === 0) pendingReleasePoints.delete(data.callsign);
+    }
     store.setState(
         produce((state: WebSocketState) => {
           const stripIndex = state.strips.findIndex(strip => strip.callsign == data.callsign);

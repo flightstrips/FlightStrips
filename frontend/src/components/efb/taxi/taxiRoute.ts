@@ -58,7 +58,7 @@ const HOLDING_POINTS: Record<string, string> = {
  * The route then holds short of that runway (unless the clearance already does). Without an
  * assigned runway, a runway written first still means taxiing along it.
  */
-function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assignedRunway: string | null): { parsed: ParsedClearance; point: string | null; runway: string | null; conflict?: string } {
+function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assignedRunway: string | null): { parsed: ParsedClearance; point: string | null; runway: string | null; destination?: string | null; conflict?: string } {
   const unchanged = { parsed, point: null, runway: null };
   const tokens = vocabulary(net).runwayTokens;
   const assigned = assignedRunway ? findRunway(assignedRunway, net) : null;
@@ -77,21 +77,37 @@ function moveLeadingDestination(parsed: ParsedClearance, net: TaxiNetwork, assig
   if (holdingPoint?.type === 'hold' && !runwayItem && tokens[HOLDING_POINTS[holdingPoint.name]] !== assigned?.name) return unchanged;
   const rest = parsed.items.slice(used);
   if (!rest.some((item) => item.type === 'twy' || item.type === 'rwy')) return unchanged;
-  if (assigned && assigned.end !== assigned.name && runwayItem?.end && runwayItem.name === assigned.name && runwayItem.end !== assigned.end) {
-    return { ...unchanged, conflict: `Departure runway ${runwayItem.end} in the clearance conflicts with assigned runway ${assigned.end}.` };
+  // The runway end the clearance leads to: as written, otherwise the one its holding point serves.
+  const impliedEnd = runwayItem?.end ?? (holdingPoint ? HOLDING_POINTS[holdingPoint.name] : null);
+  if (assigned && assigned.end !== assigned.name && impliedEnd && tokens[impliedEnd] === assigned.name && impliedEnd !== assigned.end) {
+    return {
+      ...unchanged,
+      conflict: runwayItem?.end
+        ? `Departure runway ${runwayItem.end} in the clearance conflicts with assigned runway ${assigned.end}.`
+        : `Holding point ${holdingPoint!.name} is for runway ${impliedEnd}, which conflicts with assigned runway ${assigned.end}.`,
+    };
   }
 
   const active = parsed.activeSegment;
   const runway = runwayItem?.name ?? (holdingPoint ? tokens[HOLDING_POINTS[holdingPoint.name]] : assigned!.name);
   const end = runwayItem?.end ?? (holdingPoint ? HOLDING_POINTS[holdingPoint.name] : assigned!.end);
   const items: ClearanceItem[] = [...rest];
-  if (holdingPoint) items.push({ type: 'twy', name: holdingPoint.name, text: holdingPoint.name, segment: active });
+  if (holdingPoint) {
+    // The holding point ends the clearance it was written in: taxi to it before that clearance's
+    // hold short of its runway, so an onward clearance starts from the holding point.
+    const segment = holdingPoint.segment;
+    const point: ClearanceItem = { type: 'twy', name: holdingPoint.name, text: holdingPoint.name, segment };
+    const runwayHold = items.findIndex((item) => item.type === 'hold' && item.segment === segment && item.name === runway);
+    const afterSegment = items.findIndex((item) => item.segment > segment);
+    const at = runwayHold >= 0 ? runwayHold : afterSegment >= 0 ? afterSegment : items.length;
+    items.splice(at, 0, point);
+  }
   const holds = items.filter((item) => item.type === 'hold');
   if (runway && !holds.some((item) => item.name === runway)
     && (runwayItem || !holds.some((item) => item.segment === active))) {
     items.push({ type: 'hold', name: runway, end, text: `.${end}`, segment: active });
   }
-  return { parsed: { ...parsed, items }, point: holdingPoint?.name ?? null, runway: runwayItem ? end : null };
+  return { parsed: { ...parsed, items }, point: holdingPoint?.name ?? null, runway: runwayItem ? end : null, destination: end ?? null };
 }
 
 /** With this departure runway assigned and no hold short given, a clearance ending on these taxiways goes on to hold short of the runway. */
@@ -436,6 +452,8 @@ export interface TaxiRoute {
   marks: RouteMark[];
   /** Arc position (along the concatenated legs) of the first hold short; beyond it the route is dimmed. */
   holdAt: number | null;
+  /** Departures: the runway end a runway or holding point written first leads to, as the clearance names it. */
+  destinationRunway: string | null;
   messages: Array<{ level: RouteMessageLevel; text: string }>;
 }
 
@@ -488,7 +506,7 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
   else if (destination?.runway) messages.push({ level: 'info', text: `Runway ${destination.runway} written first is treated as the departure runway.` });
   const res: TaxiRoute = {
     mode: spec.kind, releasePoint: null, start: null, startLabel: null, stand: null, standReached: false, standEntry: null,
-    parsed, legs: [], stub: null, marks: [], holdAt: null, messages,
+    parsed, legs: [], stub: null, marks: [], holdAt: null, destinationRunway: destination?.destination ?? null, messages,
   };
   const say = (level: RouteMessageLevel, text: string) => messages.push({ level, text });
   if (parsed.overLimit) {
@@ -712,7 +730,9 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
           const explicitHold = activeHold && pendingHolds.has(name);
           if (isRunway(name)) {
             if (!explicitHold && (name === incomingRunway || (endOfLeg && (turnsBack || name === onwardRunway)))) continue;
-            const crossingIndex = atEnd ? -1 : unusedCrossings.findIndex((item) => item.segment === segment && item.name === name);
+            // An active hold short outranks a crossing clearance for the same runway: keep the hold
+            // and leave the crossing unused, so both conflicting instructions are reported.
+            const crossingIndex = atEnd || explicitHold ? -1 : unusedCrossings.findIndex((item) => item.segment === segment && item.name === name);
             if (crossingIndex >= 0) {
               const [crossing] = unusedCrossings.splice(crossingIndex, 1);
               res.marks.push({ type: 'cross', name, label: itemLabel(crossing), runway: true, g: offset + x.k });
@@ -736,10 +756,15 @@ function computeRoute(spec: RouteStart, clearance: string, options: RouteOptions
     for (const h of pendingHolds) if (warned !== h) say('warn', `Hold short ${label[h]}: not on the route yet`);
     for (const c of unusedCrossings) say('warn', `Cross ${itemLabel(c)}: the route does not cross it${res.stub ? ' yet' : ''}`);
     for (const m of res.marks) if (m.type === 'hold' && m.implicit) say('err', `No crossing clearance for ${m.name}. Hold short. (Add x${m.name.split('/').pop()} to cross.)`);
-    const firstHold = res.marks.filter((m) => m.type === 'hold').sort((a, b) => a.g - b.g)[0];
-    if (firstHold) {
-      const all = routePoints(res), a = arcs(all);
-      res.holdAt = a[firstHold.g] - holdBack(firstHold);
+    // The first hold is the one whose bar is reached first: a runway bar sits further back from its
+    // junction than a taxiway bar, so it can come before a taxiway hold at an earlier junction.
+    let firstHold: RouteMark | undefined;
+    const holdMarks = res.marks.filter((m) => m.type === 'hold');
+    if (holdMarks.length) {
+      const a = arcs(routePoints(res));
+      const stops = holdMarks.map((mark) => ({ mark, at: a[mark.g] - holdBack(mark) })).sort((x, y) => x.at - y.at);
+      firstHold = stops[0].mark;
+      res.holdAt = stops[0].at;
     }
     if (!messages.some((m) => m.level === 'err')) {
       let text = 'Route OK.';

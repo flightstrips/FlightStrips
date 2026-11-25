@@ -283,6 +283,35 @@ func TestPilotDepartureStandOnlineTransition(t *testing.T) {
 	require.Error(t, err, "leaving the stand must release physical occupancy")
 }
 
+func TestPilotDepartureStandMismatchKeepsItsTimerWhenSceneryLeavesNoFallback(t *testing.T) {
+	f := newPilotSceneryFixture(t)
+	ctx := context.Background()
+	testdata.SeedTestStrip(t, f.queries, f.session, "SAS456")
+	arrival := standAllocationRequest(f.session, "SAS456")
+	arrival.Stand, arrival.Stage = "A1", StageConfirmed
+	_, err := f.allocations.AssignManually(ctx, arrival)
+	require.NoError(t, err)
+	testdata.SeedTestStrip(t, f.queries, f.session, "SAS789")
+	createProtectedStandOccupant(t, f.assignments, f.session, "SAS789", "A2")
+
+	// A1 is taken by the arrival, A2 is occupied and FlyTampa lacks E25.
+	flight := onlineFlight(f.strip.Callsign, 1)
+	state, err := f.service.Open(ctx, f.session, f.strip, flight)
+	require.NoError(t, err)
+	require.Equal(t, PilotStandMismatch, state.State)
+	require.NotNil(t, state.MismatchSince)
+	started := *state.MismatchSince
+
+	f.clock.advance(time.Minute)
+	state, err = f.service.Open(ctx, f.session, f.strip, flight)
+	require.NoError(t, err)
+	assert.Equal(t, PilotStandMismatch, state.State)
+	require.NotNil(t, state.MismatchSince)
+	assert.Equal(t, started, *state.MismatchSince, "the overwrite delay must keep counting")
+	_, err = f.assignments.GetAssignment(ctx, f.session, f.strip.Callsign)
+	assert.True(t, isNotFound(err), "no excluded stand is assigned as a fallback")
+}
+
 func TestPilotDepartureStandMismatchOverwrite(t *testing.T) {
 	for _, stage := range []string{StageEstimated, StageAssigned, StageConfirmed} {
 		t.Run(stage, func(t *testing.T) {

@@ -105,6 +105,22 @@ func TestAMANArrivalETAProjectionRefreshesUnchangedETABeforeItGoesStale(t *testi
 	require.True(t, compatibility.IsFresh(&models.ArrivalETA{Time: store.updates["SAS1"].Time, Source: store.updates["SAS1"].Source, CalculatedAt: store.updates["SAS1"].CalculatedAt}, now))
 }
 
+func TestAMANArrivalETAProjectionKeepsANewerStoredPrediction(t *testing.T) {
+	now := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
+	newer := now.Add(30 * time.Minute)
+	store := &fakeArrivalETAStore{strips: []*models.Strip{
+		{Callsign: "SAS1", ArrivalETA: &models.ArrivalETA{Time: newer, Source: compatibility.ArrivalETASource, CalculatedAt: now}},
+	}}
+	projection := newAMANArrivalETAProjection(aman.ModeAuthoritative, store, nil)
+
+	// A publication that started earlier carries an older, different prediction.
+	projection.project(context.Background(), aman.AirportState{SessionID: 7, Flights: []aman.AMANFlight{
+		{Callsign: "SAS1", Prediction: amanETAPrediction(now.Add(25*time.Minute), now.Add(-time.Minute))},
+	}}, aman.TechnicalHealth{AuthorityAllowed: true}, now)
+
+	require.Empty(t, store.updates, "an older AMAN prediction must not replace a newer stored one")
+}
+
 func TestAMANArrivalETAProjectionDoesNotWriteWhenAuthorityIsBlocked(t *testing.T) {
 	now := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
 	store := &fakeArrivalETAStore{strips: []*models.Strip{{Callsign: "SAS1"}}}

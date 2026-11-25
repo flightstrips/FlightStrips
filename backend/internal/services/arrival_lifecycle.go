@@ -610,6 +610,17 @@ func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, sessi
 	if err != nil {
 		return err
 	}
+	if !available && existing.Source == string(IncompatibleManualOverride) {
+		// A controller override outranks the pilot's scenery: recheck without
+		// scenery exclusions so only a real conflict moves the override. An
+		// empty, non-nil set stops withPilotScenery from loading them again.
+		overrideRequest := request
+		overrideRequest.SceneryExcludedStands = map[string]struct{}{}
+		available, err = s.allocations.StandAvailableForPromotion(ctx, overrideRequest, existing.Stand)
+		if err != nil {
+			return err
+		}
+	}
 	if available {
 		if existing.ConflictReason != nil && *existing.ConflictReason == arrivalPromotionConflictReason {
 			resolved := *existing

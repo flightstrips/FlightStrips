@@ -1,11 +1,16 @@
 package services
 
 import (
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/sat"
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -148,4 +153,57 @@ func TestSceneryExcludedStandsInAllocation(t *testing.T) {
 		resolved := service.withPilotScenery(ctx, StandAllocationRequest{Airport: "EKCH", VatsimCID: &cid})
 		assert.True(t, resolved.sceneryExcludes("E25"))
 	})
+}
+
+func TestSceneryExclusionKeepsAControllerOverrideOnAnAssignedArrival(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:E25:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:E26:N055.37.42.710:E012.38.33.451:30
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"E25":100,"E26":100}}}],
+  "stand_groups": {}, "fallback_rules": {`+testFallbackJSON("E26")+`}
+}`), registry)
+	require.NoError(t, err)
+	assignments := postgres.NewStandAssignmentRepository(pool)
+	strips := postgres.NewStripRepository(pool)
+	clock := &fakeClock{now: time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)}
+	allocations, err := NewStandAllocationService(pool, strips, assignments, registry, policy,
+		WithStandAllocationRandom(func() float64 { return 0 }),
+		WithStandAllocationClock(clock.current),
+	)
+	require.NoError(t, err)
+	allocations.SetPilotSceneries(&pilotSceneryStub{scenery: "flytampa"})
+	lifecycle, err := NewArrivalLifecycleService(allocations, assignments, strips, postgres.NewSessionRepository(pool), registry, nil, nil, sat.NewAirportCountryRegistry(),
+		WithArrivalLifecycleClock(clock.current),
+		WithArrivalPrefileAssignments(true),
+	)
+	require.NoError(t, err)
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, fmt.Sprintf("%s-%d", t.Name(), standAllocationSessionSequence.Add(1)), nil)
+
+	seedTestArrivalStrip(t, queries, session, "SAS951")
+	arrivalETA := clock.current().Add(5 * time.Minute)
+	setArrivalETA(t, strips, session, "SAS951", arrivalETA)
+	tier := int32(1)
+	reason := "pilot asked"
+	require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+		SessionID: session, Callsign: "SAS951", Stand: "E25", Direction: "ARRIVAL",
+		Stage: StageAssigned, Source: string(IncompatibleManualOverride), Manual: true,
+		Tier: &tier, ETA: &arrivalETA, ConflictReason: &reason,
+	}))
+	_, err = strips.UpdateStand(ctx, session, "SAS951", strp("E25"), nil)
+	require.NoError(t, err)
+	_, err = strips.UpdateAircraftPosition(ctx, session, "SAS951", posPtr(55.8), posPtr(12.642625), altPtr(8000), "FINAL", nil)
+	require.NoError(t, err)
+
+	require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS951"), arrivalFlight("SAS951", 1)))
+
+	kept, err := assignments.GetAssignment(ctx, session, "SAS951")
+	require.NoError(t, err)
+	assert.Equal(t, "E25", kept.Stand, "FlyTampa lacks E25, but the controller override must stay")
+	assert.Equal(t, string(IncompatibleManualOverride), kept.Source)
+	assert.True(t, kept.Manual)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -31,6 +32,18 @@ type amanArrivalETAProjection struct {
 	store  arrivalETAStripStore
 	writer compatibility.Writer
 	notify func(session int32, callsign string)
+
+	// sessionLocks serializes projection per session. PublishAMANState and
+	// PublishAMANAuthority can overlap; without this, a publication that listed
+	// the strips before a newer one wrote could store its older prediction last.
+	sessionLocks sync.Map // int32 -> *sync.Mutex
+}
+
+func (p *amanArrivalETAProjection) lockSession(session int32) func() {
+	lock, _ := p.sessionLocks.LoadOrStore(session, &sync.Mutex{})
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 func newAMANArrivalETAProjection(mode aman.RolloutMode, store arrivalETAStripStore, notify func(int32, string)) *amanArrivalETAProjection {
@@ -56,6 +69,7 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 	if !health.AuthorityAllowed {
 		return
 	}
+	defer p.lockSession(state.SessionID)()
 	strips, err := p.store.List(ctx, state.SessionID)
 	if err != nil {
 		slog.WarnContext(ctx, "AMAN arrival ETA projection failed to list strips", slog.Int("session", int(state.SessionID)), slog.Any("error", err))
@@ -76,6 +90,10 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 		if projected == nil {
 			continue
 		}
+		if newerAMANArrivalETA(strip.ArrivalETA, projected) {
+			// An overlapping publication already stored a newer prediction.
+			continue
+		}
 		if sameArrivalETA(strip.ArrivalETA, projected) && !strip.ArrivalETA.CalculatedAt.Before(now.Add(-amanArrivalETARefreshAfter)) {
 			continue
 		}
@@ -93,6 +111,13 @@ func (p *amanArrivalETAProjection) project(ctx context.Context, state aman.Airpo
 func sameArrivalETA(existing, projected *models.ArrivalETA) bool {
 	return existing != nil && !existing.Time.IsZero() &&
 		existing.Time.Equal(projected.Time) && existing.Source == projected.Source
+}
+
+// newerAMANArrivalETA reports whether the stored ETA is an AMAN prediction
+// generated after the projected one, which must not be overwritten.
+func newerAMANArrivalETA(existing, projected *models.ArrivalETA) bool {
+	return existing != nil && existing.Source == compatibility.ArrivalETASource &&
+		existing.CalculatedAt.After(projected.CalculatedAt)
 }
 
 func normalizeAMANCallsign(callsign string) string {

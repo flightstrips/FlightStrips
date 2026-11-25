@@ -1,5 +1,5 @@
-// Fixed release points for stands in areas without published release points. Pushbacks there are
-// not reliably logged by ATC, so these defaults apply whatever ATC has set on the strip.
+// Fixed release points for stands in areas without published release points. They apply only when
+// the strip has no release point: one ATC set on the strip always takes precedence.
 const STAND_RELEASE_POINTS: Array<{ prefix: string; from: number; to: number; releasePoint: string }> = [
   { prefix: 'G', from: 110, to: 115, releasePoint: 'I' },
   { prefix: 'G', from: 117, to: 124, releasePoint: 'G6' },

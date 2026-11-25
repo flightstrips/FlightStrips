@@ -364,6 +364,37 @@ func (s *PilotDepartureStandService) advance(ctx context.Context, tx pgx.Tx, str
 		return nil, nil
 	}
 	request.Stand, request.ObservedStand, request.DisplaceArrivalStages = "", nil, nil
-	result, err = allocate(AutomaticStandAllocation)
-	return result, err
+	// Run the fallback in a savepoint. When no stand is left (for example the
+	// pilot's scenery excludes every free one), the state stays MISMATCH with
+	// its MismatchSince saved, so the overwrite delay keeps counting instead of
+	// restarting on every poll. No excluded stand is assigned in its place.
+	fallback, err := tx.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer fallback.Rollback(ctx)
+	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
+		return nil, err
+	}
+	result, _, err = lifecycle.allocations.allocateInTransaction(ctx, fallback, AutomaticStandAllocation, request, nil, 1)
+	if noStandAvailable(err) {
+		if err := fallback.Rollback(ctx); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := fallback.Commit(ctx); err != nil {
+		return nil, err
+	}
+	state.Stand, state.Version = result.Assignment.Stand, result.Assignment.Version
+	return result, nil
+}
+
+// noStandAvailable reports an allocation that found no stand to give, as
+// opposed to a failure that must abort the transaction.
+func noStandAvailable(err error) bool {
+	return errors.Is(err, ErrNoAvailableStand) || errors.Is(err, ErrNoPolicyStand) || errors.Is(err, ErrNoCompatibleStand)
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeArrivalRoute, computeTaxiRoute, EKCH_TAXI_NETWORK, findReleasePoint, findStand, impliedDepartureRunway, MAX_CLEARANCE_LENGTH, parseClearance, routePoints, type TaxiRoute } from './taxiRoute';
+import { arcs, computeArrivalRoute, computeTaxiRoute, EKCH_TAXI_NETWORK, holdBack, findReleasePoint, findStand, impliedDepartureRunway, MAX_CLEARANCE_LENGTH, parseClearance, routePoints, type TaxiRoute } from './taxiRoute';
 
 const summary = (raw: string) => {
   const parsed = parseClearance(raw);
@@ -359,7 +359,32 @@ describe('holding point written first', () => {
     expect(route.parsed.items.filter((item) => item.type === 'hold')).toEqual([
       expect.objectContaining({ end: '22R', segment: 0 }),
     ]);
-    expect(route.parsed.items.at(-1)).toMatchObject({ name: 'A4', segment: 1 });
+    // The holding point ends the clearance it was written in, ahead of that clearance's hold short.
+    expect(route.parsed.items.map((item) => `${item.type}:${item.name}@${item.segment}`)).toEqual([
+      'twy:K@0', 'twy:Z@0', 'twy:A@0', 'twy:A4@0', 'hold:04L/22R@0', 'twy:A@1',
+    ]);
+  });
+
+  it('reaches a leading holding point within its own clearance before an onward one', () => {
+    const route = computeTaxiRoute('Z3', 'A4KZAx30.22R/A', { departureRunway: '22R' });
+    expect(route.parsed.items.map((item) => `${item.type}:${item.name}@${item.segment}`)).toEqual([
+      'twy:K@0', 'twy:Z@0', 'twy:A@0', 'cross:12/30@0', 'twy:A4@0', 'hold:04L/22R@0', 'twy:A@1',
+    ]);
+    expect(levels(route, 'err')).toEqual([]);
+    expect(route.legs.filter((leg) => leg.past).map((leg) => leg.name)).toEqual(['K', 'Z', 'A', 'A4']);
+  });
+
+  it('rejects a leading holding point for the other end of the assigned runway', () => {
+    const route = computeTaxiRoute('Z3', 'A4KZAx30', { departureRunway: '04L' });
+    expect(route.legs).toEqual([]);
+    expect(levels(route, 'err')).toEqual(['Holding point A4 is for runway 22R, which conflicts with assigned runway 04L.']);
+    expect(levels(computeTaxiRoute('Z3', 'A4KZAx30', { departureRunway: '22R' }), 'err')).toEqual([]);
+  });
+
+  it('reports the runway end the clearance leads to', () => {
+    expect(computeTaxiRoute('Z3', 'A104LKZAx30').destinationRunway).toBe('04L');
+    expect(computeTaxiRoute('Z3', 'A4KZAx30').destinationRunway).toBe('22R');
+    expect(computeTaxiRoute('Z3', 'KZAx30').destinationRunway).toBeNull();
   });
 
   it('leaves clearances alone when the holding point is not first, or is the only item', () => {
@@ -492,5 +517,39 @@ describe('departure runway joined from A (22R) and B (04R)', () => {
   it('lets B hold short of 04R when written out, and keeps B1-B4', () => {
     expect(marks(route('B', 'Bx30.04R', null))).toEqual(['cross:30', 'hold:04R']);
     expect(legNames(route('B', 'Bx30B2.04R', '04R'))).toEqual(['B', 'B2']);
+  });
+});
+
+describe('conflicting hold and crossing', () => {
+  it('keeps the hold short when the same clearance also crosses that runway', () => {
+    const route = computeArrivalRoute('04L', 'F98', 'A.30x30Y');
+    expect(route.marks.filter((mark) => mark.name === '12/30').map((mark) => mark.type)).toEqual(['hold']);
+    expect(levels(route, 'warn')).toContain('Both hold short and cross 30?');
+    expect(route.holdAt).not.toBeNull();
+  });
+});
+
+describe('first hold along the route', () => {
+  it.each(['KZAx30A4.22R', 'KZ.A/Ax12/30A4.22R', 'A.30x30Y', 'V1VY.L', 'KZA.30', 'G.12'])('stops at the earliest hold bar for %s', (clearance) => {
+    const route = /^(A|V1)/.test(clearance) ? computeArrivalRoute(clearance.startsWith('A') ? '04L' : '22L', 'A21', clearance) : computeTaxiRoute(clearance.startsWith('G') ? 'G6' : 'Z3', clearance);
+    const holds = route.marks.filter((mark) => mark.type === 'hold');
+    if (!holds.length) return;
+    const a = arcs(routePoints(route));
+    expect(route.holdAt).toBe(Math.min(...holds.map((mark) => a[mark.g] - holdBack(mark))));
+  });
+});
+
+describe('runway hold bar before an earlier taxiway hold', () => {
+  it('stops at the runway bar on C, which comes before the hold short of F', () => {
+    // Southbound on C, F joins at J19 and runway 12/30 at J21 just after it; the runway bar sits
+    // further back from its junction, so it is reached first.
+    const route = computeTaxiRoute('Z8', 'AC.FD');
+    const a = arcs(routePoints(route));
+    const stop = (name: string) => {
+      const mark = route.marks.find((m) => m.type === 'hold' && m.name === name)!;
+      return a[mark.g] - holdBack(mark);
+    };
+    expect(stop('12/30')).toBeLessThan(stop('F'));
+    expect(route.holdAt).toBe(stop('12/30'));
   });
 });

@@ -23,6 +23,7 @@ import D1BRIEFDialog from '../components/efb/dialogs/D1Brief';
 import D1ChartDialog from '../components/efb/dialogs/D1Chart';
 import D1DownloadsDialog from '../components/efb/dialogs/D1DownloadsDialog';
 import D1OptionsDialog from '../components/efb/dialogs/D1OptionsDialog';
+import * as Dialog from '@radix-ui/react-dialog';
 import D1STANDDialog, { type StandAvailability } from '../components/efb/dialogs/D1Stand';
 import D2CDMDialog from '../components/efb/dialogs/D2CDMDialog';
 import D2ATISDialog from '../components/efb/dialogs/D2ATISDialog';
@@ -443,6 +444,20 @@ function ArrivalTileContent({ title, info, onInfoHoverChange, children }: { titl
         </div>
       )}
     </>
+  );
+}
+
+/** Local preview forms as modal dialogs: focus is trapped, Escape closes them and focus returns. */
+function PreviewDialog({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  return (
+    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[1000] bg-black/80" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[1000] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 outline-none">
+          {children}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -1365,15 +1380,15 @@ useEffect(() => {
           </div>
         )
       )}
-      {isLocalDevelopment && departurePreviewOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4">
+      {isLocalDevelopment && (
+        <PreviewDialog open={departurePreviewOpen} onClose={() => setDeparturePreviewOpen(false)}>
           <form
             aria-label="Simulated departure"
             onSubmit={submitDeparturePreview}
-            className="efb-scroll max-h-[90dvh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
+            className="efb-scroll max-h-[90dvh] w-full overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
           >
-            <h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate a departure</h1>
-            <p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed. The release point stands in for the one ATC sets on the strip.</p>
+            <Dialog.Title asChild><h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate a departure</h1></Dialog.Title>
+            <Dialog.Description asChild><p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed. The release point stands in for the one ATC sets on the strip.</p></Dialog.Description>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {([
                 ['callsign', 'Callsign', true],
@@ -1406,17 +1421,17 @@ useEffect(() => {
               <button type="submit" className="border border-cyan-300 bg-[#1A475F] px-4 py-2 font-bold">SHOW DEPARTURE</button>
             </div>
           </form>
-        </div>
+        </PreviewDialog>
       )}
-      {isLocalDevelopment && arrivalPreviewOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4">
+      {isLocalDevelopment && (
+        <PreviewDialog open={arrivalPreviewOpen} onClose={() => setArrivalPreviewOpen(false)}>
           <form
             aria-label="Simulated arrival"
             onSubmit={submitArrivalPreview}
-            className="efb-scroll max-h-[90dvh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
+            className="efb-scroll max-h-[90dvh] w-full overflow-y-auto border-2 border-cyan-300 bg-[#011328] p-5 font-mono text-white shadow-2xl"
           >
-            <h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate an arrival</h1>
-            <p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed.</p>
+            <Dialog.Title asChild><h1 className="mb-2 text-xl font-bold text-cyan-100">Simulate an arrival</h1></Dialog.Title>
+            <Dialog.Description asChild><p className="mb-4 text-sm text-slate-300">Preview-only data. No flight or controller state will be changed.</p></Dialog.Description>
             <label className="mb-4 flex items-center gap-2 text-sm text-cyan-100">
               <input type="checkbox" checked={previewOnGround} onChange={(event) => updatePreviewOnGround(event.target.checked)} />
               On ground
@@ -1469,7 +1484,7 @@ useEffect(() => {
               <button type="submit" className="border border-cyan-300 bg-[#1A475F] px-4 py-2 font-bold">SHOW ARRIVAL</button>
             </div>
           </form>
-        </div>
+        </PreviewDialog>
       )}
       <D1BRIEFDialog
         isOpen={openDialog === 'D1BRIEF'}
@@ -1502,7 +1517,8 @@ useEffect(() => {
         taxiClearance={!isArrival && apiFlight?.origin?.toUpperCase() === 'EKCH'
           ? { callsign: apiFlight.callsign, mode: 'departure', releasePoint: apiFlight.release_point ?? null, stand: apiFlight.stand ?? null, runway: flightData.assignedRunway !== 'NIL' ? flightData.assignedRunway : null }
           : isArrival && apiFlight?.destination?.toUpperCase() === 'EKCH'
-            ? { callsign: apiFlight.callsign, mode: 'arrival', releasePoint: null, stand: apiFlight.stand ?? null, runway: flightData.arrivalRunway !== 'NIL' ? flightData.arrivalRunway : null }
+            // flightData.stand applies the dashboard's stand-state filter: a released stand is no destination.
+            ? { callsign: apiFlight.callsign, mode: 'arrival', releasePoint: null, stand: flightData.stand !== 'TBA' ? flightData.stand : null, runway: flightData.arrivalRunway !== 'NIL' ? flightData.arrivalRunway : null }
             : undefined}
       />
       <D1DownloadsDialog

@@ -20,7 +20,9 @@ describe('commonRoutesFor', () => {
 describe('EKCH common routes', () => {
   it('are all readable, and draw without errors from the release points they name', () => {
     for (const route of EKCH_COMMON_ROUTES) {
-      expect(parseClearance(route.clearance).bad, route.clearance).toBe('');
+      const parsed = parseClearance(route.clearance);
+      expect(parsed.overLimit ?? false, route.clearance).toBe(false);
+      expect(parsed.bad, route.clearance).toBe('');
       for (const rp of route.releasePoints ?? []) {
         const errors = computeTaxiRoute(rp, route.clearance).messages.filter((m) => m.level === 'err');
         expect(errors, `${route.clearance} from ${rp}`).toEqual([]);

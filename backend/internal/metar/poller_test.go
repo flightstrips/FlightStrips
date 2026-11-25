@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -258,6 +259,31 @@ func TestGetMETARFetchesOnDemandAndCaches(t *testing.T) {
 	p.atisMu.Unlock()
 	p.GetMETAR(context.Background(), "EKCH")
 	assert.Equal(t, 2, requests, "a stale cached METAR must be refetched")
+}
+
+func TestGetMETARSharedFetchSurvivesFirstCallerCancellation(t *testing.T) {
+	started := make(chan struct{})
+	var startOnce sync.Once
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startOnce.Do(func() { close(started) })
+		<-release
+		_, _ = w.Write([]byte("EKCH 191150Z 24012KT 9999 Q1012"))
+	}))
+	defer srv.Close()
+	p := newTestPoller(srv, nil)
+
+	firstCtx, cancelFirst := context.WithCancel(context.Background())
+	first := make(chan string)
+	go func() { first <- p.GetMETAR(firstCtx, "EKCH") }()
+	<-started
+	second := make(chan string)
+	go func() { second <- p.GetMETAR(context.Background(), "EKCH") }()
+
+	cancelFirst()
+	assert.Equal(t, "", <-first, "a cancelled caller stops waiting")
+	close(release)
+	assert.Equal(t, "EKCH 191150Z 24012KT 9999 Q1012", <-second, "the other caller still gets the shared result")
 }
 
 func TestGetMETARReturnsEmptyWhenFeedFails(t *testing.T) {

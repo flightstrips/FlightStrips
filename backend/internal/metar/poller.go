@@ -286,8 +286,13 @@ func (p *Poller) GetMETAR(ctx context.Context, airport string) string {
 	if cached != "" && !fetchedAt.IsZero() && time.Since(fetchedAt) <= p.atisStaleAfter() {
 		return cached
 	}
-	value, err, _ := p.polls.Do("metar:"+airport, func() (any, error) {
-		metar, err := p.fetch(ctx, airport)
+	// The fetch is shared by every caller waiting on this airport, so it must
+	// not inherit the first caller's cancellation. It keeps that caller's
+	// values but gets its own bound; each caller stops waiting on its own ctx.
+	results := p.polls.DoChan("metar:"+airport, func() (any, error) {
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), metarOnDemandTimeout)
+		defer cancel()
+		metar, err := p.fetch(fetchCtx, airport)
 		if err != nil {
 			return "", err
 		}
@@ -300,12 +305,21 @@ func (p *Poller) GetMETAR(ctx context.Context, airport string) string {
 		p.atisMu.Unlock()
 		return metar, nil
 	})
-	if err != nil {
-		slog.WarnContext(ctx, "metar: on-demand fetch failed", slog.String("airport", airport), slog.Any("error", err))
+	select {
+	case <-ctx.Done():
 		return ""
+	case result := <-results:
+		if result.Err != nil {
+			slog.WarnContext(ctx, "metar: on-demand fetch failed", slog.String("airport", airport), slog.Any("error", result.Err))
+			return ""
+		}
+		return result.Val.(string)
 	}
-	return value.(string)
 }
+
+// metarOnDemandTimeout bounds a shared on-demand METAR fetch independently of
+// the request that started it.
+const metarOnDemandTimeout = 10 * time.Second
 
 func (p *Poller) atisStaleAfter() time.Duration {
 	threshold := 2 * p.interval

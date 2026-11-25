@@ -77,13 +77,15 @@ export function useTaxiClearance({ callsign, mode = 'departure', atcReleasePoint
     [arrival, landingRunway, arrivalStand, releasePoint, routedClearance],
   );
 
+  // A runway end the clearance writes first is where the route goes; a holding point only implies one.
+  const clearanceRunway = route.destinationRunway || impliedDepartureRunway(route.parsed);
+
   return {
     mode,
-    /** Departure runway from the flight, marked on the map as the destination (departures). */
-    /** Departure runway marked on the map: typed or from the flight, otherwise implied by the clearance. */
-    departureRunway: arrival ? null : landingRunway || impliedDepartureRunway(route.parsed) || null,
+    /** Departure runway marked on the map: typed or from the flight, otherwise from the clearance. */
+    departureRunway: arrival ? null : landingRunway || clearanceRunway || null,
     /** Where the departure runway came from. */
-    departureRunwaySource: arrival ? null : landingRunway ? (!edited.runway && landingRunway === flightRunway ? 'flight' : 'pilot') : impliedDepartureRunway(route.parsed) ? 'clearance' : null,
+    departureRunwaySource: arrival ? null : landingRunway ? (!edited.runway && landingRunway === flightRunway ? 'flight' : 'pilot') : clearanceRunway ? 'clearance' : null,
     releasePoint,
     source,
     landingRunway,

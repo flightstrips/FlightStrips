@@ -49,6 +49,7 @@ namespace FlightStrips::messages {
             std::string targetCallsign;
             int ticksRemaining = 10;
             bool wasTracking = false;
+            websocket::protobuf::wire::MembershipContext context;
         };
         mutable std::unordered_map<std::string, PendingHandover> m_pendingHandovers;
 

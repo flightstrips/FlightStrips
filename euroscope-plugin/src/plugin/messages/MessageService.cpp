@@ -67,23 +67,34 @@ namespace FlightStrips::messages {
 
         for (auto it = m_pendingHandovers.begin(); it != m_pendingHandovers.end(); ) {
             auto fp = m_plugin->FlightPlanSelect(it->first.c_str());
+            const auto currentHandoffTarget = std::string(fp.GetHandoffTargetControllerCallsign());
+            const auto currentContext = m_webSocketService->CaptureContext();
+            auto target = m_plugin->ControllerSelect(it->second.targetCallsign.c_str());
+
             if (!fp.IsValid()) {
                 it = m_pendingHandovers.erase(it);
                 continue;
             }
 
-            auto target = m_plugin->ControllerSelect(it->second.targetCallsign.c_str());
+            if (!currentHandoffTarget.empty()) {
+                it = m_pendingHandovers.erase(it);
+                continue;
+            }
+             
+            if (it->second.context.SerializeAsString() != currentContext.SerializeAsString()) {
+                Logger::Warning("Membership no longer authorizes handoff for {} to {}", it->first);
+                if (!it->second.wasTracking && fp.GetTrackingControllerIsMe()) {
+                    fp.EndTracking();
+                };
+                it = m_pendingHandovers.erase(it);
+                continue;
+            };
+
             if (!target.IsValid() || !target.IsController()) {
                 Logger::Warning("Target controller {} went offline before handoff of {}", it->second.targetCallsign, it->first);
                 if (!it->second.wasTracking && fp.GetTrackingControllerIsMe()) {
                     fp.EndTracking();
                 }
-                it = m_pendingHandovers.erase(it);
-                continue;
-            }
-
-            const auto currentHandoffTarget = std::string(fp.GetHandoffTargetControllerCallsign());
-            if (!currentHandoffTarget.empty() && _stricmp(currentHandoffTarget.c_str(), it->second.targetCallsign.c_str()) == 0) {
                 it = m_pendingHandovers.erase(it);
                 continue;
             }
@@ -596,7 +607,8 @@ namespace FlightStrips::messages {
         }
     }
 
-    void MessageService::HandleCoordinationHandoverEvent(const CoordinationHandoverEvent &event) const {
+    void MessageService::HandleCoordinationHandoverEvent(const CoordinationHandoverEvent& event) 
+       const {
         auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) {
             Logger::Warning("Failed to find flight plan {} for coordination_handover", event.callsign);
@@ -605,8 +617,7 @@ namespace FlightStrips::messages {
 
         auto targetController = m_plugin->ControllerSelect(event.target_callsign.c_str());
         if (!targetController.IsValid() || !targetController.IsController()) {
-            Logger::Warning("Failed to find target controller {} for coordination_handover {}", event.target_callsign,
-                            event.callsign);
+            Logger::Warning("Failed to find target controller {} for coordination_handover {}", event.target_callsign, event.callsign);
             return;
         }
 
@@ -626,7 +637,7 @@ namespace FlightStrips::messages {
                 Logger::Warning("Failed to start tracking {} for coordination_handover", event.callsign);
                 return;
             }
-            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, wasTracking};
+            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, wasTracking, m_webSocketService->CaptureContext() };
             return;
         }
 
@@ -634,7 +645,7 @@ namespace FlightStrips::messages {
             m_pendingHandovers.erase(event.callsign);
         } else {
             Logger::Warning("Failed to initiate handoff for {} to {}, queuing retry", event.callsign, event.target_callsign);
-            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, wasTracking};
+            m_pendingHandovers[event.callsign] = PendingHandover{event.callsign, event.target_callsign, 10, wasTracking, m_webSocketService->CaptureContext()};
         }
     }
 

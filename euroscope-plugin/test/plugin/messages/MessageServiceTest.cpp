@@ -26,6 +26,48 @@ TEST(MessageServiceTest, HeaderCompiles) {
     SUCCEED();
 }
 
+TEST(PendingHandoffTest, RetryWindowEndsAtTenSeconds) {
+    using FlightStrips::messages::PendingHandoff;
+    using namespace std::chrono_literals;
+    const PendingHandoff::Clock::time_point start{};
+    PendingHandoff handoff{"EKCH_DEP", {}, start + 10s};
+
+    EXPECT_FALSE(handoff.ShouldStop(start + 9999ms, false, std::nullopt));
+    EXPECT_TRUE(handoff.ShouldStop(start + 10s, false, std::nullopt));
+
+    handoff.initiated = true;
+    EXPECT_FALSE(handoff.ShouldStop(start + 10s, false, std::nullopt));
+}
+
+TEST(PendingHandoffTest, ObservedTransferClearingEndsTheAttempt) {
+    using FlightStrips::messages::PendingHandoff;
+    const PendingHandoff::Clock::time_point now{};
+    PendingHandoff handoff{"EKCH_DEP", {}, now};
+    handoff.initiated = true;
+
+    EXPECT_FALSE(handoff.ShouldStop(now, false, std::nullopt));
+    handoff.sawTransfer = true;
+    EXPECT_FALSE(handoff.ShouldStop(now, true, std::nullopt));
+    EXPECT_TRUE(handoff.ShouldStop(now, false, std::nullopt));
+}
+
+TEST(PendingHandoffTest, AltitudeCutoffAppliesToAutomaticCommands) {
+    using FlightStrips::messages::PendingHandoff;
+    using namespace std::chrono_literals;
+    const PendingHandoff::Clock::time_point now{};
+    PendingHandoff handoff{"EKCH_DEP", {}, now + 10s};
+    handoff.authority.automatic = true;
+
+    EXPECT_FALSE(handoff.ShouldStop(now, false, 4999));
+    EXPECT_TRUE(handoff.ShouldStop(now, false, 5000));
+    handoff.initiated = true;
+    EXPECT_TRUE(handoff.ShouldStop(now, true, 5000));
+
+    handoff.authority.automatic = false;
+    handoff.initiated = false;
+    EXPECT_FALSE(handoff.ShouldStop(now, false, 6500));
+}
+
 TEST(MessageServiceEventsTest, CdmTobtUpdateEventSerializesExpectedShape) {
     const nlohmann::json json = CdmTobtUpdateEvent{"EIN123", "1030"};
     EXPECT_EQ(json.at("type").get<std::string>(), EVENT_CDM_TOBT_UPDATE_NAME);

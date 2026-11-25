@@ -123,6 +123,114 @@ protected:
 };
 
 // ---------------------------------------------------------------------------
+// A handler captures while the original message is dispatched. Validation
+// later must look up that exact member regardless of the active airport.
+class CaptureHandoffAuthority final : public handlers::MessageHandler {
+public:
+    explicit CaptureHandoffAuthority(WebSocketService& service) : service(service) {}
+    void OnMessages(const std::vector<std::string>& messages) override {
+        for (const auto& bytes : messages) {
+            protobuf::wire::Envelope envelope;
+            if (envelope.ParseFromString(bytes) && envelope.has_coordination_handover()) {
+                captured = service.CaptureCommandAuthority();
+            }
+        }
+    }
+    std::optional<CommandAuthority> captured;
+private:
+    WebSocketService& service;
+};
+
+static void DispatchHandoff(WebSocketService& service, const protobuf::wire::MembershipContext& context,
+                            protobuf::wire::CommandOrigin origin) {
+    protobuf::wire::Envelope command;
+    *command.mutable_context() = context;
+    command.set_command_origin(origin);
+    command.mutable_coordination_handover()->set_callsign("SAS123");
+    command.mutable_coordination_handover()->set_target_callsign("EKCH_DEP");
+    service.ProcessServerMessage(command.SerializeAsString());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, HandoffAuthorityStaysWithOriginatingMemberAfterDispatch) {
+    state.relevant_airport = "BBBB";
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto origin = AddMembership(*svc, 1, "AAAA", "slave");
+    AddMembership(*svc, 2, "BBBB", "master");
+    const auto handler = std::make_shared<CaptureHandoffAuthority>(*svc);
+    msgHandlers->RegisterHandler(handler);
+    DispatchHandoff(*svc, origin, protobuf::wire::COMMAND_ORIGIN_AUTOMATIC);
+
+    ASSERT_TRUE(handler->captured.has_value());
+    EXPECT_FALSE(svc->CaptureCommandAuthority());
+    EXPECT_TRUE(svc->HasCommandAuthority(*handler->captured));
+    svc->ForEachMembership([&](const std::string& airport) {
+        if (airport == "BBBB") EXPECT_TRUE(svc->HasCommandAuthority(*handler->captured));
+    });
+
+    protobuf::wire::Envelope event;
+    *event.mutable_context() = origin;
+    event.mutable_membership_removed();
+    svc->ProcessServerMessage(event.SerializeAsString());
+    event.Clear();
+    *event.mutable_context() = origin;
+    event.mutable_context()->set_membership_id("replacement-AAAA");
+    event.mutable_context()->set_generation(origin.generation() + 1);
+    event.mutable_session_info()->set_role("master");
+    svc->ProcessServerMessage(event.SerializeAsString());
+    EXPECT_FALSE(svc->HasCommandAuthority(*handler->captured));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, AutomaticHandoffAuthorityExpiresOnElectionAndHumanAuthoritySurvives) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto context = AddMembership(*svc, 1, "AAAA", "master", 0);
+    const auto handler = std::make_shared<CaptureHandoffAuthority>(*svc);
+    msgHandlers->RegisterHandler(handler);
+    DispatchHandoff(*svc, context, protobuf::wire::COMMAND_ORIGIN_AUTOMATIC);
+    const auto automatic = handler->captured;
+    DispatchHandoff(*svc, context, protobuf::wire::COMMAND_ORIGIN_HUMAN);
+    const auto human = handler->captured;
+    ASSERT_TRUE(automatic.has_value());
+    ASSERT_TRUE(human.has_value());
+
+    protobuf::wire::Envelope election;
+    *election.mutable_context() = context;
+    election.mutable_context()->set_master_epoch(1);
+    election.mutable_session_info()->set_role("slave");
+    svc->ProcessServerMessage(election.SerializeAsString());
+    EXPECT_FALSE(svc->HasCommandAuthority(*automatic));
+    EXPECT_TRUE(svc->HasCommandAuthority(*human));
+
+    election.mutable_session_info()->set_role("observer");
+    svc->ProcessServerMessage(election.SerializeAsString());
+    EXPECT_FALSE(svc->HasCommandAuthority(*human));
+    election.mutable_session_info()->set_role("slave");
+    svc->ProcessServerMessage(election.SerializeAsString());
+    EXPECT_FALSE(svc->HasCommandAuthority(*human));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, HandoffAuthorityCannotSurviveTransportReconnect) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto context = AddMembership(*svc, 1, "AAAA", "master");
+    const auto handler = std::make_shared<CaptureHandoffAuthority>(*svc);
+    msgHandlers->RegisterHandler(handler);
+    DispatchHandoff(*svc, context, protobuf::wire::COMMAND_ORIGIN_AUTOMATIC);
+    const auto old = handler->captured;
+    ASSERT_TRUE(old.has_value());
+
+    state.observer = true;
+    EXPECT_FALSE(svc->HasCommandAuthority(*old));
+    state.observer = false;
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    EXPECT_FALSE(svc->HasCommandAuthority(*old));
+    svc->Reconnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const auto reconnected = AddMembership(*svc, 1, "AAAA", "master");
+    DispatchHandoff(*svc, reconnected, protobuf::wire::COMMAND_ORIGIN_AUTOMATIC);
+    ASSERT_TRUE(handler->captured.has_value());
+    EXPECT_TRUE(svc->HasCommandAuthority(*handler->captured));
+    EXPECT_FALSE(svc->HasCommandAuthority(*old));
+}
+
 // enabled=false path
 // ---------------------------------------------------------------------------
 TEST_F(WebSocketServiceOnTimerTest, AuthenticationWorkerDefersLatestTokenUntilSdkTimer) {

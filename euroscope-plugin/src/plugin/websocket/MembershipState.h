@@ -12,6 +12,14 @@ namespace FlightStrips::websocket {
     struct AirportMembership {
         membership_wire::MembershipContext context;
         ClientState role = STATE_UNKNOWN;
+        uint64_t commandAuthorityRevision = 0;
+
+        bool CanExecuteCommands() const { return role == STATE_MASTER || role == STATE_SLAVE; }
+        void SetRole(ClientState next) {
+            const bool wasEligible = CanExecuteCommands();
+            role = next;
+            if (wasEligible && !CanExecuteCommands()) ++commandAuthorityRevision;
+        }
         std::string masterCallsign;
         std::unordered_set<std::string> inventory;
         std::unordered_set<std::string> excluded;
@@ -77,7 +85,7 @@ namespace FlightStrips::websocket {
             if(humanCommand) member.context.set_master_epoch(currentEpoch);
             if (event.has_session_info()) {
                 const auto& role=event.session_info().role();
-                member.role=role=="master"?STATE_MASTER:role=="observer"?STATE_OBSERVER:role=="slave"?STATE_SLAVE:STATE_UNKNOWN;
+                member.SetRole(role=="master"?STATE_MASTER:role=="observer"?STATE_OBSERVER:role=="slave"?STATE_SLAVE:STATE_UNKNOWN);
             }
             if (event.has_master_info()) member.masterCallsign=event.master_info().master_callsign();
             if (event.has_backend_sync()) {

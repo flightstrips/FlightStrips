@@ -67,7 +67,6 @@ namespace FlightStrips::messages {
 
         for (auto it = m_pendingHandovers.begin(); it != m_pendingHandovers.end(); ) {
             auto fp = m_plugin->FlightPlanSelect(it->first.c_str());
-            const auto currentHandoffTarget = std::string(fp.GetHandoffTargetControllerCallsign());
             const auto currentContext = m_webSocketService->CaptureContext();
             auto target = m_plugin->ControllerSelect(it->second.targetCallsign.c_str());
 
@@ -76,19 +75,21 @@ namespace FlightStrips::messages {
                 continue;
             }
 
+            const auto currentHandoffTarget = std::string(fp.GetHandoffTargetControllerCallsign());
+
             if (!currentHandoffTarget.empty()) {
                 it = m_pendingHandovers.erase(it);
                 continue;
             }
              
-            if (it->second.context.SerializeAsString() != currentContext.SerializeAsString()) {
-                Logger::Warning("Membership no longer authorizes handoff for {} to {}", it->first);
-                if (!it->second.wasTracking && fp.GetTrackingControllerIsMe()) {
-                    fp.EndTracking();
-                };
-                it = m_pendingHandovers.erase(it);
-                continue;
-            };
+            //if (it->second.context.SerializeAsString() != currentContext.SerializeAsString()) {
+            //    Logger::Warning("Membership no longer authorizes handoff for {} to {}", it->first, it->second.targetCallsign);
+            //    if (!it->second.wasTracking && fp.GetTrackingControllerIsMe()) {
+            //        fp.EndTracking();
+            //    };
+            //    it = m_pendingHandovers.erase(it);
+            //    continue;
+            //};
 
             if (!target.IsValid() || !target.IsController()) {
                 Logger::Warning("Target controller {} went offline before handoff of {}", it->second.targetCallsign, it->first);

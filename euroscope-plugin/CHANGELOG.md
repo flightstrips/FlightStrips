@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.7.1...plugin/v2.7.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* **handoff:** retry automatic EuroScope transfers ([#1229](https://github.com/flightstrips/FlightStrips/issues/1229)) ([c9a4e72](https://github.com/flightstrips/FlightStrips/commit/c9a4e720cfe6fddc472c15dc7a8ff09d8906141d))
+* **strip:** release tower tags on departure ROF requests ([#1227](https://github.com/flightstrips/FlightStrips/issues/1227)) ([e741da8](https://github.com/flightstrips/FlightStrips/commit/e741da81ccc80f39f192adbbbe30ae32ecaa6a35))
+
 ## [2.7.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.7.0...plugin/v2.7.1) (2026-11-19)
 
 

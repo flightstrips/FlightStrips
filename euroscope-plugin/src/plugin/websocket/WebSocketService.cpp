@@ -184,6 +184,31 @@ namespace FlightStrips::websocket {
         if (const auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end()) return it->second.context;
         protobuf::wire::MembershipContext context;context.set_instance_id(instance_id_);context.set_transport_generation(transport_generation_);return context;
     }
+    std::optional<CommandAuthority> WebSocketService::CaptureCommandAuthority() const {
+        const auto member = memberships_.members.find(active_membership_);
+        if (member == memberships_.members.end()) return std::nullopt;
+        // Targeted human commands survive elections. Automatic commands are
+        // fenced by the election epoch, including on a selected slave instance.
+        CommandAuthority authority{member->second.context, member->second.commandAuthorityRevision,
+            command_transport_revision_, active_origin_ != protobuf::wire::COMMAND_ORIGIN_HUMAN};
+        if (!authority.automatic) authority.context.clear_master_epoch();
+        if (!HasCommandAuthority(authority)) return std::nullopt;
+        return authority;
+    }
+
+    bool WebSocketService::HasCommandAuthority(const CommandAuthority& authority) const {
+        const auto& captured = authority.context;
+        if (!IsConnected() || m_plugin->GetConnectionState().observer ||
+            authority.transportRevision != command_transport_revision_ ||
+            captured.transport_generation() != transport_generation_) return false;
+        const auto member = memberships_.members.find(captured.membership_id());
+        if (member == memberships_.members.end() || !member->second.CanExecuteCommands() ||
+            member->second.commandAuthorityRevision != authority.membershipRevision) return false;
+        auto current = member->second.context;
+        if (!authority.automatic) current.clear_master_epoch();
+        return current.SerializeAsString() == captured.SerializeAsString();
+    }
+
     void WebSocketService::RememberRunways(const std::string& callsign,const std::string& departure,const std::string& arrival) {
         source_runways_[callsign]={departure,arrival};
     }
@@ -446,6 +471,7 @@ namespace FlightStrips::websocket {
 
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
             pending_executions_.clear();memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
+            ++command_transport_revision_;
             observer = false;
             connect_after_.reset();
             pending_connect_ = false;
@@ -549,12 +575,13 @@ namespace FlightStrips::websocket {
 
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
             pending_executions_.clear();memberships_.Reset(); active_membership_.clear(); transport_generation_=0;
+            ++command_transport_revision_;
 
     }
 
     void WebSocketService::SetSessionState(const ClientState state) {
 
-        if (auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end()) it->second.role=state;
+        if (auto it=memberships_.members.find(active_membership_);it!=memberships_.members.end()) it->second.SetRole(state);
     }
 
     void WebSocketService::SetMasterCallsign(const std::string& callsign) {
@@ -613,6 +640,7 @@ namespace FlightStrips::websocket {
             SetMasterCallsign("");
             for(const auto& [id,m]:memberships_.members) m_plugin->RemoveMembershipAirport(id);
             pending_executions_.clear();memberships_.Reset(); active_membership_.clear();transport_generation_=0;source_runways_.clear();source_aircraft_.clear();
+            ++command_transport_revision_;
             std::optional<std::string> connectedToken;
             { std::lock_guard lock(message_mutex_); messages_.clear();
               connectedToken = latest_token_; token_update_pending_ = false; }

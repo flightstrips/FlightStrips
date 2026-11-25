@@ -9,7 +9,24 @@
 #include "stands/StandService.h"
 #include "runway/RunwayService.h"
 
+#include <chrono>
+#include <optional>
+#include <unordered_map>
+
 namespace FlightStrips::messages {
+    struct PendingHandoff {
+        using Clock = std::chrono::steady_clock;
+
+        std::string receiver;
+        websocket::CommandAuthority authority;
+        Clock::time_point deadline;
+        bool acquiredTracking = false;
+        bool initiated = false;
+        bool sawTransfer = false;
+
+        bool ShouldStop(Clock::time_point now, bool transferActive, std::optional<int> altitude) const;
+    };
+
     class MessageService final : public handlers::MessageHandler, public handlers::TimedEventHandler {
     public:
         MessageService(const std::shared_ptr<FlightStripsPlugin> &m_plugin,
@@ -52,8 +69,12 @@ namespace FlightStrips::messages {
         std::shared_ptr<stands::StandService> m_standService;
         std::shared_ptr<flightplan::RouteService> m_routeService;
         std::shared_ptr<runway::RunwayService> m_runwayService;
+        std::unordered_map<std::string, PendingHandoff> m_pendingHandoffs;
 
-        void HandleMessage(const std::string &message) const;
+        void PollFrequencyMessage();
+        void ProcessPendingHandoffs();
+        bool AdvanceHandoff(const std::string& callsign, PendingHandoff& handoff, PendingHandoff::Clock::time_point now);
+        void HandleMessage(const std::string &message);
         void HandleCdmUpdateEvent(const CdmUpdateEvent& event) const;
         void HandleCdmUpdateBatchEvent(const CdmUpdateBatchEvent& event) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;
@@ -75,10 +96,10 @@ namespace FlightStrips::messages {
         void HandleAircraftInfoRemarksEvent(const AircraftInfoRemarksEvent& event) const;
         void HandleSidEvent(const SidEvent& event) const;
         void HandleAircraftRunwayEvent(const AircraftRunwayEvent& event) const;
-        void HandleCoordinationHandoverEvent(const CoordinationHandoverEvent& event) const;
+        void HandleCoordinationHandoverEvent(const CoordinationHandoverEvent& event);
         void HandleEsAssumeOnlyEvent(const AssumeOnlyEvent& event) const;
-        void HandleEsAssumeAndDropEvent(const AssumeAndDropEvent& event) const;
-        void HandleEsDropTrackingEvent(const DropTrackingEvent& event) const;
+        void HandleEsAssumeAndDropEvent(const AssumeAndDropEvent& event);
+        void HandleEsDropTrackingEvent(const DropTrackingEvent& event);
         void HandleBackendSyncEvent(const BackendSyncEvent& event) const;
         void HandleCreateFPLEvent(const CreateFPLEvent& event) const;
         void HandlePdcStateChangeEvent(const PdcStateChangeEvent& event) const;

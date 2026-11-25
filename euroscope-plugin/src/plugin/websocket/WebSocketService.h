@@ -18,6 +18,13 @@
 
 namespace FlightStrips::websocket {
 
+    struct CommandAuthority {
+        protobuf::wire::MembershipContext context;
+        uint64_t membershipRevision;
+        uint64_t transportRevision;
+        bool automatic;
+    };
+
     struct Stats {
         int tx = 0;
         int rx = 0;
@@ -59,6 +66,8 @@ namespace FlightStrips::websocket {
         std::vector<protobuf::wire::MembershipContext> CaptureObservationContexts(const std::string& callsign) const;
         void SendObservation(const Event& event,const protobuf::wire::MembershipContext& context);
         protobuf::wire::MembershipContext CaptureContext() const;
+        std::optional<CommandAuthority> CaptureCommandAuthority() const;
+        bool HasCommandAuthority(const CommandAuthority& authority) const;
         void RememberRunways(const std::string& callsign, const std::string& departure, const std::string& arrival);
         void RememberAircraft(const std::string& callsign,const std::string& origin,const std::string& destination,double latitude,double longitude,bool hasFp=true);
         void SendRadarOnlyIntroduction(const StripUpdateEvent& event);
@@ -106,6 +115,7 @@ namespace FlightStrips::websocket {
         bool observer = false;
         std::string instance_id_;
         uint64_t transport_generation_ = 0;
+        uint64_t command_transport_revision_ = 0;
         MembershipState memberships_;
         std::string active_membership_;
         protobuf::wire::CommandOrigin active_origin_=protobuf::wire::COMMAND_ORIGIN_UNSPECIFIED;

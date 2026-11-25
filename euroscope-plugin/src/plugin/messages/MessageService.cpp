@@ -8,6 +8,22 @@
 
 namespace FlightStrips::messages {
     namespace {
+        bool HasActiveHandoff(const EuroScopePlugIn::CFlightPlan& flightPlan) {
+            using namespace EuroScopePlugIn;
+            const auto target = flightPlan.GetHandoffTargetControllerCallsign();
+            const auto state = flightPlan.GetState();
+            return (target && *target) || state == FLIGHT_PLAN_STATE_TRANSFER_FROM_ME_INITIATED ||
+                state == FLIGHT_PLAN_STATE_TRANSFER_TO_ME_INITIATED;
+        }
+
+        std::optional<int> ReadPressureAltitude(FlightStripsPlugin& plugin, const std::string& callsign) {
+            const auto target = plugin.RadarTargetSelect(callsign.c_str());
+            if (!target.IsValid()) return std::nullopt;
+            const auto position = target.GetPosition();
+            if (!position.IsValid()) return std::nullopt;
+            return position.GetPressureAltitude();
+        }
+
         bool IsAirborneCapablePosition(const std::string &callsign) {
             size_t segmentStart = 0;
             while (segmentStart <= callsign.length()) {
@@ -52,7 +68,79 @@ namespace FlightStrips::messages {
         }
     }
 
+    bool PendingHandoff::ShouldStop(const Clock::time_point now, const bool transferActive,
+                                   const std::optional<int> altitude) const {
+        return (!initiated && now >= deadline) ||
+            (initiated && sawTransfer && !transferActive) ||
+            (authority.automatic && altitude && *altitude >= 5000);
+    }
+
     void MessageService::OnTimer(int) {
+        PollFrequencyMessage();
+        ProcessPendingHandoffs();
+    }
+
+    void MessageService::ProcessPendingHandoffs() {
+        const auto now = PendingHandoff::Clock::now();
+        for (auto it = m_pendingHandoffs.begin(); it != m_pendingHandoffs.end();) {
+            if (AdvanceHandoff(it->first, it->second, now)) ++it;
+            else it = m_pendingHandoffs.erase(it);
+        }
+    }
+
+    bool MessageService::AdvanceHandoff(const std::string& callsign, PendingHandoff& handoff,
+                                       const PendingHandoff::Clock::time_point now) {
+        if (!m_webSocketService->HasCommandAuthority(handoff.authority)) return false;
+
+        auto flightPlan = m_plugin->FlightPlanSelect(callsign.c_str());
+        if (!flightPlan.IsValid()) return false;
+        bool trackingLocally = flightPlan.GetTrackingControllerIsMe();
+        const auto tracker = flightPlan.GetTrackingControllerCallsign();
+        const bool hasTracker = tracker && *tracker;
+        if (!trackingLocally && (handoff.initiated ||
+            (hasTracker && _stricmp(tracker, m_plugin->GetConnectionState().callsign.c_str()) != 0))) return false;
+
+        const bool transferActive = HasActiveHandoff(flightPlan);
+        if (!handoff.initiated && transferActive) return false;
+
+        const auto altitude = handoff.authority.automatic ? ReadPressureAltitude(*m_plugin, callsign) : std::nullopt;
+        // Tracking is checked first. If acceptance and the cutoff are observed
+        // on the same tick, the receiver already owns the tag.
+        if (handoff.ShouldStop(now, transferActive, altitude)) {
+            if (handoff.acquiredTracking && trackingLocally && !flightPlan.EndTracking()) {
+                const auto warning = "Could not release tracking for " + callsign + " after handoff";
+                Logger::Warning("{}", warning);
+                m_plugin->Error(warning);
+            }
+            return false;
+        }
+
+        if (handoff.initiated) {
+            handoff.sawTransfer = handoff.sawTransfer || transferActive;
+            return true;
+        }
+
+        const auto receiver = m_plugin->ControllerSelect(handoff.receiver.c_str());
+        if (!receiver.IsValid() || !receiver.IsController()) return true;
+
+        if (!trackingLocally && !hasTracker && !handoff.acquiredTracking) {
+            handoff.acquiredTracking = flightPlan.StartTracking();
+            if (!handoff.acquiredTracking) return true;
+            flightPlan = m_plugin->FlightPlanSelect(callsign.c_str());
+            if (!flightPlan.IsValid() || HasActiveHandoff(flightPlan)) return false;
+            trackingLocally = flightPlan.GetTrackingControllerIsMe();
+        }
+        if (trackingLocally && flightPlan.InitiateHandoff(handoff.receiver.c_str())) {
+            handoff.initiated = true;
+            if (!handoff.acquiredTracking) return false;
+            flightPlan = m_plugin->FlightPlanSelect(callsign.c_str());
+            if (!flightPlan.IsValid()) return false;
+            handoff.sawTransfer = HasActiveHandoff(flightPlan);
+        }
+        return true;
+    }
+
+    void MessageService::PollFrequencyMessage() {
         if (!m_pendingFrequencyMessage) return;
         const auto outcome = PrivateMessageSender::PollFrequencySubmission(m_pendingFrequencyMessage->submission);
         if (!outcome) return;
@@ -70,7 +158,7 @@ namespace FlightStrips::messages {
         }
     }
 
-    void MessageService::HandleMessage(const std::string &message) const {
+    void MessageService::HandleMessage(const std::string &message) {
         try {
             websocket::protobuf::wire::Envelope envelope;
             if (!websocket::protobuf::ParseEnvelope(message, envelope)) {
@@ -528,50 +616,37 @@ namespace FlightStrips::messages {
         fp.AcceptHandoff();
     }
 
-    void MessageService::HandleEsAssumeAndDropEvent(const AssumeAndDropEvent &event) const {
+    void MessageService::HandleEsAssumeAndDropEvent(const AssumeAndDropEvent &event) {
         HandleEsAssumeOnlyEvent(AssumeOnlyEvent{event.callsign});
         HandleEsDropTrackingEvent(DropTrackingEvent{event.callsign});
     }
 
-    void MessageService::HandleEsDropTrackingEvent(const DropTrackingEvent &event) const {
+    void MessageService::HandleEsDropTrackingEvent(const DropTrackingEvent &event) {
         auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) {
             Logger::Warning("Failed to find flight plan {} for drop_tracking", event.callsign);
             return;
         }
 
-        if (!fp.EndTracking()) {
+        if (fp.EndTracking()) {
+            m_pendingHandoffs.erase(event.callsign);
+        } else {
             Logger::Warning("Failed to end tracking {} for drop_tracking", event.callsign);
         }
     }
 
-    void MessageService::HandleCoordinationHandoverEvent(const CoordinationHandoverEvent &event) const {
-        auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        if (!fp.IsValid()) {
-            Logger::Warning("Failed to find flight plan {} for coordination_handover", event.callsign);
-            return;
-        }
+    void MessageService::HandleCoordinationHandoverEvent(const CoordinationHandoverEvent &event) {
+        if (event.callsign.empty() || event.target_callsign.empty() || m_pendingHandoffs.contains(event.callsign)) return;
 
-        auto targetController = m_plugin->ControllerSelect(event.target_callsign.c_str());
-        if (!targetController.IsValid() || !targetController.IsController()) {
-            Logger::Warning("Failed to find target controller {} for coordination_handover {}", event.target_callsign,
-                            event.callsign);
-            return;
-        }
+        const auto authority = m_webSocketService->CaptureCommandAuthority();
+        if (!authority) return;
 
-        if (!fp.GetTrackingControllerIsMe() && !fp.StartTracking()) {
-            Logger::Warning("Failed to start tracking {} for coordination_handover", event.callsign);
-            return;
-        }
+        const auto flightPlan = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!flightPlan.IsValid() || HasActiveHandoff(flightPlan)) return;
 
-        const auto currentHandoffTarget = std::string(fp.GetHandoffTargetControllerCallsign());
-        if (!currentHandoffTarget.empty() && _stricmp(currentHandoffTarget.c_str(), event.target_callsign.c_str()) == 0) {
-            return;
-        }
-
-        if (!fp.InitiateHandoff(event.target_callsign.c_str())) {
-            Logger::Warning("Failed to initiate handoff for {} to {}", event.callsign, event.target_callsign);
-        }
+        m_pendingHandoffs.emplace(event.callsign, PendingHandoff{
+            event.target_callsign, *authority, PendingHandoff::Clock::now() + std::chrono::seconds(10)
+        });
     }
 
     void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {

@@ -27,6 +27,12 @@ TEST(GroundTagReleasePolicyTest, ReleasesTowerTagForApproachAndCentreRequests) {
     EXPECT_TRUE(ShouldReleaseGroundTag("ekyt_twr", 4, "ekyt_2_app", 5, false, true));
 }
 
+TEST(GroundTagReleasePolicyTest, ReleasesTowerTagForDepartureRequests) {
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_A_TWR", 4, "EKCH_N_DEP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("ekch_a_TwR", 4, "ekch_n_DeP", 5, false, true));
+}
+
 TEST(GroundTagReleasePolicyTest, NeverReleasesAnotherControllersTagOrObserverTag) {
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 5, false, false));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 5, true, true));
@@ -36,16 +42,21 @@ TEST(GroundTagReleasePolicyTest, PreservesNormalAirborneCoordinationAndOtherGrou
     for (const auto* owner : {"EKCH_APP", "EKDK_CTR", "EKCH_GND", "EKCH_DEL", "EKCH_TWR_OBS", ""}) {
         EXPECT_FALSE(ShouldReleaseGroundTag(owner, 4, "EKDK_CTR", 6, false, true)) << owner;
     }
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_APP", 5, "EKCH_DEP", 5, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_DEP", 5, "EKCH_APP", 5, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_APP", 5, "EKDK_CTR", 6, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKDK_CTR", 6, "EKCH_APP", 5, false, true));
 }
 
 TEST(GroundTagReleasePolicyTest, RejectsNonAirborneRequestersAndFacilityMismatches) {
-    for (const auto* requester : {"EKCH_TWR", "EKCH_GND", "EKCH_DEL", "EKCH_APP_OBS", "EKDK_FSS", ""}) {
+    for (const auto* requester : {"EKCH_TWR", "EKCH_GND", "EKCH_DEL", "EKCH_APP_OBS", "EKCH_DEP_OBS", "EKDK_FSS", ""}) {
         EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, requester, 5, false, true)) << requester;
     }
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 3, "EKCH_APP", 5, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 1, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 6, false, true));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKDK_CTR", 5, false, true));
+    for (const int facility : {0, 1, 2, 3, 4, 6}) {
+        EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_N_DEP", facility, false, true)) << facility;
+    }
 }

@@ -46,7 +46,8 @@ namespace FlightStrips {
         const bool trackingControllerIsMe) {
         return !observer && trackingControllerIsMe
             && ownerFacility == 4 && HasSuffix(ownerCallsign, "_TWR")
-            && ((requesterFacility == 5 && HasSuffix(requesterCallsign, "_APP"))
+            && ((requesterFacility == 5
+                    && (HasSuffix(requesterCallsign, "_APP") || HasSuffix(requesterCallsign, "_DEP")))
                 || (requesterFacility == 6 && HasSuffix(requesterCallsign, "_CTR")));
     }
 }

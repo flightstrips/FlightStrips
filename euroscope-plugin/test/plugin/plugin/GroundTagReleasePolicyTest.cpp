@@ -27,6 +27,23 @@ TEST(GroundTagReleasePolicyTest, ReleasesTowerTagForApproachAndCentreRequests) {
     EXPECT_TRUE(ShouldReleaseGroundTag("ekyt_twr", 4, "ekyt_2_app", 5, false, true));
 }
 
+TEST(GroundTagReleasePolicyTest, ReleasesTowerTagForDepartureRequests) {
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("EKCH_D_TWR", 4, "EKCH_N_DEP", 5, false, true));
+    EXPECT_TRUE(ShouldReleaseGroundTag("ekch_tWr", 4, "ekch_n_dEp", 5, false, true));
+}
+
+TEST(GroundTagReleasePolicyTest, DepartureRequestsStillRequireEligibleOwnerAndRequester) {
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 4, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_N_DEP", 6, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_N_DEP_OBS", 5, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 3, "EKCH_DEP", 5, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_APP", 5, "EKCH_DEP", 5, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_DEP", 5, "EKCH_APP", 5, false, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 5, true, true));
+    EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_DEP", 5, false, false));
+}
+
 TEST(GroundTagReleasePolicyTest, NeverReleasesAnotherControllersTagOrObserverTag) {
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 5, false, false));
     EXPECT_FALSE(ShouldReleaseGroundTag("EKCH_TWR", 4, "EKCH_APP", 5, true, true));

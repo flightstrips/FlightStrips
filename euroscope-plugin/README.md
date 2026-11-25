@@ -14,9 +14,9 @@ The existing destination-airport, holding-release, and inside-TMA rules still ap
 
 ## Force release a tower tag
 
-If a tag is stuck with a FlightStrips tower controller, an APP or CTR controller can send **ROF** from TopSky and then assume the released tag normally. The tower's plugin handles the `/ROF/<aircraft>/<requesting controller>` scratchpad pulse and ends EuroScope tracking only when the aircraft matches the pulse, the tag is tracked locally, and both controllers are online controller positions: `_TWR` (facility 4) to `_APP` (facility 5) or `_CTR` (facility 6). Split positions are supported.
+If a tag is stuck with a FlightStrips tower controller, a DEP, APP, or CTR controller can send **ROF** from TopSky and then assume the released tag normally. The tower plugin handles the `/ROF/<aircraft>/<requesting controller>` scratchpad pulse. Recovery requires a matching aircraft, local tracking by an online `_TWR` (facility 4), and an online `_DEP` or `_APP` (facility 5) or `_CTR` (facility 6) requester. Callsign suffixes are case-insensitive and support split positions such as `EKCH_N_DEP`.
 
-Observers, DEL/GND requests, and APP/CTR-owned tags do not trigger a release. Normal airborne-to-airborne ROF coordination is unchanged. This does not automatically assume the tag or change the FlightStrips strip owner; EuroScope tracking updates continue through the existing synchronization path. The request uses TopSky's existing broadcast protocol, which identifies the requester in the payload rather than exposing an authenticated sender to the receiving plugin.
+Airborne-to-airborne ROF follows normal EuroScope coordination. Once the requester assumes the tag, FlightStrips processes the tracking update through its existing synchronization path. The TopSky broadcast pulse names an online position and carries no authenticated sender identity.
 
 Release is handled on the tracking EuroScope instance without requiring a FlightStrips backend connection or radar correlation. Only the native tag is released; a failed release is logged and does not trigger a backend ownership change.
 
@@ -30,9 +30,9 @@ Release is handled on the tracking EuroScope instance without requiring a Flight
 
 Use a test session with two EuroScope instances; unit tests cannot exercise live VATSIM tracking or TopSky's transient scratchpad delivery.
 
-- Track a departure on TWR, send ROF from APP and from CTR, then assume it on the requester. Repeat with a stuck outgoing handoff and with split controller callsigns.
+- Track a departure on TWR, send ROF from DEP, then assume the released tag on DEP. Repeat with a stuck outgoing handoff and split TWR and DEP callsigns. Verify the same recovery with APP and CTR requesters.
 - Confirm the tag is released only on its tracking instance, including when that instance is not the FlightStrips master or has no backend connection.
-- Confirm APP-to-CTR, CTR-to-APP, DEL/GND and observer requests do not automatically drop a tag.
+- Confirm ROF between airborne positions follows normal coordination, including requests involving DEP. Verify that DEL/GND and observer requests do not release a Tower tag.
 - Confirm malformed pulses or a pulse naming another aircraft do not drop the selected tag, and normal scratchpad/holding updates continue to work.
 - After assumption, check that FlightStrips receives the tracking-controller update and completes the existing coordination/bay transition.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.10.1...docs/v1.11.0) (2026-11-26)
+
+
+### Features
+
+* **stand:** add a ready-to-copy GSX handler block for profile makers ([f30ea86](https://github.com/flightstrips/FlightStrips/commit/f30ea861935085bc452e838cc3ff48d317fc85c6))
+
 ## [1.10.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.10.0...docs/v1.10.1) (2026-11-24)
 
 

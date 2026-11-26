@@ -884,7 +884,8 @@ PROFILE = ('def onAirportBeforeVehicleSelect(self):\n'
            'def onExitAirport(self):\n'
            '    print("profile exit")\n')
 # Already embedded in a profile script: its own callbacks are the ones to see.
-EMBEDDED = ">>> FlightStrips" in SRC
+# The docs snippet is the block alone, so it gets the stand-in profile above.
+EMBEDDED = "def " in SRC.split(">>> FlightStrips")[0] if ">>> FlightStrips" in SRC else False
 env = Env()
 g = load(env, src=SRC if EMBEDDED else PROFILE + SRC)
 h = Handler()

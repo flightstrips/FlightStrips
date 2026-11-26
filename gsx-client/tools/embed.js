@@ -31,6 +31,39 @@ function fail(message) {
   process.exit(1);
 }
 
+// The FlightStrips block with every top-level constant namespaced FS_<NAME>,
+// and each use of it. Settings are still the source's; wrap() sets them.
+function namespacedBlock() {
+  const source = fs.readFileSync(SOURCE, "utf8").replace(/\r\n/g, "\n");
+  const start = source.search(/^API_BASE = /m);
+  if (start < 0) throw new Error(`no API_BASE line in ${SOURCE}`);
+  let block = source.slice(start).replace(/\s+$/, "\n");
+  const constants = [...new Set([...block.matchAll(/^([A-Z][A-Z0-9_]*)\s*=/gm)].map((m) => m[1]))];
+  for (const name of constants) {
+    block = block.replace(new RegExp(`\\b${name}\\b`, "g"), PREFIX + name);
+  }
+  return block;
+}
+
+// The block between its marker lines, with the two settings given as Python
+// literals.
+function wrap(block, apiBaseLiteral, sceneryLiteral) {
+  const body = block
+    .replace(new RegExp(`^${PREFIX}API_BASE = .*$`, "m"), () => `${PREFIX}API_BASE = ${apiBaseLiteral}`)
+    .replace(new RegExp(`^${PREFIX}SCENERY = .*$`, "m"), () => `${PREFIX}SCENERY = ${sceneryLiteral}`);
+  const header = [
+    BEGIN,
+    "# FlightStrips stand and pushback assignment for VATSIM. Source and docs:",
+    "# https://github.com/flightstrips/FlightStrips/tree/main/gsx-client",
+    `# Set ${PREFIX}API_BASE or ${PREFIX}SCENERY below; anything else, change the source and re-run.`,
+    "",
+  ].join("\n");
+  return `${header}${body}${END}\n`;
+}
+
+module.exports = { BEGIN, END, DEFAULT_API_BASE, namespacedBlock, wrap };
+if (require.main !== module) return;
+
 const args = process.argv.slice(2);
 const target = args.find((a) => !a.startsWith("--"));
 if (!target) fail("usage: embed.js <profile_handler.py> [--scenery KEY] [--api-base URL]");
@@ -39,15 +72,11 @@ const option = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 
-const source = fs.readFileSync(SOURCE, "utf8").replace(/\r\n/g, "\n");
-const start = source.search(/^API_BASE = /m);
-if (start < 0) fail(`no API_BASE line in ${SOURCE}`);
-let block = source.slice(start).replace(/\s+$/, "\n");
-
-// Namespace every top-level constant the block defines, and each use of it.
-const constants = [...new Set([...block.matchAll(/^([A-Z][A-Z0-9_]*)\s*=/gm)].map((m) => m[1]))];
-for (const name of constants) {
-  block = block.replace(new RegExp(`\\b${name}\\b`, "g"), PREFIX + name);
+let block;
+try {
+  block = namespacedBlock();
+} catch (err) {
+  fail(err.message);
 }
 
 const original = fs.readFileSync(target, "utf8");
@@ -74,18 +103,7 @@ const setting = (name, flag, fallback) => {
 };
 const apiBaseLiteral = setting("API_BASE", "--api-base", DEFAULT_API_BASE);
 const sceneryLiteral = setting("SCENERY", "--scenery", "");
-block = block
-  .replace(new RegExp(`^${PREFIX}API_BASE = .*$`, "m"), () => `${PREFIX}API_BASE = ${apiBaseLiteral}`)
-  .replace(new RegExp(`^${PREFIX}SCENERY = .*$`, "m"), () => `${PREFIX}SCENERY = ${sceneryLiteral}`);
-
-const header = [
-  BEGIN,
-  "# FlightStrips stand and pushback assignment for VATSIM. Source and docs:",
-  "# https://github.com/flightstrips/FlightStrips/tree/main/gsx-client",
-  `# Set ${PREFIX}API_BASE or ${PREFIX}SCENERY below; anything else, change the source and re-run.`,
-  "",
-].join("\n");
-const wrapped = `${header}${block}${END}\n`;
+const wrapped = wrap(block, apiBaseLiteral, sceneryLiteral);
 
 if (begin >= 0) {
   text = text.slice(0, begin) + wrapped + text.slice(end + END.length).replace(/^\n/, "");

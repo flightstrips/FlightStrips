@@ -68,3 +68,8 @@ test("audit counts extra routes across key order, quote style, and missing posit
   assert.match(result.stdout, /NO POS +Z1 computed/);
   assert.match(result.stdout, /4 routes checked .* 4 flagged/);
 });
+
+test("the docs snippet matches the handler", () => {
+  const result = run("snippet.js", "--check");
+  assert.equal(result.status, 0, result.stderr);
+});

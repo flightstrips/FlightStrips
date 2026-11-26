@@ -38,7 +38,7 @@
     "@radix-ui/react-tooltip": "^1.4.1",
     "@tailwindcss/vite": "^4.3.5",
     "@types/leaflet": "^1.9.22",
-    "aewx-metar-parser": "^3.0.2",
+    "aewx-metar-parser": "^4.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.6.0",

@@ -101,6 +101,10 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		if !s.runwayAssignmentCompatible(flight, command.RunwayGroupID) {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not compatible with the flight's arrival"}
 		}
+		// Controllers may reorder their own flights but runway choice stays FMP-only.
+		if (flight.SelectedRunwayGroup == nil || *flight.SelectedRunwayGroup != command.RunwayGroupID) && !auth.HasFMPAuthority() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "changing runway requires FMP authority"}
+		}
 		for _, closure := range state.RunwayGroups[groupIndex].Closures {
 			if !command.SlotTime.Before(closure.Start) && (closure.End == nil || command.SlotTime.Before(*closure.End)) {
 				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "manual placement cannot use runway closure capacity"}
@@ -424,7 +428,7 @@ func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlig
 }
 
 func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
-	if aman.IsFMPRole(auth.Role) {
+	if auth.HasFMPAuthority() {
 		return nil
 	}
 	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "flight disposition command requires an FMP role"}
@@ -456,7 +460,7 @@ func lifecycleReason(flight aman.AMANFlight) aman.LifecycleReason {
 }
 
 func (s *Service) SetHoldingEATWriteback(auth aman.CommandContext, command aman.SetHoldingEATWritebackCommand) (sequence.CommandMutation, error) {
-	if !aman.IsFMPRole(auth.Role) {
+	if !auth.HasFMPAuthority() {
 		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "EAT writeback setting requires an FMP role"}
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
@@ -849,7 +853,7 @@ func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveR
 }
 
 func (s *Service) authorizeRunwayGap(auth aman.CommandContext) error {
-	if aman.IsFMPRole(auth.Role) {
+	if auth.HasFMPAuthority() {
 		return nil
 	}
 	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway capacity command requires an FMP role"}

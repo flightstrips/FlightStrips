@@ -129,7 +129,8 @@ describe("AMAN pre-merge smoke: publisher → event handler → store → worksp
 
   it("keeps observers read-only", () => {
     const {store, send} = workspace("healthy", false);
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
+    // Order commands such as lock go to the server, which checks STAR families.
+    expect(store.getState().sendAMANCommand({type: "aman.expedite_flight", callsign: "SAS123"})).toBeNull();
     expect(send).not.toHaveBeenCalled();
   });
 

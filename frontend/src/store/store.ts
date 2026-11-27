@@ -66,10 +66,14 @@ import {WebSocketClient} from '../api/websocket.ts';
 import {sameBoard} from '@/api/sessions';
 import { hasOtherRwyArrStrip } from '../lib/rwyArrRunway.ts';
 import {
+  AMAN_SEQUENCE_ORDER_COMMANDS,
   createAMANCommand, isAMANCoordinationStateEvent,
   getAMANMutationBlockReason,
   isAMANCommandRejectedEvent,
   isAMANArrivalSequenceRebuiltEvent,
+  isAMANFMPAuthorityEvent,
+  createAMANForcedFMPCommand,
+  type AMANFMPAuthority,
   type AMANRebuildResult,
   replaceAMANState,
   type AMANCommandIntent,
@@ -248,6 +252,13 @@ export interface WebSocketState {
   amanAwaitingSnapshot: boolean;
   amanWarnings: AMANCurrentWarnings;
   amanFMPAuthority: boolean;
+  /** FORCE FMP status for this client and its session, from the server. */
+  amanForcedFMP: AMANFMPAuthority | null;
+  /** Command ID of the FORCE FMP or release request awaiting a reply. */
+  amanForceFMPCommandID: string | null;
+  amanForceFMPRejection: string | null;
+  /** Forces FMP (true) or releases a forced FMP (false). Returns false when not sent. */
+  setAMANForcedFMP: (force: boolean) => boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
   amanRebuildResult: AMANRebuildResult | null;
   amanCommandTypes: Record<string, AMANCommandType>;
@@ -437,6 +448,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     amanAwaitingSnapshot: true,
     amanWarnings: currentWarningsFromAMANState(null),
     amanFMPAuthority: false,
+    amanForcedFMP: null,
+    amanForceFMPCommandID: null,
+    amanForceFMPRejection: null,
     amanPendingCommands: {},
     amanRebuildResult: null,
     amanCommandTypes: {},
@@ -464,7 +478,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
     initialState.reconciling = false;
     initialState.pendingAssumptions = {};
     initialState.amanEuroScopeSelectionGeneration++;
-    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanAwaitingSnapshot:true, amanRebuildResult:null});
+    Object.assign(initialState, {connectedFlightCandidates:[],connectedFlightSearchRequest:null,readOnly:true, ownPluginReady:false, contextMenu:null, textPilotDraft:null, validationDialogCallsign:null, selectedCallsign:null, amanSelectedCallsign:null, amanEuroScopeSelectionRevision:0, markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanCommandRejections:{}, amanCommandTypes:{}, amanFMPAuthority:false, amanForcedFMP:null, amanForceFMPCommandID:null, amanForceFMPRejection:null, amanAwaitingSnapshot:true, amanRebuildResult:null});
   }
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
@@ -575,7 +589,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
        // React may publish the open state after the socket has already delivered
        // its snapshots. Only loss invalidates them; a late open effect must not
        // turn an accepted replacement back into a pending initialization.
-       ...(connectionState === "disconnected" ? {amanAwaitingSnapshot: true, amanFMPAuthority: false} : {}),
+       ...(connectionState === "disconnected" ? {amanAwaitingSnapshot: true, amanFMPAuthority: false, amanForcedFMP: null, amanForceFMPCommandID: null} : {}),
      }),
      setAMANSelectedView: (view) => {
        const selected = resolveAMANView(get().amanState, view);
@@ -585,11 +599,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
      sendAMANCommand: (intent) => {
        const state = get();
        const coordinationDecision = intent.type === "aman.accept_coordination_request" || intent.type === "aman.reject_coordination_request";
+       // Controllers may reorder their own STAR families; the server enforces which.
+       const sequenceOrder = AMAN_SEQUENCE_ORDER_COMMANDS.has(intent.type);
        if (getAMANMutationBlockReason({
          state: state.amanState,
          connection_state: state.amanConnectionState,
          read_only: state.readOnly,
-         has_fmp_authority: coordinationDecision || state.amanFMPAuthority,
+         has_fmp_authority: coordinationDecision || sequenceOrder || state.amanFMPAuthority,
        }) !== null || state.amanState === null) {
          return null;
        }
@@ -624,6 +640,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
      dismissAMANCommandRejection: (commandID) => set(produce((state: WebSocketState) => {
        delete state.amanCommandRejections[commandID];
      })),
+     setAMANForcedFMP: (force) => {
+       const state = get();
+       if (state.amanConnectionState !== "connected" || state.readOnly) return false;
+       const commandID = globalThis.crypto?.randomUUID?.() ?? `aman-force-fmp-${Date.now()}`;
+       const message = createAMANForcedFMPCommand(force ? "aman.force_fmp" : "aman.release_forced_fmp", commandID);
+       if (disposed || wsClient.send(message) === false) return false;
+       set({amanForceFMPCommandID: commandID, amanForceFMPRejection: null});
+       return true;
+     },
      setTagRequestArmed: (armed) => set({ tagRequestArmed: armed, markArmed: armed ? false : get().markArmed, contextMenu: null }),
      setMarkArmed: (armed) => set({ markArmed: armed, tagRequestArmed: armed ? false : get().tagRequestArmed, contextMenu: null }),
     setLocalMarked: (callsign, marked) => set(produce((state: WebSocketState) => {
@@ -1387,7 +1412,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       connectedFlightCandidates:[], connectedFlightSearchRequest:null, readOnly:true, ownPluginReady:false,
       contextMenu:null, textPilotDraft:null, amanEuroScopeSelectionRevision:0,
       amanEuroScopeSelectionGeneration:state.amanEuroScopeSelectionGeneration + 1,
-      markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanFMPAuthority:false,
+      markArmed:false, tagRequestArmed:false, amanPendingCommands:{}, amanFMPAuthority:false, amanForcedFMP:null, amanForceFMPCommandID:null,
       amanAwaitingSnapshot:true, amanRebuildResult:null,
     }));
   };
@@ -2179,6 +2204,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
       return;
     }
     const current = store.getState();
+    if (current.amanForceFMPCommandID === event.data.command_id) {
+      store.setState({amanForceFMPCommandID: null, amanForceFMPRejection: event.data.message});
+      return;
+    }
     const knownType = current.amanCommandTypes[event.data.command_id] ?? current.amanPendingCommands[event.data.command_id]?.type;
     const currentRevision = current.amanState?.revision;
     if (!knownType?.includes("coordination_request") && currentRevision !== undefined && event.data.current_revision < currentRevision) {
@@ -2196,6 +2225,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient, retainedState?: 
         };
       }),
     );
+  });
+
+  on(EventType.FrontendAMANFMPAuthority, (event) => {
+    if (!isAMANFMPAuthorityEvent(event)) return;
+    store.setState({
+      amanFMPAuthority: event.data.has_fmp_authority,
+      amanForcedFMP: event.data,
+      amanForceFMPCommandID: null,
+    });
   });
 
   on(EventType.FrontendAMANCoordinationState, (event) => {

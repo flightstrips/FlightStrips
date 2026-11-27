@@ -88,6 +88,8 @@ type Hub struct {
 	cidDisconnect chan cidDisconnectMessage
 	sessionSynced chan int32
 	amanRefresh   chan string
+	// amanAuthorityRefresh carries sessions whose FMP authority changed.
+	amanAuthorityRefresh *sessionRefreshQueue
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 
@@ -116,6 +118,7 @@ type Hub struct {
 	amanMutations       bool
 	amanNow             func() time.Time
 	amanRoleForPosition func(string) string
+	forcedFMP           *forcedFMPRegistry
 }
 
 // AMANStateProvider returns the latest complete persisted replacement event
@@ -222,6 +225,8 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		cidDisconnect:         make(chan cidDisconnectMessage),
 		sessionSynced:         make(chan int32),
 		amanRefresh:           make(chan string, 16),
+		amanAuthorityRefresh:  newSessionRefreshQueue(),
+		forcedFMP:             newForcedFMPRegistry(),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
 		stripService:          deps.Strips,
@@ -561,6 +566,9 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 			client.Enqueue(amanState)
 		}
 	}
+	if hub.amanCommandService != nil {
+		hub.sendAMANFMPAuthority(ctx, client)
+	}
 	if hub.amanCoordination != nil {
 		hub.sendAMANCoordinationSnapshot(ctx, client)
 	}
@@ -573,6 +581,7 @@ func (hub *Hub) sendAMANCoordinationSnapshot(ctx context.Context, client *Client
 	identity := client.messageIdentity(ctx)
 	result, err := hub.amanCoordination.Snapshot(ctx, coordinationrequest.CommandContext{
 		SessionID: identity.session, Airport: identity.airport, Actor: client.GetCid(), Role: hub.amanRoleForIdentity(identity), ReceivedAt: hub.amanNow().UTC(),
+		FMPAuthority: hub.holdsForcedFMP(identity),
 	})
 	if err != nil {
 		slog.Error("Failed to project AMAN coordination", slog.Any("error", err))
@@ -1148,6 +1157,7 @@ func (hub *Hub) setClxOverride(session int32, overrideKey string) {
 }
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
+	hub.resetForcedFMPOnControllerOnline(session, callsign, position)
 	hub.broadcastController(session, frontend.ControllerOnlineEvent{
 		Controller: hub.controllerPayload(session, callsign, position, identifier, ownedSectors),
 	})
@@ -1226,6 +1236,7 @@ func (hub *Hub) broadcastController(session int32, event frontend.OutgoingMessag
 }
 
 func (hub *Hub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
+	hub.resetForcedFMPOnControllerOffline(session, callsign)
 	section := ""
 	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
 		section = pos.Section
@@ -2017,6 +2028,10 @@ func (hub *Hub) Run(ctx context.Context) {
 			hub.handlePluginMembershipDisconnected(msg)
 		case session := <-hub.sessionSynced:
 			hub.handleSessionSynced(session)
+		case <-hub.amanAuthorityRefresh.wake():
+			for _, session := range hub.amanAuthorityRefresh.drain() {
+				hub.publishAMANFMPAuthority(ctx, session)
+			}
 		case airport := <-hub.amanRefresh:
 			for client := range hub.clients {
 				if client.airport == airport {

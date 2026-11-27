@@ -9,8 +9,8 @@ import (
 )
 
 func (s *Service) InsertFlightAfter(ctx context.Context, auth aman.CommandContext, command aman.InsertFlightAfterCommand) (sequence.CommandMutation, error) {
-	if err := s.authorizeFlightDisposition(auth); err != nil {
-		return nil, err
+	if !auth.CanChangeSequenceOrder() {
+		return nil, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "inserting a flight requires FMP authority or the flight's STAR family"}
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		index, anchorIndex := flightIndex(state.Flights, command.Callsign), flightIndex(state.Flights, command.AfterCallsign)
@@ -59,6 +59,10 @@ func (s *Service) InsertFlightAfter(ctx context.Context, auth aman.CommandContex
 			return invalid("change runway before moving a sequenced flight to another runway")
 		}
 		runwayChanged := target.SelectedRunwayGroup == nil || *target.SelectedRunwayGroup != group
+		// Controllers may reorder their own flights but runway choice stays FMP-only.
+		if runwayChanged && !auth.HasFMPAuthority() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "changing runway requires FMP authority"}
+		}
 		if runwayChanged || command.STARFamily != nil {
 			priorSlot, priorOrder := target.Slot, target.Order
 			assignFlightToRunwayGroup(&target, group)

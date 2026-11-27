@@ -187,6 +187,10 @@ export function AMANBoardView({
   const setStoredACCView = useWebSocketStore((value) => value.setAMANSelectedView);
   const readOnly = useWebSocketStore((value) => value.readOnly);
   const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
+  const forcedFMP = useWebSocketStore((value) => value.amanForcedFMP);
+  const forceFMPPending = useWebSocketStore((value) => value.amanForceFMPCommandID !== null);
+  const forceFMPRejection = useWebSocketStore((value) => value.amanForceFMPRejection);
+  const setForcedFMP = useWebSocketStore((value) => value.setAMANForcedFMP);
   const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
   const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
@@ -347,6 +351,10 @@ export function AMANBoardView({
         connectionState={connectionState}
         commandRejections={commandRejections}
         hasFMPAuthority={hasFMPAuthority}
+        forcedFMP={forcedFMP}
+        forceFMPPending={forceFMPPending}
+        forceFMPRejection={forceFMPRejection}
+        onForceFMP={setForcedFMP}
         onCommand={sendCommand}
         onRunwayGroupViewChange={setSelectedRunwayGroupID}
         onStarFamiliesChange={setSelectedStarFamilies}

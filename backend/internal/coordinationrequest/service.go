@@ -21,6 +21,14 @@ type CommandContext struct {
 	Actor      string
 	Role       string
 	ReceivedAt time.Time
+	// FMPAuthority grants FMP coordination rights to a non-FMP role: a
+	// controller who forced FMP while no FMP position is online.
+	FMPAuthority bool
+}
+
+// HasFMPAuthority reports whether the actor may act as the FMP.
+func (c CommandContext) HasFMPAuthority() bool {
+	return c.FMPAuthority || aman.IsFMPRole(c.Role)
 }
 
 type SubmitCommand struct {
@@ -84,7 +92,7 @@ func (s *Service) Snapshot(ctx context.Context, auth CommandContext) (TransferRe
 	if err != nil {
 		return TransferResult{}, err
 	}
-	projected, err := Project(requests, Audience{Controller: ControllerID(auth.Role), Role: auth.Role})
+	projected, err := Project(requests, Audience{Controller: ControllerID(auth.Role), Role: auth.Role, FMPAuthority: auth.FMPAuthority})
 	return TransferResult{Requests: projected, Revision: coordinationRevision(requests)}, err
 }
 
@@ -160,7 +168,7 @@ func (s *Service) Submit(ctx context.Context, auth CommandContext, command Submi
 	if err := s.validateContext(auth); err != nil {
 		return CommitResult{}, err
 	}
-	if !aman.IsFMPRole(auth.Role) {
+	if !auth.HasFMPAuthority() {
 		return CommitResult{}, ErrUnauthorized
 	}
 	recipient, err := s.owners.TrackingController(ctx, auth.Airport, command.Callsign)

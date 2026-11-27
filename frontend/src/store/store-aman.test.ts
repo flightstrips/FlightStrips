@@ -309,9 +309,10 @@ describe("AMAN command store", () => {
     store.getState().setAMANConnectionState("disconnected");
     expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     store.getState().setAMANConnectionState("connected");
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.expedite_flight", callsign: "SAS123"})).toBeNull();
     client._emit(EventType.FrontendInitial, initialSnapshot(false));
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
+    // Order commands such as lock go to the server, which checks STAR families.
+    expect(store.getState().sendAMANCommand({type: "aman.expedite_flight", callsign: "SAS123"})).toBeNull();
     client._emit(EventType.FrontendInitial, initialSnapshot(true, true));
     expect(store.getState().sendAMANCommand({type: "aman.lock_flight", callsign: "SAS123"})).toBeNull();
     store.setState({readOnly: false, amanState: {...store.getState().amanState!, authoritative: false, effective_mode: "read_only"}});
@@ -460,4 +461,18 @@ describe("EuroScope AMAN selection", () => {
     expect(store.getState().amanEuroScopeSelectionGeneration).toBeGreaterThan(invalidatedGeneration);
   });
 
+});
+
+describe("AMAN controller sequencing", () => {
+  it("sends order commands without FMP authority but keeps FMP-only commands local", () => {
+    const client = createMockClient();
+    const store = createWebSocketStore(client);
+    store.getState().setAMANConnectionState("connected");
+    client._emit(EventType.FrontendInitial, initialSnapshot(false));
+    client._emit(EventType.FrontendAMANState, replacement(7));
+
+    expect(store.getState().sendAMANCommand({type: "aman.swap_flights", callsign: "SAS1", other_callsign: "SAS2"})).not.toBeNull();
+    expect(client.send).toHaveBeenLastCalledWith(expect.objectContaining({type: "aman.swap_flights"}));
+    expect(store.getState().sendAMANCommand({type: "aman.expedite_flight", callsign: "SAS1"})).toBeNull();
+  });
 });

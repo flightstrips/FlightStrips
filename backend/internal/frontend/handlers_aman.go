@@ -24,6 +24,8 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANInsertFlightAfterType, handleAMANInsertFlightAfter)
 	handlers.Add(events.AMANMoveFlightType, handleAMANMoveFlight)
 	handlers.Add(events.AMANSwapFlightsType, handleAMANSwapFlights)
+	handlers.Add(events.AMANForceFMPType, handleAMANForceFMP)
+	handlers.Add(events.AMANReleaseForcedFMPType, handleAMANReleaseForcedFMP)
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
 	handlers.Add(events.AMANUnlockFlightType, handleAMANUnlockFlight)
 	handlers.Add(events.AMANExpediteFlightType, handleAMANExpediteFlight)
@@ -79,7 +81,7 @@ func handleAMANSubmitCoordination(ctx context.Context, client *Client, message M
 	default:
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("unknown coordination request kind")))
 	}
-	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{SessionID: identity.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
+	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{SessionID: identity.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt, FMPAuthority: auth.FMPAuthority}, coordinationrequest.SubmitCommand{
 		CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, Callsign: coordinationrequest.Callsign(wire.Data.Callsign), Kind: coordinationrequest.Kind(wire.Data.Kind), Payload: payload,
 	})
 	if err != nil {
@@ -238,7 +240,7 @@ func handleAMANPlaceFlightAtTime(ctx context.Context, client *Client, message Me
 		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
 	}
 	command := aman.PlaceFlightAtTimeCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), SlotTime: slotTime, AllowGap: *wire.Data.AllowGap}
-	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+	return runAMANSequenceCommand(ctx, client, command.Metadata.CommandID, []aman.Callsign{command.Callsign}, nil, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.PlaceFlightAtTime(ctx, auth, command)
 	})
 }
@@ -249,7 +251,7 @@ func handleAMANInsertFlightAfter(ctx context.Context, client *Client, message Me
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
 	command := aman.InsertFlightAfterCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), AfterCallsign: aman.Callsign(wire.Data.AfterCallsign), STARFamily: wire.Data.STARFamily}
-	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+	return runAMANSequenceCommand(ctx, client, command.Metadata.CommandID, []aman.Callsign{command.Callsign, command.AfterCallsign}, command.STARFamily, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.InsertFlightAfter(ctx, auth, command)
 	})
 }
@@ -264,7 +266,13 @@ func handleAMANMoveFlight(ctx context.Context, client *Client, message Message) 
 		RunwayGroupID:  aman.RunwayGroupID(wire.Data.RunwayGroupID),
 		BeforeCallsign: callsignPointer(wire.Data.BeforeCallsign), AfterCallsign: callsignPointer(wire.Data.AfterCallsign),
 	}
-	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+	named := []aman.Callsign{command.Callsign}
+	for _, anchor := range []*aman.Callsign{command.BeforeCallsign, command.AfterCallsign} {
+		if anchor != nil {
+			named = append(named, *anchor)
+		}
+	}
+	return runAMANSequenceCommand(ctx, client, command.Metadata.CommandID, named, nil, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.MoveFlight(ctx, auth, command)
 	})
 }
@@ -275,19 +283,31 @@ func handleAMANSwapFlights(ctx context.Context, client *Client, message Message)
 		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
 	}
 	command := aman.SwapFlightsCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Callsign: aman.Callsign(wire.Data.Callsign), OtherCallsign: aman.Callsign(wire.Data.OtherCallsign)}
-	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+	return runAMANSequenceCommand(ctx, client, command.Metadata.CommandID, []aman.Callsign{command.Callsign, command.OtherCallsign}, nil, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.SwapFlights(ctx, auth, command)
 	})
 }
 
+// handleAMANSequenceFlightCommand runs a single-flight sequence-order command
+// that controllers may also use on their own STAR families.
+func handleAMANSequenceFlightCommand(ctx context.Context, client *Client, message Message, expected events.EventType, execute func(aman.CommandContext, events.AMANFlightRequest) (aman.CommandExecution, error)) error {
+	var wire events.AMANFlightMessage
+	if err := decodeAMANMessage(message, expected, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	return runAMANSequenceCommand(ctx, client, wire.Data.CommandID, []aman.Callsign{aman.Callsign(wire.Data.Callsign)}, nil, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return execute(auth, wire.Data)
+	})
+}
+
 func handleAMANLockFlight(ctx context.Context, client *Client, message Message) error {
-	return handleAMANFlightCommand(ctx, client, message, events.AMANLockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+	return handleAMANSequenceFlightCommand(ctx, client, message, events.AMANLockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.LockFlight(ctx, auth, aman.LockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
 
 func handleAMANUnlockFlight(ctx context.Context, client *Client, message Message) error {
-	return handleAMANFlightCommand(ctx, client, message, events.AMANUnlockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+	return handleAMANSequenceFlightCommand(ctx, client, message, events.AMANUnlockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.UnlockFlight(ctx, auth, aman.UnlockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), Callsign: aman.Callsign(data.Callsign)})
 	})
 }
@@ -501,6 +521,10 @@ func runAMANCommand(ctx context.Context, client *Client, commandID string, execu
 	if err != nil {
 		return rejectDecodedAMAN(ctx, client, commandID, err)
 	}
+	return executeAMANCommand(ctx, client, commandID, auth, execute)
+}
+
+func executeAMANCommand(ctx context.Context, client *Client, commandID string, auth aman.CommandContext, execute func(aman.CommandContext) (aman.CommandExecution, error)) error {
 	execution, err := execute(auth)
 	if err != nil {
 		return rejectAMAN(ctx, client, commandID, execution.CurrentRevision, err)
@@ -525,7 +549,7 @@ func (hub *Hub) amanContextForIdentity(client *Client, identity clientIdentity) 
 	if !hub.hasAMANFMPAuthorityForIdentity(client, identity) {
 		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an FMP role"}
 	}
-	return aman.CommandContext{SessionID: identity.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
+	return aman.CommandContext{SessionID: identity.session, Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt, FMPAuthority: auth.FMPAuthority}, nil
 }
 func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.CommandContext, error) {
 	return hub.coordinationContextForIdentity(client, client.identitySnapshot())
@@ -547,7 +571,7 @@ func (hub *Hub) coordinationContextForIdentity(client *Client, identity clientId
 	if hub.amanNow != nil {
 		now = hub.amanNow
 	}
-	return coordinationrequest.CommandContext{SessionID: identity.session, Airport: identity.airport, Actor: client.GetCid(), Role: hub.amanRoleForIdentity(identity), ReceivedAt: now().UTC()}, nil
+	return coordinationrequest.CommandContext{SessionID: identity.session, Airport: identity.airport, Actor: client.GetCid(), Role: hub.amanRoleForIdentity(identity), ReceivedAt: now().UTC(), FMPAuthority: hub.holdsForcedFMP(identity)}, nil
 }
 func (hub *Hub) amanRole(client *Client) string {
 	if client == nil {
@@ -575,7 +599,7 @@ func (hub *Hub) hasAMANFMPAuthorityForIdentity(client *Client, identity clientId
 	if client == nil || !client.IsAuthenticated() || identity.session == WaitingForEuroscopeConnectionSessionId {
 		return false
 	}
-	return aman.IsFMPRole(hub.amanRoleForIdentity(identity))
+	return aman.IsFMPRole(hub.amanRoleForIdentity(identity)) || hub.holdsForcedFMP(identity)
 }
 
 func configuredAMANRole(position string) string {

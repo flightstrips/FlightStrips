@@ -14,6 +14,25 @@ type CommandContext struct {
 	Actor      string
 	Role       string
 	ReceivedAt time.Time
+	// FMPAuthority is set by the server when the actor holds FMP authority
+	// without an FMP role: a controller who forced FMP while no FMP position
+	// is online.
+	FMPAuthority bool
+	// ControllerSequencing is set by the server when a controller without
+	// FMP authority was cleared to change the order of flights on its own
+	// STAR families. It never grants FMP-only commands.
+	ControllerSequencing bool
+}
+
+// CanChangeSequenceOrder reports whether the actor may run sequence-order
+// commands: swap, move, insert behind, place at time and manual freeze.
+func (c CommandContext) CanChangeSequenceOrder() bool {
+	return c.ControllerSequencing || c.HasFMPAuthority()
+}
+
+// HasFMPAuthority reports whether the actor may run FMP-only AMAN commands.
+func (c CommandContext) HasFMPAuthority() bool {
+	return c.FMPAuthority || IsFMPRole(c.Role)
 }
 
 // IsFMPRole reports whether a server-derived controller role is an FMP position.

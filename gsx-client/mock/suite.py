@@ -312,6 +312,95 @@ assert arrive(["Parking 89", "W Parking 89", "Apron 89"], "E89") is None
 assert arrive(["Gate A1"], "F92") is None
 case("a number that fits another stand, or several, is never guessed")
 
+
+# -- arrival: MARS sub-positions ----------------------------------------------
+# One parking with several stop positions, each with its own ID. GSX reports
+# only the active one (activeMarsId), never the list, so the script has to try
+# and confirm. Profiles name them after the stands: gate g 121_mars_g120.
+
+
+class MarsParking(Parking):
+    def __init__(self, name, mars=()):
+        Parking.__init__(self, name)
+        self.mars = list(mars)
+        self.activeMarsId = self.mars[0] if self.mars else None
+
+
+def arrive_mars(parkings, stand, polls=12, refuse=False):
+    """Assign stand, poll a while; the parking and position GSX ends up on."""
+    env = Env()
+    env.gate = None
+    tried = []
+
+    def select(wanted, marsPosition=None):
+        if refuse:
+            return False
+        if isinstance(wanted, Parking):
+            tried.append((wanted.uiGateName, marsPosition))
+            # Case-sensitive, the worst case: only the profile's own spelling
+            # (g120) activates a position. Anything else changes nothing.
+            if marsPosition is not None and marsPosition in wanted.mars:
+                wanted.activeMarsId = marsPosition
+            env.gate = wanted
+            return True
+        hits = [p for p in parkings
+                if p.uiGateName.upper() == wanted.upper()
+                or p.uiGateName.upper().endswith(" " + wanted.upper())]
+        if len(hits) == 1:
+            env.gate = hits[0]
+            return True
+        return hits or False
+
+    gg = env.globals(restricted=True)
+    exec(compile(SRC, "h.py", "exec"), gg)
+    gg["selectGate"] = select
+    gg["getAirport"] = lambda: type("A", (), {"icao": "EKCH", "parkings": parkings})()
+    h = Handler()
+    gg["_standResetAll"](h)
+    del LOG[:]
+    for _ in range(polls):
+        gg["_standCheckArrival"](h, stand)
+    gate = env.gate
+    return (gate.uiGateName if gate else None,
+            getattr(gate, "activeMarsId", None) if gate else None, tried)
+
+
+G = lambda: [MarsParking("Gate G 121", ["g121", "g120", "g122"]),
+             MarsParking("Gate G 124", ["g124", "g123", "g125"])]
+
+name, active, tried = arrive_mars(G(), "G120")
+assert (name, active) == ("Gate G 121", "g120"), (name, active, tried)
+assert said() == ["Stand G120 assigned"], LOG
+case("a stand that is a MARS position of another parking is selected there")
+
+name, active, tried = arrive_mars(
+    [MarsParking("Gate F 90"), MarsParking("Gate F 91", ["f91", "f89"])], "F89")
+assert (name, active) == ("Gate F 91", "f89"), (name, active, tried)
+assert tried[0][0] == "Gate F 90", "the nearest parking is tried first"
+assert said() == ["Stand F89 assigned"], LOG
+case("a MARS try that GSX does not confirm moves on to the next parking")
+
+name, active, tried = arrive_mars([MarsParking("Gate G 121", ["g121", "g122"])], "G120")
+assert said() == ["Stand G120 not found in this scenery - select it in the GSX menu"], LOG
+case("a MARS position no parking holds is reported, once")
+
+name, active, tried = arrive_mars([MarsParking("Gate G 121", ["g121", "g120"])], "G120", refuse=True)
+assert any("refused" in line for line in LOG), LOG
+assert tried == [] and not said(), (tried, LOG)
+case("a refused MARS try stops there")
+
+parkings = [MarsParking("Gate G 121", ["g120", "g121", "g122"])]
+name, active, tried = arrive_mars(parkings, "G121")
+assert (name, active) == ("Gate G 121", "g121"), (name, active, tried)
+assert said() == ["Stand G121 assigned"], "announced once, not again for the move"
+case("a MARS parking selected by name moves to the assigned position")
+
+parkings = [MarsParking("Gate A 20", ["L", "R"])]
+name, active, tried = arrive_mars(parkings, "A20")
+assert (name, active) == ("Gate A 20", "L"), (name, active, tried)
+assert all(m is None for _, m in tried), "L and R are not stands; left as GSX chose"
+case("MARS positions named L or R are left as GSX chose")
+
 # The callbacks catch and log their own exceptions, so surviving is not enough:
 # each has to have done its job, and nothing may have logged a failure.
 env = Env()

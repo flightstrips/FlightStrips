@@ -116,6 +116,9 @@ PUSH_UNCERTAIN = 1   # it may be built; only the pilot can see
 PUSH_ROLLING = 2     # the aircraft is moving
 
 VDGS_ID = "flightstrips_pushback"
+# A MARS sub-position's parking is numbered at most this far from it: EKCH's
+# F91 holds F89, G121 holds G120 and G122.
+MARS_REACH = 2
 
 
 # --------------------------------------------------------------------------
@@ -1412,11 +1415,18 @@ def _standReportTargetMiss(self):
 def _standCheckArrival(self, stand):
     """Inbound: park on the stand the controller assigned."""
     if _standSame(stand, self._standAssigned or ""):
+        if self._standMarsTries is not None:
+            _standMarsStep(self, stand)
+        else:
+            _standMarsSettle(self, stand)
         return True
 
     if self._standAssigned is not None:
         _standSay(self, "Stand changed by ATC")
     self._standAssigned = stand
+    self._standMarsTries = None
+    self._standMarsLast = None
+    self._standMarsSettled = False
     _standApply(self, stand)
     return True                              # selectGate lands next cycle
 
@@ -1430,35 +1440,56 @@ def _standDigits(text):
     return text[end:].lstrip("0") or ("0" if text[end:] else "")
 
 
+def _standLetters(stand):
+    """The letters in front of a stand's number: "F91" -> "F", "91" -> ""."""
+    return str(stand or "").strip().upper().rstrip("0123456789").strip()
+
+
+def _standParkingNumber(parking, letters):
+    """The number a parking stands for, if its name fits a stand with letters.
+
+    The number is the last word ("Parking 91", "E Parking 110") or follows the
+    letters in it ("Gate G121"). Any other single letter in the name ("E
+    Parking 91" for F91) means a different stand, and so does other text
+    joined to the number ("Gate C91").
+    """
+    words = str(getattr(parking, "uiGateName", "") or "").upper().split()
+    if not words:
+        return None
+    last = words[-1]
+    if not last.isdigit():
+        if letters and last.startswith(letters) and last[len(letters):].isdigit():
+            last = last[len(letters):]
+        else:
+            return None
+    # any(), not all(): all is not among the builtins GSX allows.
+    if any(w != letters for w in words[:-1] if len(w) == 1 and w.isalpha()):
+        return None
+    return int(last)
+
+
+def _standParkings():
+    airport = getAirport()
+    try:
+        return list(airport.parkings) if airport is not None else []
+    except Exception:
+        return []
+
+
 def _standParkingByNumber(stand):
     """The parking a profile names differently from the controller.
 
     GSX matches "D2" to "Gate D2" by itself, but not "F91" to "Parking 91" or
-    "E110" to "E Parking 110". Those are found by the number, as a word of its
-    own. A parking whose name has other letters (an "E" where the controller
-    said F91, or "C91") is a different stand. Where several still fit, the one
-    whose name has the stand's letters wins; still more than one, and none is
-    guessed.
+    "E110" to "E Parking 110". Those are found by the number. Where several
+    parkings fit, the one whose name also has the stand's letters wins; still
+    more than one, and none is guessed.
     """
-    stand = str(stand or "").strip().upper()
     number = _standDigits(stand)
     if not number:
         return None
-    letters = stand.rstrip("0123456789").strip()
-    airport = getAirport()
-    try:
-        parkings = list(airport.parkings) if airport is not None else []
-    except Exception:
-        return None
-
-    def fits(parking):
-        words = str(getattr(parking, "uiGateName", "") or "").upper().split()
-        if not words or not words[-1].isdigit() or _standDigits(words[-1]) != number:
-            return False
-        # any(), not all(): all is not among the builtins GSX allows.
-        return not any(w != letters for w in words[:-1] if len(w) == 1 and w.isalpha())
-
-    found = [p for p in parkings if fits(p)]
+    letters = _standLetters(stand)
+    found = [p for p in _standParkings()
+             if _standParkingNumber(p, letters) == int(number)]
     if len(found) > 1 and letters:
         lettered = [p for p in found
                     if letters in str(getattr(p, "uiGateName", "")).upper().split()]
@@ -1472,6 +1503,106 @@ def _standParkingByNumber(stand):
     return None
 
 
+def _standMarsCandidates(stand):
+    """Where a MARS sub-position called stand could be, nearest first.
+
+    A MARS parking is one parking with several stop positions, each with its own
+    ID: EKCH's G121 holds G120, G121 and G122. GSX does not say which IDs a
+    parking holds, only which one is active, so the parkings with the stand's
+    letters and a number within MARS_REACH are tried in turn, and each is
+    confirmed before it counts. The ID is tried as the controller wrote it and
+    in lower case, the way profiles name it (gate g 121_mars_g120).
+    """
+    number = _standDigits(stand)
+    if not number:
+        return []
+    wanted = int(number)
+    letters = _standLetters(stand)
+    near = []
+    for parking in _standParkings():
+        n = _standParkingNumber(parking, letters)
+        if n is not None and n != wanted and abs(n - wanted) <= MARS_REACH:
+            near.append((abs(n - wanted), n, parking))
+    near.sort(key=lambda item: (item[0], item[1]))
+    return [(parking, mars) for _, _, parking in near for mars in _standMarsIds(stand)]
+
+
+def _standMarsIds(stand):
+    """The stand as a MARS ID: as the controller wrote it, then in lower case."""
+    ids = [str(stand).strip()]
+    if ids[0].lower() != ids[0]:
+        ids.append(ids[0].lower())
+    return ids
+
+
+def _standMarsActive(stand):
+    gate = getGate()
+    active = getattr(gate, "activeMarsId", None) if gate is not None else None
+    return active is not None and _standSame(active, stand)
+
+
+def _standMarsStep(self, stand):
+    """One MARS attempt per poll: confirm the last one, or try the next.
+
+    selectGate is deferred, so a try made on one poll is checked on the next.
+    """
+    if self._standMarsLast is not None and _standMarsActive(stand):
+        parking = self._standMarsLast
+        self._standMarsTries = None
+        self._standMarsLast = None
+        print("[stands] %s is a MARS position of \"%s\"" % (stand, parking.uiGateName))
+        if not self._standMarsSettled:       # a settle was announced already
+            _standSay(self, "Stand %s assigned" % stand)
+        self._standMarsSettled = True
+        return
+    tries = self._standMarsTries or []
+    if not tries:
+        self._standMarsTries = None
+        if self._standMarsSettled:
+            # The parking is right; only its position could not be moved.
+            self._standMarsLast = None
+            print("[stands] could not move to MARS position %s here" % stand)
+        elif self._standMarsLast is not None:
+            self._standMarsLast = None
+            _standSay(self, "Stand %s not found in this scenery - select it in the GSX menu" % stand)
+        else:
+            print("[stands] no parking matches '%s' in this scenery" % stand)
+        return
+    parking, mars = tries[0]
+    self._standMarsTries = tries[1:]
+    result = selectGate(parking, marsPosition=mars)
+    if result is True:
+        self._standMarsLast = parking
+        print("[stands] trying %s as a MARS position of \"%s\"" % (mars, parking.uiGateName))
+        return
+    self._standMarsTries = None
+    self._standMarsLast = None
+    if result is False:
+        print("[stands] '%s' refused (parked, or parking services revoked)" % stand)
+    else:
+        print("[stands] selectGate error trying MARS position %s" % mars)
+
+
+def _standMarsSettle(self, stand):
+    """Once, after a parking is selected by name or number: if it is a MARS
+    parking whose active position is another stand (G120 when G121 was
+    assigned), move it to the one assigned. Positions named L or R are not
+    stands, and are left as GSX chose."""
+    if self._standMarsSettled:
+        return
+    gate = getGate()
+    if gate is None:
+        return                               # not selected yet; next poll
+    self._standMarsSettled = True
+    active = getattr(gate, "activeMarsId", None)
+    if active is None or not _standDigits(active) or _standSame(active, stand):
+        return
+    print("[stands] MARS position %s is active; moving to %s" % (active, stand))
+    self._standMarsTries = [(gate, mars) for mars in _standMarsIds(stand)]
+    self._standMarsLast = None
+    _standMarsStep(self, stand)
+
+
 def _standApply(self, stand):
     """Select the assigned stand. selectGate is deferred by one GSX cycle."""
     result = selectGate(stand)
@@ -1481,6 +1612,12 @@ def _standApply(self, stand):
         if parking is not None:
             print("[stands] %s is \"%s\" in this scenery" % (stand, parking.uiGateName))
             result = selectGate(parking)
+        else:
+            tries = _standMarsCandidates(stand)
+            if tries:
+                self._standMarsTries = tries
+                _standMarsStep(self, stand)
+                return True
 
     if isinstance(result, list) and result:
         chosen = result[0]                   # ambiguous name
@@ -1736,6 +1873,9 @@ def _standResetAll(self):
     """Forget this whole visit. A new airport, or the first time through."""
     self._standUserOverride = False
     self._standAssigned = None
+    self._standMarsTries = None              # MARS positions still to try
+    self._standMarsLast = None               # the parking last tried, to confirm
+    self._standMarsSettled = False
     self._standPushback = None
     self._standAppliedPick = None
     self._standPushPoint = None              # the assigned point, as the pilot reads it

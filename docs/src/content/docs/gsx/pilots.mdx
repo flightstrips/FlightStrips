@@ -114,7 +114,8 @@ routes, or ask ATC for a different point.
 ## Arriving: the assigned stand
 
 GSX selects your stand once you are on the ground and slowing down. If ATC moves
-you, it follows. If you pick a different stand yourself, the script stops for
+you, it follows. A stand that's part of a larger parking (G120 within G121)
+can take a few seconds longer, while the script finds it. If you pick a different stand yourself, the script stops for
 the rest of that visit and never overrides your choice.
 
 ## Your callsign
@@ -148,3 +149,4 @@ All script output goes to the GSX log, with `[stands]` at the start of each line
 | `callsign XYZ123 (from the sim)` | SimBrief was not loaded, so the callsign may be wrong. |
 | `fetchJson error ...` | FlightStrips could not be reached. The script keeps retrying. |
 | `pilot took over` | You changed the stand yourself, so the script stopped for this visit. |
+| `Stand G120 not found in this scenery` | Your scenery has no parking for that stand. Select it yourself in the GSX menu. |

@@ -208,6 +208,16 @@ matches it to the profile's parking itself:
   `Gate C91`) is a different stand and never taken. Where several parkings
   still fit, the one with the stand's letters wins; if that leaves more than
   one, the handler selects nothing and logs it.
+- **As a MARS sub-position.** A stand with no parking of its own (G120) may be
+  a stop position of a neighbouring parking (`gate g 121_mars_g120`). GSX
+  exposes only the active position, `activeMarsId`, not a parking's list, so
+  the handler calls `selectGate(parking, marsPosition="G120")` on each parking
+  with the same letters within `MARS_REACH` (2) numbers, nearest first, one per
+  poll. It tries the ID as sent and in lower case, and a try counts only once
+  `getGate().activeMarsId` reports it. When a stand selected by name is a MARS
+  parking with another position active, the handler moves it to the assigned
+  one the same way. IDs without a number (`L`, `R`) are not stands and are left
+  alone.
 
 So no stand is configured per profile. A profile whose names defeat both rules
 needs its parkings renamed, not a mapping in FlightStrips.

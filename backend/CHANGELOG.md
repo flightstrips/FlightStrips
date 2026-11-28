@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.11.1...backend/v3.12.0) (2026-11-28)
+
+
+### Features
+
+* **stand:** serve every GSX profile the same stand and pushback data ([3dd185a](https://github.com/flightstrips/FlightStrips/commit/3dd185a9c15f52f52ccb6ea3d9d83419871975a4))
+
 ## [3.11.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.11.0...backend/v3.11.1) (2026-11-24)
 
 

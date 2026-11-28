@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.11.0...docs/v1.12.0) (2026-11-28)
+
+
+### Features
+
+* **stand:** select GSX MARS sub-positions for assigned stands ([ee61c61](https://github.com/flightstrips/FlightStrips/commit/ee61c617b7c7d7b8009b00d7dfdc9ab6ae749868))
+* **stand:** serve every GSX profile the same stand and pushback data ([3dd185a](https://github.com/flightstrips/FlightStrips/commit/3dd185a9c15f52f52ccb6ea3d9d83419871975a4))
+
 ## [1.11.0](https://github.com/flightstrips/FlightStrips/compare/docs/v1.10.1...docs/v1.11.0) (2026-11-26)
 
 

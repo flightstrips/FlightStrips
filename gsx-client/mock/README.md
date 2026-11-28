@@ -11,7 +11,7 @@ node gsx-client/mock/server.js
 Or, on Windows, a keyboard-driven version for **Gate D2 at EKCH**. Park
 there with either EKCH Simnord profile active before you start: the mock
 doesn't know which stand you are on. `1` to `4` assign S1, S2, R1 or S3, each
-sent as the real server sends it to an unmapped scenery: the bare point and
+sent as the real server sends it: the bare point and
 its position from `backend/config/ekch/gsx_sceneries.json`. So this tests the
 position matching every profile relies on. `R` resets to nothing assigned,
 and the screen lists recent polls. Edit `$Points` at the top of the script
@@ -92,15 +92,16 @@ Editor's output panel. `GSX departure state` is logged on every transition.
 
 ## Contract
 
-Five fields, and the handler reads the first four. A stand and a pushback are
+Five fields, and the handler reads the first four. The real server no longer
+sends `pushback`; the mock still accepts it, for testing older behaviour. A stand and a pushback are
 never both set — a stand is where arriving traffic parks, a pushback point is
 how departing traffic leaves the stand it is on.
 
 | Field | Meaning |
 | --- | --- |
 | `stand` | The parking to select. Arrivals only. |
-| `pushback` | The assigned point as this scenery's route labels. Departures only, and only for a scenery mapped in `gsx_sceneries.json`. A list, because a stand often offers the same taxiway in two facings. |
-| `point` | The bare release point, such as `S1`, or a direction, such as `W`. Every departure, whatever the scenery. |
+| `pushback` | Route labels to look for, as a list. Departures only. The handler falls back to them when there is no `target`. |
+| `point` | The bare release point, such as `S1`, or a direction, such as `W`. Every departure. |
 | `target` | Where the push should end: `lat`, `lon`, `heading` and `radius_m`, plus `avoid` for a direction. The handler picks the route ending there, by position. Without it, the handler falls back to the route names. |
 | `revision` | What the real endpoint puts in its `ETag`. The mock sends no `ETag`, so this is only along for the ride. |
 

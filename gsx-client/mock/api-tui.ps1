@@ -20,8 +20,8 @@ $TestAirport = "EKCH"
 
 # Key -> the release point a controller would assign. D2 has a route to each in
 # both EKCH Simnord profiles (Sonnich calls them "S1 Face N", RW Profiles
-# "Release Point S1 (NORTH)"). Each is sent as the real server sends it to an
-# unmapped scenery: the bare point and where it is, so the handler has to find
+# "Release Point S1 (NORTH)"). Each is sent as the real server sends it: the
+# bare point and where it is, so the handler has to find
 # the route by position - the path every profile relies on.
 $Points = [ordered]@{
     "1" = "S1"

@@ -41,7 +41,6 @@ const server = http.createServer((req, res) => {
 
   const callsign = query.get("callsign") || "?";
   const icao = query.get("icao") || "?";
-  const scenery = query.get("scenery") || "?";
 
   let payload;
   try {
@@ -77,7 +76,7 @@ const server = http.createServer((req, res) => {
   });
   res.end(body);
 
-  log(`${callsign} at ${icao} (${scenery}) -> ${body}`);
+  log(`${callsign} at ${icao} -> ${body}`);
 });
 
 server.listen(PORT, () => {

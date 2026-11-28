@@ -32,8 +32,8 @@
 # ---------------------------------------------------------------------------
 #
 # FOR WHOEVER PUBLISHES THE PROFILE
-#   Set API_BASE and SCENERY below, and ship this file alongside the .ini. The
-#   filename must be the .ini's name plus "_handler":
+#   Nothing to set: ship this file alongside the .ini. The filename must be
+#   the .ini's name plus "_handler":
 #
 #       EKCH-Simnord-Sonnich.ini  ->  EKCH-Simnord-Sonnich_handler.py
 #
@@ -45,11 +45,10 @@
 #   N/E/S/W buttons, for a bare taxiway) picks the route facing that way.
 #   Only when the server has no position for the point does the name decide.
 #   A stand is sent as the controller named it (D2); GSX matches "Gate D2".
+#   Where the profile names it differently ("Parking 91" for F91), the script
+#   finds the parking by its number.
 #
-#   SCENERY is optional and only matters for stand names a profile spells in
-#   its own way: set it to a scenery key in the server's gsx_sceneries.json.
-#
-#   Endpoint: GET /api/gsx/stand?callsign=&icao=&scenery=
+#   Endpoint: GET /api/gsx/stand?callsign=&icao=
 #     arriving here -> { "stand": "D2", "point": null, "target": null, ... }
 #     leaving here  -> { "stand": null, "point": "S1",
 #                        "target": { "lat": 55.62603, "lon": 12.65322,
@@ -57,7 +56,6 @@
 #     nothing to do -> { "stand": null, "point": null, "target": null, ... }
 
 API_BASE = "https://api.flightstrips.dk"
-SCENERY = "Simnord-Sonnich"
 
 POLL_INTERVAL_MS = 5000    # how often to re-check
 POLL_LIMIT = 1440          # stop after this many polls (~2h at 5s)
@@ -125,7 +123,7 @@ VDGS_ID = "flightstrips_pushback"
 # --------------------------------------------------------------------------
 
 def _standEscape(value):
-    """Escape a query value. Callsigns and scenery names only."""
+    """Escape a query value. Callsigns only."""
     out = []
     for ch in str(value).strip():
         if ch.isalnum() or ch in "-_.":
@@ -202,8 +200,8 @@ def _standFetch(self):
     # rstrip the base: a trailing slash makes this "https://host//api/gsx/stand",
     # a different path to most servers, answered 404 - and a failed fetch looks
     # exactly like "nothing assigned" from the cockpit.
-    url = "%s/api/gsx/stand?callsign=%s&icao=%s&scenery=%s" % (
-        API_BASE.rstrip("/"), self._standCallsign, icao, _standEscape(SCENERY))
+    url = "%s/api/gsx/stand?callsign=%s&icao=%s" % (
+        API_BASE.rstrip("/"), self._standCallsign, icao)
     return fetchJson(url, timeout=8, etag=True)
 
 
@@ -1423,9 +1421,66 @@ def _standCheckArrival(self, stand):
     return True                              # selectGate lands next cycle
 
 
+def _standDigits(text):
+    """The number a stand name ends in: "F91" -> "91", "E Parking 110" -> "110"."""
+    text = str(text or "").strip()
+    end = len(text)
+    while end > 0 and text[end - 1].isdigit():
+        end -= 1
+    return text[end:].lstrip("0") or ("0" if text[end:] else "")
+
+
+def _standParkingByNumber(stand):
+    """The parking a profile names differently from the controller.
+
+    GSX matches "D2" to "Gate D2" by itself, but not "F91" to "Parking 91" or
+    "E110" to "E Parking 110". Those are found by the number, as a word of its
+    own. A parking whose name has other letters (an "E" where the controller
+    said F91, or "C91") is a different stand. Where several still fit, the one
+    whose name has the stand's letters wins; still more than one, and none is
+    guessed.
+    """
+    stand = str(stand or "").strip().upper()
+    number = _standDigits(stand)
+    if not number:
+        return None
+    letters = stand.rstrip("0123456789").strip()
+    airport = getAirport()
+    try:
+        parkings = list(airport.parkings) if airport is not None else []
+    except Exception:
+        return None
+
+    def fits(parking):
+        words = str(getattr(parking, "uiGateName", "") or "").upper().split()
+        if not words or not words[-1].isdigit() or _standDigits(words[-1]) != number:
+            return False
+        # any(), not all(): all is not among the builtins GSX allows.
+        return not any(w != letters for w in words[:-1] if len(w) == 1 and w.isalpha())
+
+    found = [p for p in parkings if fits(p)]
+    if len(found) > 1 and letters:
+        lettered = [p for p in found
+                    if letters in str(getattr(p, "uiGateName", "")).upper().split()]
+        if lettered:
+            found = lettered
+    if len(found) == 1:
+        return found[0]
+    if found:
+        print("[stands] %d parkings are numbered %s here; not guessing which is %s"
+              % (len(found), number, stand))
+    return None
+
+
 def _standApply(self, stand):
     """Select the assigned stand. selectGate is deferred by one GSX cycle."""
     result = selectGate(stand)
+
+    if result is False:
+        parking = _standParkingByNumber(stand)
+        if parking is not None:
+            print("[stands] %s is \"%s\" in this scenery" % (stand, parking.uiGateName))
+            result = selectGate(parking)
 
     if isinstance(result, list) and result:
         chosen = result[0]                   # ambiguous name

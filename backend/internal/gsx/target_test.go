@@ -140,9 +140,6 @@ func TestShippedReleasePoints(t *testing.T) {
 	if target := sceneries.Target("EKCH", "B19", "Y3"); target != nil {
 		t.Fatalf("Y3 needs its surveyed positions reconciled before publishing a target: %+v", target)
 	}
-	if _, labels := sceneries.Resolve("EKCH", "B19", "Simnord-Sonnich", "Y3"); len(labels) == 0 {
-		t.Fatal("B19 Y3 should still carry the mapped labels")
-	}
 	for gate, rules := range cfg.Facings {
 		for point, facing := range rules {
 			if _, ok := compassHeadings[normalizeKey(facing)]; !ok {

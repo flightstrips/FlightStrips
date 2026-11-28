@@ -1446,10 +1446,9 @@ func isLiveEnvironment(environment string) bool {
 	}
 }
 
-// loadGSXSceneries reads the per-airport gate/scenery mapping that translates a
-// controller's stand and release point into the names a particular add-on uses.
-// A missing file is not an error: the feed then publishes the controller's own
-// stand name and no pushback point.
+// loadGSXSceneries reads the airport's release point positions and facing
+// rules, which the GSX handler matches against its own profile's routes. A
+// missing file is not an error: the feed then publishes the bare point only.
 func loadGSXSceneries(enabled bool) (gsx.Sceneries, error) {
 	if !enabled {
 		return nil, nil
@@ -1464,9 +1463,9 @@ func loadGSXSceneries(enabled bool) (gsx.Sceneries, error) {
 	}
 	if cfg != nil {
 		sceneries[cfg.ICAO] = cfg
-		slog.Info("loaded GSX scenery config", "icao", cfg.ICAO, "gates", len(cfg.Gates))
+		slog.Info("loaded GSX scenery config", "icao", cfg.ICAO, "release_points", len(cfg.ReleasePoints))
 	} else {
-		slog.Info("no GSX scenery config found; publishing controller stand names only", "path", path)
+		slog.Info("no GSX scenery config found; publishing release points without positions", "path", path)
 	}
 	return sceneries, nil
 }

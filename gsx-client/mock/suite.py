@@ -251,6 +251,67 @@ for base, expect in (("https://x.app", "https://x.app/api/gsx/stand"),
     assert seen[-1].startswith(expect), seen[-1]
 case("a trailing slash on API_BASE cannot produce a 404 double slash")
 
+url = []
+e = Env()
+gg = e.globals()
+gg["fetchJson"] = lambda u, timeout=0, etag=False: url.append(u)
+exec(compile(SRC, "h.py", "exec"), gg)
+h = Handler()
+gg["_standInit"](h)
+gg["_standFetch"](h)
+assert "scenery=" not in url[-1], url[-1]
+case("the poll names no GSX profile: every profile gets the same answer")
+
+# -- arrival: stand names a profile spells its own way --------------------------
+
+
+class Parking(object):
+    def __init__(self, name):
+        self.uiGateName = name
+
+
+def arrive(names, stand):
+    """Select stand at an airport with these parkings; the name GSX lands on."""
+    parkings = [Parking(n) for n in names]
+    chosen = []
+
+    def select(wanted):
+        # GSX: an exact or a suffix match on the UI name, else False.
+        if isinstance(wanted, Parking):
+            chosen.append(wanted.uiGateName)
+            return True
+        hits = [p for p in parkings
+                if p.uiGateName.upper() == wanted.upper()
+                or p.uiGateName.upper().endswith(" " + wanted.upper())]
+        if len(hits) == 1:
+            chosen.append(hits[0].uiGateName)
+            return True
+        return hits or False
+
+    e = Env()
+    gg = e.globals(restricted=True)
+    exec(compile(SRC, "h.py", "exec"), gg)
+    gg["selectGate"] = select
+    gg["getAirport"] = lambda: type("A", (), {"icao": "EKCH", "parkings": parkings})()
+    gg["_standApply"](Handler(), stand)
+    return chosen[-1] if chosen else None
+
+
+assert arrive(["Gate D2", "Gate D3"], "D2") == "Gate D2"
+case("a stand GSX matches by name needs nothing more")
+
+assert arrive(["Parking 91", "Gate A31"], "F91") == "Parking 91"
+assert arrive(["None 95"], "F95") == "None 95"
+assert arrive(["Parking 110", "E Parking 110"], "E110") == "E Parking 110"
+assert arrive(["Parking 007"], "F7") == "Parking 007"
+case("a stand the profile names differently is found by its number")
+
+assert arrive(["E Parking 91"], "F91") is None, "an E stand is not F91"
+assert arrive(["Gate C91"], "F91") is None, "C91 is not F91"
+assert arrive(["Parking 89", "W Parking 89", "Apron 89"], "E89") is None
+assert arrive(["Gate A1"], "F92") is None
+case("a number that fits another stand, or several, is never guessed")
+
 # The callbacks catch and log their own exceptions, so surviving is not enough:
 # each has to have done its job, and nothing may have logged a failure.
 env = Env()

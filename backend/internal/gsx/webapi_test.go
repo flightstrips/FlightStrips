@@ -281,10 +281,10 @@ func TestHandleStandDisclosesOnlyTheAssignment(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(payload) != 5 {
-		t.Fatalf("expected exactly stand, pushback, point, target and revision, got %v", payload)
+	if len(payload) != 4 {
+		t.Fatalf("expected exactly stand, point, target and revision, got %v", payload)
 	}
-	for _, key := range []string{"stand", "pushback", "point", "target", "revision"} {
+	for _, key := range []string{"stand", "point", "target", "revision"} {
 		if _, ok := payload[key]; !ok {
 			t.Fatalf("missing %q in %v", key, payload)
 		}
@@ -292,18 +292,6 @@ func TestHandleStandDisclosesOnlyTheAssignment(t *testing.T) {
 }
 
 // --- arrival / departure split ------------------------------------------
-
-func sceneriesFixture() Sceneries {
-	return Sceneries{"EKCH": &SceneryConfig{
-		ICAO: "EKCH",
-		Gates: map[string]map[string]GateScenery{
-			"A31": {
-				"Simnord-Sonnich": {Stand: "Gate A31", Points: map[string][]string{"Z/L": {"Z2 Face E"}, "Y/L": {"Z3 Face W"}}},
-				"FlyTampa":        {Points: map[string][]string{"Z/L": {"Z2 EAST"}}},
-			},
-		},
-	}}
-}
 
 // arriving builds a strip inbound to EKCH; departing builds one leaving it.
 func arriving(stand, releasePoint string) *stripFake  { return leg("EKBI", stand, releasePoint) }
@@ -317,111 +305,71 @@ func leg(origin, stand, releasePoint string) *stripFake {
 	return &stripFake{strips: map[int32]map[string]*models.Strip{1: {"SAS1401": strip}}}
 }
 
-func withSceneries(strips *stripFake) *WebAPI {
-	return NewWebAPI(liveEKCH(), strips, sceneriesFixture(), true)
+func withConfig(strips *stripFake) *WebAPI {
+	return NewWebAPI(liveEKCH(), strips, Sceneries{"EKCH": &SceneryConfig{ICAO: "EKCH"}}, true)
 }
 
-const sonnich = "/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich"
+const feed = "/gsx/stand?callsign=SAS1401&icao=EKCH"
 
-func TestArrivalGetsAStandAndNoPushback(t *testing.T) {
+func TestArrivalGetsTheControllersStandAndNoPoint(t *testing.T) {
 	// A release point on an inbound strip belongs to its later departure leg.
-	response := decode(t, get(t, withSceneries(arriving("A31", "Z/L")), sonnich, nil))
+	response := decode(t, get(t, withConfig(arriving("A31", "Z/L")), feed, nil))
 
-	if response.Stand == nil || *response.Stand != "Gate A31" {
-		t.Fatalf("stand: got %v want Gate A31", response.Stand)
+	if response.Stand == nil || *response.Stand != "A31" {
+		t.Fatalf("stand: got %v want A31", response.Stand)
 	}
-	if len(response.Pushback) != 0 {
-		t.Fatalf("arriving traffic must not be given a pushback, got %v", response.Pushback)
+	if response.Point != nil {
+		t.Fatalf("an arrival's release point belongs to its later departure, got %v", *response.Point)
 	}
-	if response.Revision != "stand:Gate A31" {
+	if response.Revision != "stand:A31" {
 		t.Fatalf("revision: got %q", response.Revision)
 	}
 }
 
-func TestDepartureGetsAPushbackAndNoStand(t *testing.T) {
-	response := decode(t, get(t, withSceneries(departing("A31", "Z/L")), sonnich, nil))
+func TestDepartureGetsTheBarePointAndNoStand(t *testing.T) {
+	response := decode(t, get(t, withConfig(departing("A31", "Z/L")), feed, nil))
 
-	if strings.Join(response.Pushback, "|") != "Z2 Face E" {
-		t.Fatalf("pushback: got %v want Z2 Face E", response.Pushback)
-	}
 	if response.Stand != nil {
 		t.Fatalf("a departing aircraft is already parked; must not be moved, got %v", *response.Stand)
 	}
 	if response.Point == nil || *response.Point != "Z/L" {
 		t.Fatalf("point: got %v want Z/L", response.Point)
 	}
-	if response.Revision != "push:A31:Z/L:Z2 Face E" {
+	if response.Revision != "push:A31:Z/L" {
 		t.Fatalf("revision: got %q", response.Revision)
 	}
 }
 
-func TestDepartureForAnUnmappedSceneryGetsTheBarePoint(t *testing.T) {
-	// Any GSX profile can be used: an unmapped scenery, or none at all, still
-	// learns the controller's point and finds its own routes to it by name.
-	for _, path := range []string{
-		"/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=RW-Profiles",
-		"/gsx/stand?callsign=SAS1401&icao=EKCH",
-	} {
-		response := decode(t, get(t, withSceneries(departing("A31", "Z/L")), path, nil))
-		if response.Point == nil || *response.Point != "Z/L" {
-			t.Fatalf("%s: point: got %v want Z/L", path, response.Point)
-		}
-		if len(response.Pushback) != 0 {
-			t.Fatalf("%s: no labels for an unmapped scenery, got %v", path, response.Pushback)
-		}
-		if response.Stand != nil {
-			t.Fatalf("%s: a departing aircraft must not be moved, got %v", path, *response.Stand)
-		}
-		if response.Revision != "push:A31:Z/L" {
-			t.Fatalf("%s: revision: got %q", path, response.Revision)
+func TestTheAnswerDoesNotDependOnTheProfile(t *testing.T) {
+	// Older handler scripts name their GSX profile in scenery=. Every profile
+	// gets the same answer, so it changes nothing.
+	for _, strips := range []*stripFake{arriving("A31", ""), departing("A31", "Z/L")} {
+		bare := get(t, withConfig(strips), feed, nil)
+		named := get(t, withConfig(strips), feed+"&scenery=Some-Profile", nil)
+		if bare.Body.String() != named.Body.String() || bare.Header().Get("ETag") != named.Header().Get("ETag") {
+			t.Fatalf("scenery= changed the answer: %s vs %s", bare.Body.String(), named.Body.String())
 		}
 	}
 }
 
 func TestMovingTheStandChangesTheDepartureRevision(t *testing.T) {
 	// The target depends on the stand (facing rules), so a stand change with
-	// the same point and no labels must not be answered 304.
-	path := "/gsx/stand?callsign=SAS1401&icao=EKCH"
-	before := decode(t, get(t, withSceneries(departing("A31", "Z/L")), path, nil))
-	after := decode(t, get(t, withSceneries(departing("A32", "Z/L")), path, nil))
+	// the same point must not be answered 304.
+	before := decode(t, get(t, withConfig(departing("A31", "Z/L")), feed, nil))
+	after := decode(t, get(t, withConfig(departing("A32", "Z/L")), feed, nil))
 	if before.Revision == after.Revision {
 		t.Fatalf("revision unchanged across stands: %q", before.Revision)
 	}
 }
 
-func TestArrivalGetsNoPoint(t *testing.T) {
-	response := decode(t, get(t, withSceneries(arriving("A31", "Z/L")), sonnich, nil))
-	if response.Point != nil {
-		t.Fatalf("an arrival's release point belongs to its later departure, got %v", *response.Point)
-	}
-}
-
 func TestDepartureWithoutAReleasePointGetsNothing(t *testing.T) {
-	response := decode(t, get(t, withSceneries(departing("A31", "")), sonnich, nil))
+	response := decode(t, get(t, withConfig(departing("A31", "")), feed, nil))
 
-	if response.Stand != nil || len(response.Pushback) != 0 {
-		t.Fatalf("expected nothing to do, got stand=%v pushback=%v", response.Stand, response.Pushback)
+	if response.Stand != nil || response.Point != nil {
+		t.Fatalf("expected nothing to do, got stand=%v point=%v", response.Stand, response.Point)
 	}
 	if response.Revision != noStandRevision {
 		t.Fatalf("revision: got %q", response.Revision)
-	}
-}
-
-func TestPushbackIsResolvedPerScenery(t *testing.T) {
-	response := decode(t, get(t, withSceneries(departing("A31", "Z/L")),
-		"/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=FlyTampa", nil))
-
-	if strings.Join(response.Pushback, "|") != "Z2 EAST" {
-		t.Fatalf("pushback: got %v want Z2 EAST", response.Pushback)
-	}
-}
-
-func TestArrivalWithoutSceneryKeepsTheControllerStandName(t *testing.T) {
-	response := decode(t, get(t, withSceneries(arriving("A31", "")),
-		"/gsx/stand?callsign=SAS1401&icao=EKCH", nil))
-
-	if response.Stand == nil || *response.Stand != "A31" {
-		t.Fatalf("stand: got %v want A31", response.Stand)
 	}
 }
 
@@ -434,15 +382,15 @@ func TestReassignmentBreaksTheETagForEitherLeg(t *testing.T) {
 		{"departure given a different push", departing("A31", "Z/L"), departing("A31", "Y/L")},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			etag := get(t, withSceneries(c.before), sonnich, nil).Header().Get("ETag")
+			etag := get(t, withConfig(c.before), feed, nil).Header().Get("ETag")
 			if etag == "" {
 				t.Fatal("no ETag issued")
 			}
-			same := get(t, withSceneries(c.before), sonnich, map[string]string{"If-None-Match": etag})
+			same := get(t, withConfig(c.before), feed, map[string]string{"If-None-Match": etag})
 			if same.Code != http.StatusNotModified {
 				t.Fatalf("unchanged should be 304, got %d", same.Code)
 			}
-			changed := get(t, withSceneries(c.after), sonnich, map[string]string{"If-None-Match": etag})
+			changed := get(t, withConfig(c.after), feed, map[string]string{"If-None-Match": etag})
 			if changed.Code != http.StatusOK {
 				t.Fatalf("a change must break the ETag, got %d", changed.Code)
 			}

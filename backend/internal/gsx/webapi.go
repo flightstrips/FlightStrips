@@ -69,22 +69,19 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 // compares between polls: it is the assignment itself, so an unrelated strip
 // update does not look like a reassignment and make the script re-apply it.
 //
-// A departure carries the controller's release point in two forms. Point is the
-// bare point (S1), sent whatever the scenery, so a handler for any GSX profile
-// can find its own routes to it by name. Pushback is the point translated into
-// the requesting scenery's route labels (S1 Face N), sent only where
-// gsx_sceneries.json maps it - which is also how a scenery gets a facing.
+// Nothing in it depends on which GSX profile asks. Stand is the stand as the
+// controller named it (D2), and Point the bare release point (S1); the handler
+// matches both to its own profile.
 //
 // Target is where the push should end: the point's position, with a facing
 // where the airport has a rule for this stand, or for a bare direction just
 // the heading. A handler matches it against its own routes' end positions,
 // which works for any profile whatever it calls its routes.
 type standResponse struct {
-	Stand    *string  `json:"stand"`
-	Pushback []string `json:"pushback"`
-	Point    *string  `json:"point"`
-	Target   *Target  `json:"target"`
-	Revision string   `json:"revision"`
+	Stand    *string `json:"stand"`
+	Point    *string `json:"point"`
+	Target   *Target `json:"target"`
+	Revision string  `json:"revision"`
 }
 
 const noStandRevision = "none"
@@ -107,11 +104,8 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Which add-on the pilot is running. Their handler script is bound to one
-	// GSX profile, so it always knows. An unmapped scenery, or none at all, is
-	// answered in the controller's own vocabulary: the stand as the controller
-	// named it, and the bare release point without scenery labels.
-	scenery := strings.TrimSpace(r.URL.Query().Get("scenery"))
+	// Older handler scripts also send scenery=, naming their GSX profile. The
+	// answer no longer depends on it, so it is ignored.
 
 	assigned, err := a.lookupStand(r.Context(), callsign, airport)
 	if err != nil {
@@ -123,30 +117,16 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 
 	response := standResponse{Revision: noStandRevision}
 	if assigned != nil {
-		// The stand is needed either way: for an arrival it is the answer, and
-		// for a departure it is what decides which pushback routes exist.
-		stand, pushback := a.sceneries.Resolve(assigned.airport, assigned.stand, scenery, assigned.releasePoint)
-
 		if assigned.departure {
 			// Leaving. Never move an aircraft that is already parked and
 			// loading - publish only how it should come off the stand.
-			//
-			// Every route reaching the assigned point is published, not one of
-			// them. A stand often offers the same taxiway in two facings, and
-			// narrowing the menu to both still guarantees the aircraft leaves
-			// via the taxiway the controller named, which is the part that
-			// matters; the pilot keeps the facing.
 			if assigned.releasePoint != "" {
 				point := assigned.releasePoint
 				response.Point = &point
 				response.Target = a.sceneries.Target(assigned.airport, assigned.stand, point)
-				response.Pushback = pushback
 				// The stand is in the revision because the target depends on
 				// it (facing rules are per stand), even when nothing else does.
 				response.Revision = "push:" + assigned.stand + ":" + point
-				if len(pushback) > 0 {
-					response.Revision += ":" + strings.Join(pushback, "|")
-				}
 				if response.Target != nil {
 					targetJSON, err := json.Marshal(response.Target)
 					if err != nil {
@@ -159,6 +139,7 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Arriving. Where to park; the pushback point is somebody else's
 			// leg and means nothing yet.
+			stand := assigned.stand
 			response.Stand = &stand
 			response.Revision = "stand:" + stand
 		}

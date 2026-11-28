@@ -2,15 +2,15 @@
 // Add FlightStrips to an existing GSX airport handler script, or update it.
 //
 //     node gsx-client/tools/embed.js path/to/EGKK-MyScenery_handler.py
-//     node gsx-client/tools/embed.js path/to/X_handler.py --scenery Simnord-Sonnich
+//     node gsx-client/tools/embed.js path/to/X_handler.py --api-base http://localhost:8787
 //
 // Copies everything from API_BASE to the end of EKCH-Simnord-Sonnich_handler.py
 // between two marker lines at the end of the target script. Run it again to
-// update: the block between the markers is replaced, and the API_BASE and
-// SCENERY it held are kept unless --scenery or --api-base says otherwise.
+// update: the block between the markers is replaced, and the API_BASE it held
+// is kept unless --api-base says otherwise.
 //
 // The block's settings and constants are renamed FS_<NAME> (FS_API_BASE,
-// FS_SCENERY...). The host script and the block share one module namespace,
+// FS_ATC_ENTRY_LABEL...). The host script and the block share one module namespace,
 // so without the prefix the block's API_BASE would replace a host's own.
 //
 // The target script keeps its own GSX callbacks. The FlightStrips block
@@ -45,17 +45,15 @@ function namespacedBlock() {
   return block;
 }
 
-// The block between its marker lines, with the two settings given as Python
-// literals.
-function wrap(block, apiBaseLiteral, sceneryLiteral) {
-  const body = block
-    .replace(new RegExp(`^${PREFIX}API_BASE = .*$`, "m"), () => `${PREFIX}API_BASE = ${apiBaseLiteral}`)
-    .replace(new RegExp(`^${PREFIX}SCENERY = .*$`, "m"), () => `${PREFIX}SCENERY = ${sceneryLiteral}`);
+// The block between its marker lines, with FS_API_BASE given as a Python
+// literal.
+function wrap(block, apiBaseLiteral) {
+  const body = block.replace(new RegExp(`^${PREFIX}API_BASE = .*$`, "m"), () => `${PREFIX}API_BASE = ${apiBaseLiteral}`);
   const header = [
     BEGIN,
     "# FlightStrips stand and pushback assignment for VATSIM. Source and docs:",
     "# https://github.com/flightstrips/FlightStrips/tree/main/gsx-client",
-    `# Set ${PREFIX}API_BASE or ${PREFIX}SCENERY below; anything else, change the source and re-run.`,
+    `# Set ${PREFIX}API_BASE below only for your own FlightStrips server; anything else, change the source and re-run.`,
     "",
   ].join("\n");
   return `${header}${body}${END}\n`;
@@ -66,7 +64,7 @@ if (require.main !== module) return;
 
 const args = process.argv.slice(2);
 const target = args.find((a) => !a.startsWith("--"));
-if (!target) fail("usage: embed.js <profile_handler.py> [--scenery KEY] [--api-base URL]");
+if (!target) fail("usage: embed.js <profile_handler.py> [--api-base URL]");
 const option = (name) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
@@ -102,8 +100,7 @@ const setting = (name, flag, fallback) => {
   return kept[1];
 };
 const apiBaseLiteral = setting("API_BASE", "--api-base", DEFAULT_API_BASE);
-const sceneryLiteral = setting("SCENERY", "--scenery", "");
-const wrapped = wrap(block, apiBaseLiteral, sceneryLiteral);
+const wrapped = wrap(block, apiBaseLiteral);
 
 if (begin >= 0) {
   text = text.slice(0, begin) + wrapped + text.slice(end + END.length).replace(/^\n/, "");
@@ -125,4 +122,3 @@ if (clashes.length) {
 fs.writeFileSync(target, eol === "\n" ? text : text.replace(/\n/g, eol));
 console.log(`${begin >= 0 ? "updated" : "added"} FlightStrips in ${target}`);
 console.log(`  ${PREFIX}API_BASE = ${apiBaseLiteral}`);
-console.log(`  ${PREFIX}SCENERY = ${sceneryLiteral}`);

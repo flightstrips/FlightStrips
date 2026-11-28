@@ -45,7 +45,7 @@ func syntheticServiceAirports(t *testing.T) *appconfig.AirportRegistry {
 			fallbacks = append(fallbacks, fmt.Sprintf(`%q:{"stands":{"tier1":{"A1":100}}}`, name))
 		}
 		require.NoError(t, os.WriteFile(filepath.Join(root, policyFile), []byte(`{"rules":[],"stand_groups":{},"fallback_rules":{`+strings.Join(fallbacks, ",")+`}}`), 0600))
-		require.NoError(t, os.WriteFile(filepath.Join(root, sceneryFile), []byte(`{"icao":"`+airport+`","gates":{}}`), 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(root, sceneryFile), []byte(`{"icao":"`+airport+`","release_points":{}}`), 0600))
 		asset := func(path string) map[string]any { return map[string]any{"repo_path": path} }
 		services["stand_assignment"] = map[string]any{"availability": "enabled", "stands": asset(standFile), "aircraft_reference": asset("aircraft.txt"), "aircraft_icao": asset("aircraft.json"), "airline_assignment": asset(policyFile), "scenery": asset(sceneryFile)}
 		textFile := airport + ".text.json"
